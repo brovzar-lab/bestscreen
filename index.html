@@ -296,6 +296,7 @@
         <button class="amb" data-amb="fireplace"><span class="amb-emoji">🔥</span><span>Fireplace</span></button>
         <button class="amb" data-amb="cafe"><span class="amb-emoji">☕</span><span>Café murmur</span></button>
         <button class="amb" data-amb="vinyl"><span class="amb-emoji">⏺</span><span>Vinyl crackle</span></button>
+        <button class="amb" data-amb="brown"><span class="amb-emoji">〰</span><span>Brown noise</span></button>
         <button class="amb" data-amb="off"><span class="amb-emoji">∅</span><span>Off</span></button>
       </div>
       <div class="amb-vol">
@@ -304,13 +305,16 @@
       </div>
       <div class="amb-soundtrack">
         <h4>Scene soundtrack</h4>
-        <input id="amb-st-url" placeholder="URL (mp3 / ogg) — attached to current scene" />
+        <div class="amb-url-row">
+          <input id="amb-st-url" placeholder="https://… .mp3 / .ogg / .wav" />
+          <div class="amb-url-status" id="amb-st-status" aria-live="polite"></div>
+        </div>
         <div class="amb-st-actions">
-          <button class="btn small" id="amb-st-attach">Attach</button>
-          <button class="btn small" id="amb-st-play">Play</button>
+          <button class="btn small" id="amb-st-attach">Attach to scene</button>
+          <button class="btn small" id="amb-st-play">Preview</button>
           <button class="btn small ghost" id="amb-st-clear">Clear</button>
         </div>
-        <p class="hint">Plays during Read-Aloud / Sprint mode if the scene under cursor has a soundtrack URL.</p>
+        <p class="hint">Plays during Read-Aloud / Sprint mode if the scene under cursor has a soundtrack URL. Spotify / YouTube / SoundCloud URLs are blocked by browser CORS — use a direct audio file URL.</p>
       </div>
     </div>
   </aside>

@@ -181,6 +181,7 @@ const Bible = (() => {
       <div class="bib-rel-wrap">
         <div class="bib-rel-canvas">
           <svg id="rel-svg" viewBox="0 0 800 520" preserveAspectRatio="xMidYMid meet"></svg>
+          <div class="bib-rel-hint">Drag a node to reposition · double-click to release back to auto-layout</div>
         </div>
         <div class="bib-rel-side">
           <h4>Add relationship</h4>
@@ -216,12 +217,17 @@ const Bible = (() => {
     const svg = document.getElementById("rel-svg");
     if (!svg) return;
     const w = 800, h = 520;
-    const nodes = bible.characters.map((c, i) => ({
-      id: c.id, name: c.name, color: c.avatar,
-      x: w/2 + Math.cos(i / bible.characters.length * Math.PI * 2) * 200,
-      y: h/2 + Math.sin(i / bible.characters.length * Math.PI * 2) * 200,
-      vx: 0, vy: 0,
-    }));
+    // Use saved positions when present (from drag); otherwise auto-layout
+    const nodes = bible.characters.map((c, i) => {
+      const saved = c.relPos; // { x, y } persisted from prior drag
+      return {
+        id: c.id, name: c.name, color: c.avatar,
+        x: saved?.x ?? (w/2 + Math.cos(i / bible.characters.length * Math.PI * 2) * 200),
+        y: saved?.y ?? (h/2 + Math.sin(i / bible.characters.length * Math.PI * 2) * 200),
+        vx: 0, vy: 0,
+        pinned: !!saved,
+      };
+    });
     const links = (bible.relationships || []).map(r => ({ ...r,
       sourceNode: nodes.find(n => n.id === r.a),
       targetNode: nodes.find(n => n.id === r.b),
@@ -253,11 +259,11 @@ const Bible = (() => {
         a.vx += dx*f; a.vy += dy*f;
         b.vx -= dx*f; b.vy -= dy*f;
       });
-      // integrate
+      // integrate (pinned nodes don't move during the auto-layout)
       nodes.forEach(n => {
+        if (n.pinned) { n.vx = 0; n.vy = 0; return; }
         n.vx *= DAMP; n.vy *= DAMP;
         n.x += n.vx; n.y += n.vy;
-        // keep on canvas
         n.x = Math.max(60, Math.min(w-60, n.x));
         n.y = Math.max(40, Math.min(h-40, n.y));
       });
@@ -277,11 +283,65 @@ const Bible = (() => {
       svgContent += `<text x="${mx}" y="${my-4}" text-anchor="middle" font-size="10" fill="${kindColor[l.kind]||"#888"}" font-family="var(--font-ui)">${l.kind}</text>`;
     });
     nodes.forEach(n => {
-      svgContent += `<g><circle cx="${n.x}" cy="${n.y}" r="28" fill="${n.color}" stroke="rgba(0,0,0,.2)" stroke-width="2"/>`;
-      svgContent += `<text x="${n.x}" y="${n.y+4}" text-anchor="middle" font-family="var(--font-screen)" font-size="11" font-weight="700" fill="white">${escapeHtml(n.name.slice(0,2))}</text>`;
-      svgContent += `<text x="${n.x}" y="${n.y+44}" text-anchor="middle" font-family="var(--font-screen)" font-size="10" fill="var(--ink-2)">${escapeHtml(n.name.slice(0,12))}</text></g>`;
+      svgContent += `<g class="rel-node" data-cid="${n.id}" style="cursor:grab">`;
+      svgContent += `<circle cx="${n.x}" cy="${n.y}" r="28" fill="${n.color}" stroke="${n.pinned ? '#000' : 'rgba(0,0,0,.2)'}" stroke-width="${n.pinned ? 2.5 : 2}"/>`;
+      svgContent += `<text x="${n.x}" y="${n.y+4}" text-anchor="middle" font-family="var(--font-screen)" font-size="11" font-weight="700" fill="white" pointer-events="none">${escapeHtml(n.name.slice(0,2))}</text>`;
+      svgContent += `<text x="${n.x}" y="${n.y+44}" text-anchor="middle" font-family="var(--font-screen)" font-size="10" fill="var(--ink-2)" pointer-events="none">${escapeHtml(n.name.slice(0,12))}</text>`;
+      svgContent += `</g>`;
     });
     svg.innerHTML = svgContent;
+
+    // Drag support: click + drag any node to reposition; double-click to unpin.
+    let dragging = null;
+    const svgPoint = (e) => {
+      const pt = svg.createSVGPoint();
+      pt.x = e.clientX; pt.y = e.clientY;
+      return pt.matrixTransform(svg.getScreenCTM().inverse());
+    };
+    svg.querySelectorAll(".rel-node").forEach(g => {
+      g.addEventListener("pointerdown", e => {
+        e.preventDefault();
+        dragging = { id: g.dataset.cid, g };
+        g.setPointerCapture(e.pointerId);
+        g.style.cursor = "grabbing";
+      });
+      g.addEventListener("pointermove", e => {
+        if (!dragging || dragging.id !== g.dataset.cid) return;
+        const p = svgPoint(e);
+        const circle = g.querySelector("circle");
+        const txt1 = g.querySelectorAll("text")[0];
+        const txt2 = g.querySelectorAll("text")[1];
+        const x = Math.max(60, Math.min(w-60, p.x));
+        const y = Math.max(40, Math.min(h-40, p.y));
+        circle.setAttribute("cx", x); circle.setAttribute("cy", y);
+        circle.setAttribute("stroke", "#000"); circle.setAttribute("stroke-width", 2.5);
+        txt1.setAttribute("x", x); txt1.setAttribute("y", y + 4);
+        txt2.setAttribute("x", x); txt2.setAttribute("y", y + 44);
+        // Move connected lines live
+        bible.relationships?.forEach((r, i) => {
+          if (r.a !== g.dataset.cid && r.b !== g.dataset.cid) return;
+          const lines = svg.querySelectorAll("line");
+          const labels = svg.querySelectorAll("text:not([font-size='11']):not([font-size='10'])");
+          // We can't easily index — simpler: just re-render at drop, not during drag
+        });
+      });
+      g.addEventListener("pointerup", e => {
+        if (!dragging || dragging.id !== g.dataset.cid) return;
+        const circle = g.querySelector("circle");
+        const x = parseFloat(circle.getAttribute("cx"));
+        const y = parseFloat(circle.getAttribute("cy"));
+        const c = bible.characters.find(x => x.id === dragging.id);
+        if (c) c.relPos = { x, y };
+        save();
+        dragging = null;
+        g.style.cursor = "grab";
+        renderTab("relationships"); // re-render to update connector lines
+      });
+      g.addEventListener("dblclick", e => {
+        const c = bible.characters.find(x => x.id === g.dataset.cid);
+        if (c?.relPos) { delete c.relPos; save(); renderTab("relationships"); }
+      });
+    });
 
     // Wire
     document.getElementById("rel-add")?.addEventListener("click", () => {

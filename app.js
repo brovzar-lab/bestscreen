@@ -2396,21 +2396,133 @@ function toggleDictation() {
     for (let i = e.resultIndex; i < e.results.length; i++) {
       if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
     }
-    if (finalText.trim()) {
-      const line = currentLine() || editor.lastElementChild;
-      if (line) {
-        const t = line.textContent + finalText;
-        line.textContent = t;
-        placeCursor(line, t.length);
-        reclassifyAll(); setDirty();
-      }
-    }
+    if (!finalText.trim()) return;
+    handleDictatedPhrase(finalText.trim());
   };
   dictation.onerror = e => { toast("Mic error: " + e.error); dictation = null; $("#btn-dictate").classList.remove("recording"); };
   dictation.onend = () => { if (dictation) { dictation.start(); } };
   dictation.start();
   $("#btn-dictate").classList.add("recording");
-  toast("Listening… click mic again to stop");
+  toast("Listening… try 'new scene', 'new character ELLA', or 'parenthetical beat'");
+}
+
+/* Voice commands & auto-classification.
+   Phrases:
+     "new scene" / "interior X / exterior X day|night"  → scene heading
+     "new character X"                                  → character cue
+     "parenthetical X"                                  → parenthetical
+     "transition X" / "cut to" / "fade to black"        → transition
+     "new line" / "next line"                           → blank action
+     "section X"                                        → section
+     "delete that"                                      → delete current line
+   Otherwise: append to current line as-is. */
+function handleDictatedPhrase(text) {
+  const t = text.trim();
+  const lc = t.toLowerCase();
+
+  // Command parsing
+  const newSceneMatch = lc.match(/^(?:new scene|scene heading|(?:interior|exterior|int|ext)(?:.*?)\s*(?:day|night|morning|evening|dawn|dusk|continuous|later)?)/i);
+  const newCharMatch  = lc.match(/^(?:new character|character)\s+(.+)$/i);
+  const parenMatch    = lc.match(/^(?:parenthetical|paren|aside)\s+(.+)$/i);
+  const transMatch    = lc.match(/^(?:transition|cut to|smash cut to|dissolve to|fade to(?: black| white)?|fade out)\b(.*)$/i);
+  const sectionMatch  = lc.match(/^(?:section|act)\s+(.+)$/i);
+
+  if (lc === "new line" || lc === "next line") {
+    insertNewBlankLine("action");
+    return;
+  }
+  if (lc === "delete that" || lc === "delete line") {
+    const line = currentLine();
+    if (line && line.previousElementSibling) {
+      const prev = line.previousElementSibling;
+      line.remove();
+      placeCursor(prev, prev.textContent.length);
+      reclassifyAll(); setDirty();
+    }
+    return;
+  }
+  if (newSceneMatch) {
+    // If it's "new scene", create new blank scene line. If it's full "interior X day",
+    // create a new scene line with the body.
+    const isJustCommand = /^(new scene|scene heading)/.test(lc);
+    const body = isJustCommand
+      ? "INT. "
+      : "INT. " + t.replace(/^(interior|exterior|int|ext)\.?\s+/i, "").toUpperCase();
+    insertNewBlankLine("scene", body);
+    return;
+  }
+  if (newCharMatch) {
+    insertNewBlankLine("character", newCharMatch[1].toUpperCase());
+    return;
+  }
+  if (parenMatch) {
+    insertNewBlankLine("parenthetical", "(" + parenMatch[1].replace(/[.)]$/, "") + ")");
+    return;
+  }
+  if (transMatch) {
+    const body = (transMatch[0].replace(/^transition\s+/i, "")).toUpperCase().replace(/[.]$/, "") + (lc.endsWith(":") ? "" : ":");
+    insertNewBlankLine("transition", body);
+    return;
+  }
+  if (sectionMatch) {
+    insertNewBlankLine("section", "# " + sectionMatch[1]);
+    return;
+  }
+
+  // No command — append to current line, with auto-capitalization for character lines
+  const line = currentLine() || editor.lastElementChild;
+  if (!line) return;
+  let out = line.textContent;
+  if (line.dataset.type === "character") {
+    out += t.toUpperCase();
+  } else {
+    out += (out && !/[\s\-——…("]$/.test(out) ? " " : "") + t;
+  }
+  line.textContent = out;
+  placeCursor(line, out.length);
+  reclassifyAll(); setDirty();
+}
+
+function updateSoundtrackStatus(url) {
+  const el = $("#amb-st-status"); if (!el) return;
+  el.classList.remove("ok","warn","error");
+  url = (url || "").trim();
+  if (!url) { el.textContent = ""; return; }
+  let host = "";
+  try { host = new URL(url).hostname; } catch { el.textContent = "✗ invalid URL"; el.classList.add("error"); return; }
+  if (/^(open\.spotify|spotify\.com|music\.youtube|youtube\.com|youtu\.be|soundcloud\.com|tidal\.com|music\.apple)/i.test(host)) {
+    el.textContent = "⚠ streaming service — won't play (CORS blocked)"; el.classList.add("warn"); return;
+  }
+  if (/\.(mp3|ogg|wav|m4a|aac|flac|opus|webm)(\?|$)/i.test(url)) {
+    el.textContent = "✓ direct audio"; el.classList.add("ok"); return;
+  }
+  // Try probing with the Audio element to see if it can load
+  el.textContent = "checking…"; el.classList.add("warn");
+  const test = new window.Audio();
+  let settled = false;
+  const settle = (ok, msg) => {
+    if (settled) return; settled = true;
+    el.classList.remove("ok","warn","error");
+    if (ok) { el.textContent = "✓ playable"; el.classList.add("ok"); }
+    else { el.textContent = msg || "⚠ unknown format"; el.classList.add("warn"); }
+  };
+  test.addEventListener("canplay", () => settle(true));
+  test.addEventListener("error", () => settle(false, "⚠ couldn't load (CORS or bad URL)"));
+  setTimeout(() => settle(false, "⚠ couldn't verify (timed out)"), 4000);
+  test.src = url;
+}
+
+function insertNewBlankLine(type, body = "") {
+  const line = currentLine() || editor.lastElementChild;
+  const nd = document.createElement("div");
+  nd.dataset.type = type;
+  nd.dataset.forced = "true";
+  if (body) nd.textContent = body; else nd.innerHTML = "<br>";
+  markRevised(nd);
+  if (line && line.nextSibling) line.parentNode.insertBefore(nd, line.nextSibling);
+  else editor.appendChild(nd);
+  placeCursor(nd, nd.textContent.length);
+  reclassifyAll(); setDirty();
 }
 
 /* =====================================================================
@@ -3423,7 +3535,8 @@ function bindEditorUI() {
     setDirty(); toast("Attached soundtrack to scene");
   });
   $("#amb-st-play").addEventListener("click", () => { const url = $("#amb-st-url").value.trim(); if (url) Audio.playSoundtrack(url); });
-  $("#amb-st-clear").addEventListener("click", () => { Audio.stopSoundtrack(); $("#amb-st-url").value = ""; });
+  $("#amb-st-clear").addEventListener("click", () => { Audio.stopSoundtrack(); $("#amb-st-url").value = ""; updateSoundtrackStatus(""); });
+  $("#amb-st-url").addEventListener("input", e => updateSoundtrackStatus(e.target.value));
 
   // Share
   $("#share-cancel").addEventListener("click", () => $("#modal-share").classList.remove("open"));
