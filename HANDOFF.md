@@ -6,12 +6,12 @@
 
 ## TL;DR
 
-Vanilla JS / CSS / HTML, no build. See `CLAUDE.md` for architecture. **You are mid-prep for Sprint 2.** Just finished:
+Vanilla JS / CSS / HTML, no build. See `CLAUDE.md` for architecture. **Sprint 2 just shipped on `sprints`.** Just finished:
 
-- **Split `app.js` (3,745 lines) → 6 modules:** `editor.js` / `panels.js` / `views.js` / `features.js` / `io.js` + a slim `app.js` (~740 lines). No logic changes — pure file reorganization. Verified in browser: dashboard → editor, Stats view, Bible view all render with zero JS errors.
-- **Split `CLAUDE.md` from `HANDOFF.md`:** stable stuff (architecture, conventions, file map) → CLAUDE.md; live status (this file) is now ~1 page.
+- **Sprint 2 — M2 + L3** (this session): Per-character arc tracker (Arcs tab in Bible) and comment anchor stabilization (hybrid fingerprint + ±10 re-anchor + orphan ⚠).
+- **Prep — module split** (this session): Split `app.js` (3,745 lines) → 6 modules (`editor.js` / `panels.js` / `views.js` / `features.js` / `io.js` + slim `app.js` ~740). Pure file reorganization. Added auto-loaded `CLAUDE.md` for stable conventions.
 
-**Branch state:** `sprints` is ahead of `main` by these prep changes (uncommitted at time of write). `main` and `origin/sprints` still at `9b0a57e`.
+**Branch state:** `sprints` ahead of `main` and `origin/sprints` by Sprint 2. `main` still at `9b0a57e`. Not yet pushed or deployed (waiting on user confirmation per the no-auto-deploy rule).
 
 ---
 
@@ -25,8 +25,8 @@ Project Dashboard · multi-project storage with autosave · 5 story templates ·
 
 - **Series Bible** — per-project bibles exist; no series-level inheritance yet. (Sprint 3 / L1)
 - **Continuity warnings** — naive substring heuristic; false positives. (Sprint 3 / L2)
-- **Comment anchoring** — uses `lineIdx + textHash`; comments orphan silently if line text changes. (Sprint 2 / L3)
-- **Per-character arc tracker** — `data-beat` is per-scene; no Want/Need/Flaw/Change grid per character yet. (Sprint 2 / M2)
+- ~~**Comment anchoring**~~ ✅ Shipped Sprint 2 / L3 — hybrid fingerprint + ±10 re-anchor + orphan ⚠.
+- ~~**Per-character arc tracker**~~ ✅ Shipped Sprint 2 / M2 — Arcs tab in Bible with W/N/F/C × scene grid + gap analysis.
 - **Track Changes** — log + drawer viewer exist; no per-author redlines or accept/reject UI.
 - **AI streaming** — fetch-based; no partial render.
 - **Track-changes viewer drawer** — could use density polish.
@@ -35,25 +35,25 @@ Project Dashboard · multi-project storage with autosave · 5 story templates ·
 
 ## Sprint Plan
 
-### 🛠 Sprint 2 (next up) — Rewriting power tools, ~3 hours
+### ✅ Sprint 2 — Rewriting power tools (shipped this session)
 
-#### M2 — Per-character arc tracker
-- New 5th tab in Bible view: **"Arcs"** (or expand Relationships tab).
-- Per character × per scene: 4 toggle cells (Want / Need / Flaw / Change). Click to mark.
-- Store on `bible.characters[].arc = [{ sceneId, want, need, flaw, change }]`.
-- Use `data-line` index as `sceneId` (matches scene indexing elsewhere).
-- Gap analysis below the grid: e.g., *"MARCUS's NEED beat doesn't appear in scenes 8–14"* (compute runs of consecutive scenes with no marks per character).
-- Compact display: columns = scenes, rows grouped by character (W/N/F sub-rows).
-- ~150 lines JS, ~40 lines CSS. New code goes in **`bible.js`** + **`panels.js`** (for inspector linkage if needed).
+**M2 — Per-character arc tracker** *(bible.js + styles.css)*
+- New "Arcs" tab in Bible view, between Relationships and Locations.
+- Per-character grid: 4 sub-rows (W/N/F/C), columns = scenes. Click any cell to toggle.
+- Storage: `bible.characters[].arc = [{ sceneId, w, n, f, c }]`. Old-shape entries (pre-Sprint-2) are silently filtered on first toggle.
+- Per-row count badge (e.g. `3/8 marked`).
+- **Gap analysis** below the grid surfaces: never-marked, late entry (first mark ≥ scene 6), drops-out (no marks in last 5 scenes), large internal gaps (≥ 5 consecutive scenes unmarked).
+- New `window.App.getScenesFromScript()` in `app.js` lets the bible see the script's scene list.
 
-#### L3 — Comment anchor stabilization (~150 lines)
-- Current: `lineKey = lineIdx + ":" + textHash(line)`. If text changes, the comment orphans silently.
-- Fix: switch anchor to a **trailing-context fingerprint**: `hash(prevLineText + thisLineText + nextLineText)`.
-- On editor input, if a comment's anchor no longer matches its expected line, search ±10 lines for a matching fingerprint and re-anchor.
-- If no match, mark `orphaned: true` and render with a yellow ⚠ in the sidebar — user can manually re-anchor or delete.
-- Files: **`panels.js`** (rewrite `makeLineKey`, `getLineByKey`, `applyCommentMarkers`; add `reanchorComments()` called from `reclassifyAll()`-debounced).
+**L3 — Comment anchor stabilization** *(panels.js + styles.css)*
+- Hybrid fingerprint: `idx:thisHash:ctxHash` where `thisHash` is the line's own text hash and `ctxHash` is `shortHash(prevText + "|||" + nextText)`.
+- `getLineByKey()` accepts a partial match on EITHER hash — so editing the commented line OR a neighbor no longer orphans the comment.
+- ±10-line search recovers from line moves (verified: insert 2 lines above → comment finds itself at the new index).
+- New `reanchorComments()` runs inside `applyCommentMarkers()` (AFTER markers are stripped — otherwise the 💬 emoji bleeds into the hash, latent bug fixed).
+- Orphaned comments show in Notes sidebar with an amber-left-border and ⚠ icon; clicking prompts to delete.
+- Legacy 2-part keys (`idx:hash`) still resolve via the final-resort full-doc text-hash search.
 
-### 🏗 Sprint 3 — Structural depth, ~4 hours
+### 🏗 Sprint 3 (next up) — Structural depth, ~4 hours
 
 **L1 — Shared bible across series episodes (~250 lines)** — storage migration adds `seriesBibles` keyed by `seriesId`. `Bible.open(pid)`: if `project.seriesId` exists, load merged bible. Character cards get a "Series" vs "Episode" badge. "Promote to series" button on each card. Conflict resolver prompt. Files: `storage.js`, `bible.js`, `dashboard.js`.
 
@@ -83,6 +83,6 @@ Project Dashboard · multi-project storage with autosave · 5 story templates ·
 
 Use:
 
-> "Continue building Bestscreen (live at https://bestscreen.web.app, repo `brovzar-lab/bestscreen`). `CLAUDE.md` covers architecture and conventions; this `HANDOFF.md` covers what's next. We just finished Sprint 1 + Polish + a module-split prep. Pick up Sprint 2 (M2 character-arc tracker + L3 comment anchor stabilization) on the `sprints` branch."
+> "Continue building Bestscreen (live at https://bestscreen.web.app, repo `brovzar-lab/bestscreen`). `CLAUDE.md` covers architecture and conventions; this `HANDOFF.md` covers what's next. Sprint 2 (M2 character arcs + L3 comment anchors) just shipped on the `sprints` branch and is not yet pushed/deployed — confirm before pushing. Next is Sprint 3 (L1 series-shared bible + L2 entity-tracking continuity engine)."
 
 — Last updated 2026-05-25.

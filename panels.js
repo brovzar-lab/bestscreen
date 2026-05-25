@@ -133,12 +133,31 @@ function renderCommentsSidebar(body) {
     body.innerHTML = `<div class="side-empty">No notes.<br><br>Press <kbd>⌘ ;</kbd> on any line to add a comment.</div>`;
     return;
   }
-  body.innerHTML = comments.map(c => `
-    <div class="note-item note-sidebar-item" data-line-key="${escapeHtml(c.lineKey)}">
-      <div class="ns-line">${escapeHtml(getLineByKey(c.lineKey)?.textContent?.slice(0,40) || "(missing line)")}</div>
+  body.innerHTML = comments.map(c => {
+    const line = !c.orphaned ? getLineByKey(c.lineKey) : null;
+    const preview = c.orphaned
+      ? "line not found — edit may have removed it"
+      : (line?.textContent?.slice(0,40) || "(missing line)");
+    return `
+    <div class="note-item note-sidebar-item ${c.orphaned ? "orphaned" : ""}" data-line-key="${escapeHtml(c.lineKey)}" data-cid="${escapeHtml(c.id)}">
+      <div class="ns-line">${c.orphaned ? `<span class="ns-orphan" title="Comment anchor lost — the surrounding lines changed. Click to delete.">⚠</span> ` : ""}${escapeHtml(preview)}</div>
       <div style="font-family:var(--font-ui);font-size:11.5px;margin-top:4px">${escapeHtml(c.text)}</div>
-    </div>`).join("");
-  $$(".note-sidebar-item", body).forEach(el => el.addEventListener("click", () => {
+    </div>`;
+  }).join("");
+  $$(".note-sidebar-item", body).forEach(el => el.addEventListener("click", async () => {
+    if (el.classList.contains("orphaned")) {
+      const ok = await (window.bsConfirm || ((o) => Promise.resolve(confirm(o.body || o.title))))({
+        title: "Delete orphaned comment?",
+        body: "This comment's anchor line was edited or removed. Delete it?",
+        okText: "Delete", danger: true,
+      });
+      if (!ok) return;
+      const arr = Storage.getComments(appState.projectId).filter(c => c.id !== el.dataset.cid);
+      Storage.setComments(appState.projectId, arr);
+      updateSidebar();
+      applyCommentMarkers();
+      return;
+    }
     const line = getLineByKey(el.dataset.lineKey);
     if (line) navigateToLine($$("#editor > div").indexOf(line), null);
   }));
@@ -177,23 +196,64 @@ function renderThreadsSidebar(body) {
   renderList(null);
 }
 
-function getLineByKey(key) {
-  // lineKey: "lineIdx:textHash" — fallback: search by text-substring
-  const lines = $$("#editor > div");
-  if (!key) return null;
-  const [idxStr, hash] = key.split(":");
-  const idx = parseInt(idxStr, 10);
-  if (lines[idx] && shortHash(lines[idx].textContent) === hash) return lines[idx];
-  // fallback: find by hash
-  return lines.find(l => shortHash(l.textContent) === hash) || null;
+// Hybrid line fingerprint: key = `${idx}:${thisHash}:${ctxHash}` where
+// thisHash is the line's own text and ctxHash is the surrounding (prev+next)
+// context. Either matching is enough to re-anchor — so editing the commented
+// line OR its neighbors no longer orphans the comment, and a small ±10 window
+// recovers from line moves.
+const REANCHOR_RANGE = 10;
+function lineContext(line) {
+  const prev = line && line.previousElementSibling ? line.previousElementSibling.textContent : "";
+  const next = line && line.nextElementSibling ? line.nextElementSibling.textContent : "";
+  return prev + "|||" + next;
 }
 function makeLineKey(line) {
   const lines = $$("#editor > div");
-  return `${lines.indexOf(line)}:${shortHash(line.textContent)}`;
+  return `${lines.indexOf(line)}:${shortHash(line.textContent)}:${shortHash(lineContext(line))}`;
+}
+function getLineByKey(key) {
+  if (!key) return null;
+  const lines = $$("#editor > div");
+  const parts = key.split(":");
+  const idx = parseInt(parts[0], 10);
+  const thisHash = parts[1];
+  const ctxHash = parts[2]; // undefined for legacy 2-part keys
+  const matchScore = (line) => {
+    if (!line) return 0;
+    const t = shortHash(line.textContent);
+    const c = shortHash(lineContext(line));
+    return (t === thisHash ? 2 : 0) + (ctxHash && c === ctxHash ? 1 : 0);
+  };
+  if (lines[idx] && matchScore(lines[idx]) > 0) return lines[idx];
+  let best = null, bestScore = 0;
+  for (let r = 1; r <= REANCHOR_RANGE; r++) {
+    [lines[idx - r], lines[idx + r]].forEach(l => {
+      const s = matchScore(l);
+      if (s > bestScore) { best = l; bestScore = s; }
+    });
+  }
+  if (best) return best;
+  return lines.find(l => shortHash(l.textContent) === thisHash) || null;
 }
 function shortHash(s) {
   let h = 0; for (const c of (s||"")) h = (h * 31 + c.charCodeAt(0)) | 0;
   return (h >>> 0).toString(36);
+}
+function reanchorComments() {
+  if (!appState.projectId) return;
+  const comments = Storage.getComments(appState.projectId);
+  let mutated = false;
+  comments.forEach(c => {
+    const line = getLineByKey(c.lineKey);
+    if (line) {
+      const fresh = makeLineKey(line);
+      if (fresh !== c.lineKey) { c.lineKey = fresh; mutated = true; }
+      if (c.orphaned) { c.orphaned = false; mutated = true; }
+    } else if (!c.orphaned) {
+      c.orphaned = true; mutated = true;
+    }
+  });
+  if (mutated) Storage.setComments(appState.projectId, comments);
 }
 
 function navigateToLine(lineIdx, sidebarEl) {
@@ -331,13 +391,16 @@ function applyMoodToPage() {
 let activeCommentLine = null;
 function applyCommentMarkers() {
   if (!appState.projectId) return;
-  const comments = Storage.getComments(appState.projectId);
-  const byKey = new Map();
-  comments.forEach(c => byKey.set(c.lineKey, (byKey.get(c.lineKey) || 0) + 1));
+  // Strip existing markers BEFORE re-anchoring, otherwise the 💬 emoji bleeds
+  // into the fingerprint hash and every comment re-anchors against ghost text.
   $$("#editor > div").forEach(d => {
     const m = d.querySelector(".line-comment-marker");
     if (m) m.remove();
   });
+  reanchorComments();
+  const comments = Storage.getComments(appState.projectId);
+  const byKey = new Map();
+  comments.filter(c => !c.orphaned).forEach(c => byKey.set(c.lineKey, (byKey.get(c.lineKey) || 0) + 1));
   $$("#editor > div").forEach(d => {
     const key = makeLineKey(d);
     if (byKey.get(key)) {

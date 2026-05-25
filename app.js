@@ -729,6 +729,7 @@ window.App = {
   loadProject,
   getCastFromScript() { return analyzeCharacters().map(c => c.name); },
   getLocationsFromScript() { return scriptBreakdown().locations; },
+  getScenesFromScript() { return collectScenes().map(s => ({ sceneId: s.lineIndex, slug: s.slug })); },
   setView,
 };
 

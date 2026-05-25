@@ -1868,6 +1868,104 @@ kbd {
 .bib-rule textarea { min-height: 60px; }
 .bib-rule .bib-del { position: absolute; top: 8px; right: 8px; }
 
+/* ---------- Arcs tab (Sprint 2 / M2) ---------- */
+.arc-wrap { padding: 4px 0 20px; }
+.arc-legend {
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--font-ui); font-size: 12px; color: var(--ink-2);
+  margin-bottom: 12px; gap: 12px;
+}
+.arc-legend-key { display: inline-flex; align-items: center; gap: 6px; }
+.arc-legend-key .arc-cell { width: 14px; height: 14px; cursor: default; }
+.arc-grid {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow-1);
+  overflow-x: auto;
+}
+.arc-row {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 22px;
+}
+.arc-row.arc-head {
+  font-family: var(--font-ui); font-size: 11px; color: var(--ink-2);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px; margin-bottom: 6px; min-height: 18px;
+}
+.arc-row.arc-first { padding-top: 4px; }
+.arc-row.arc-last  { padding-bottom: 6px; border-bottom: 1px dashed var(--line-2); margin-bottom: 4px; }
+.arc-char-block:last-child .arc-last { border-bottom: 0; margin-bottom: 0; }
+.arc-name-col { width: 96px; flex: 0 0 96px; }
+.arc-name {
+  display: inline-block;
+  font-family: var(--font-screen);
+  font-weight: 700; font-size: 11.5px;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  background: var(--avatar, var(--ink-2));
+  color: #fff;
+  border-radius: 4px;
+  max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.arc-kind-col {
+  width: 70px; flex: 0 0 70px;
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--font-ui); font-size: 11px; color: var(--ink-2);
+}
+.arc-kind-letter {
+  display: inline-block; width: 16px; height: 16px;
+  text-align: center; line-height: 16px;
+  border-radius: 3px;
+  background: var(--line);
+  color: var(--ink-2);
+  font-weight: 700; font-size: 10px;
+}
+.arc-kind-label { font-size: 11px; }
+.arc-cells { display: flex; gap: 3px; flex: 1; flex-wrap: nowrap; min-width: 0; }
+.arc-col-head {
+  width: 22px; flex: 0 0 22px;
+  text-align: center; font-size: 10px;
+  font-family: var(--font-ui);
+}
+.arc-cell {
+  width: 22px; height: 16px; flex: 0 0 22px;
+  border: 1px solid var(--line-2);
+  background: var(--bg);
+  border-radius: 3px;
+  cursor: pointer; padding: 0;
+  transition: background 0.1s, border-color 0.1s, transform 0.08s;
+}
+.arc-cell:hover { background: var(--line); border-color: var(--ink-2); }
+.arc-cell.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.arc-cell.on:hover { transform: scale(1.08); }
+.arc-count-col {
+  width: 60px; flex: 0 0 60px;
+  font-family: var(--font-ui); font-size: 11px; color: var(--ink-2);
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+.arc-gap-analysis {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow-1);
+}
+.arc-gap-analysis h4 {
+  margin: 0 0 8px;
+  font-family: var(--font-ui); font-size: 11px;
+  color: var(--ink-2);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.arc-gap-analysis ul { margin: 0; padding-left: 18px; }
+.arc-gap-analysis li { margin: 4px 0; font-size: 12.5px; color: var(--ink); line-height: 1.45; }
+.arc-gap-analysis .muted { color: var(--ink-2); font-size: 12.5px; margin: 0; }
+
 /* ---------- Timeline view ---------- */
 .timeline-toolbar {
   padding: 12px 18px; border-bottom: 1px solid var(--line); background: var(--header-bg);
@@ -1933,6 +2031,12 @@ kbd {
 .note-sidebar-item .ns-line {
   font-family: var(--font-screen); font-size: 11px; color: var(--ink-2);
 }
+.note-sidebar-item.orphaned {
+  border-left: 3px solid #dfa116;
+  opacity: 0.85;
+}
+.note-sidebar-item.orphaned .ns-line { color: #8a6611; font-style: italic; }
+.note-sidebar-item.orphaned .ns-orphan { color: #b8851a; font-weight: 700; }
 
 /* ---------- AI menu ---------- */
 .ai-menu {

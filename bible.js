@@ -35,6 +35,7 @@ const Bible = (() => {
         <div class="bible-tabs">
           <button class="bibtab active" data-tab="characters">Characters <span class="cnt">${bible.characters.length}</span></button>
           <button class="bibtab" data-tab="relationships">Relationships</button>
+          <button class="bibtab" data-tab="arcs">Arcs</button>
           <button class="bibtab" data-tab="locations">Locations <span class="cnt">${bible.locations.length}</span></button>
           <button class="bibtab" data-tab="rules">World rules</button>
         </div>
@@ -58,11 +59,15 @@ const Bible = (() => {
     const body = document.getElementById("bible-body");
     if (tab === "characters") body.innerHTML = renderCharacters();
     else if (tab === "relationships") body.innerHTML = renderRelationships();
+    else if (tab === "arcs") body.innerHTML = renderArcs();
     else if (tab === "locations") body.innerHTML = renderLocations();
     else if (tab === "rules") body.innerHTML = renderRules();
     wireCharacters();
+    wireArcs();
     wireLocations();
     wireRules();
+    const addBtn = document.getElementById("bib-add");
+    if (addBtn) addBtn.style.display = (tab === "arcs") ? "none" : "";
     if (tab === "relationships") setTimeout(drawRelationshipGraph, 50);
   }
 
@@ -436,6 +441,142 @@ const Bible = (() => {
       card.querySelector("[data-act=delete]")?.addEventListener("click", () => {
         bible.rules = bible.rules.filter(x => x.id !== rid);
         save(); renderTab("rules");
+      });
+    });
+  }
+
+  // ---------- Arcs ----------
+  // Each character carries `arc: [{ sceneId, w, n, f, c }]` where sceneId is the
+  // scene heading's line index in the editor and w/n/f/c are booleans (Want / Need /
+  // Flaw / Change). Old shape `{ scene, kind, note }` is silently ignored.
+  const ARC_KINDS = [
+    { id: "w", label: "Want",   title: "External goal — what they're chasing" },
+    { id: "n", label: "Need",   title: "Internal lesson — what they actually require" },
+    { id: "f", label: "Flaw",   title: "The thing standing in their own way" },
+    { id: "c", label: "Change", title: "The moment of transformation" },
+  ];
+  const ARC_GAP_THRESHOLD = 5;
+
+  function arcEntry(c, sid) {
+    return (c.arc || []).find(a => a && typeof a === "object" && a.sceneId === sid) || null;
+  }
+  function arcGet(c, sid, kind) {
+    const e = arcEntry(c, sid);
+    return !!(e && e[kind]);
+  }
+  function arcToggle(c, sid, kind) {
+    c.arc = (c.arc || []).filter(a => a && typeof a === "object" && typeof a.sceneId === "number");
+    let e = c.arc.find(a => a.sceneId === sid);
+    if (!e) { e = { sceneId: sid, w: false, n: false, f: false, c: false }; c.arc.push(e); }
+    e[kind] = !e[kind];
+    if (!e.w && !e.n && !e.f && !e.c) {
+      c.arc = c.arc.filter(a => a.sceneId !== sid);
+    }
+  }
+
+  function renderArcs() {
+    if (bible.characters.length === 0) {
+      return `<div class="bib-empty"><h3>No characters yet.</h3>
+        <p>Add characters first — every character gets a Want / Need / Flaw / Change row across all scenes.</p></div>`;
+    }
+    const scenes = (typeof App !== "undefined" && App.getScenesFromScript) ? App.getScenesFromScript() : [];
+    if (scenes.length === 0) {
+      return `<div class="bib-empty"><h3>No scenes in the script yet.</h3>
+        <p>Write at least one scene heading (e.g. <code>INT. KITCHEN - DAY</code>) and reopen the Arcs tab.</p></div>`;
+    }
+    const headRow = `
+      <div class="arc-row arc-head">
+        <div class="arc-name-col"></div>
+        <div class="arc-kind-col"></div>
+        <div class="arc-cells">
+          ${scenes.map((s, i) => `<div class="arc-col-head" title="${escapeHtml(s.slug)}">${i + 1}</div>`).join("")}
+        </div>
+        <div class="arc-count-col">marked</div>
+      </div>
+    `;
+    const charBlocks = bible.characters.map(c => {
+      const rows = ARC_KINDS.map((k, ki) => {
+        const marked = scenes.filter(s => arcGet(c, s.sceneId, k.id)).length;
+        const cells = scenes.map(s => {
+          const on = arcGet(c, s.sceneId, k.id);
+          return `<button class="arc-cell ${on ? "on" : ""}" data-cid="${c.id}" data-sid="${s.sceneId}" data-kind="${k.id}" title="${escapeHtml(k.title)} — ${escapeHtml(s.slug)}"></button>`;
+        }).join("");
+        return `
+          <div class="arc-row arc-kind-row${ki === 0 ? " arc-first" : ""}${ki === ARC_KINDS.length - 1 ? " arc-last" : ""}">
+            <div class="arc-name-col">${ki === 0 ? `<div class="arc-name" style="--avatar:${c.avatar}">${escapeHtml(c.name)}</div>` : ""}</div>
+            <div class="arc-kind-col" title="${escapeHtml(k.title)}"><span class="arc-kind-letter">${k.id.toUpperCase()}</span><span class="arc-kind-label">${escapeHtml(k.label)}</span></div>
+            <div class="arc-cells">${cells}</div>
+            <div class="arc-count-col">${marked}/${scenes.length}</div>
+          </div>
+        `;
+      }).join("");
+      return `<div class="arc-char-block" data-cid="${c.id}">${rows}</div>`;
+    }).join("");
+    const gaps = arcGapAnalysis(scenes);
+    return `
+      <div class="arc-wrap">
+        <div class="arc-legend">
+          <span>Click a cell to mark <b>Want / Need / Flaw / Change</b> for that character × scene.</span>
+          <span class="arc-legend-key">
+            <span class="arc-cell on" aria-hidden="true"></span> marked
+            <span class="arc-cell" aria-hidden="true"></span> empty
+          </span>
+        </div>
+        <div class="arc-grid">
+          ${headRow}
+          ${charBlocks}
+        </div>
+        <div class="arc-gap-analysis">
+          <h4>Gap analysis</h4>
+          ${gaps.length
+            ? `<ul>${gaps.map(g => `<li>${g}</li>`).join("")}</ul>`
+            : `<p class="muted">Every character has at least one Want, Need, Flaw, and Change marked — and no large gaps.</p>`}
+        </div>
+      </div>
+    `;
+  }
+
+  function arcGapAnalysis(scenes) {
+    if (scenes.length === 0) return [];
+    const out = [];
+    bible.characters.forEach(c => {
+      ARC_KINDS.forEach(k => {
+        const marks = scenes.map((s, i) => arcGet(c, s.sceneId, k.id) ? i : -1).filter(i => i >= 0);
+        if (marks.length === 0) {
+          out.push(`<b>${escapeHtml(c.name)}</b>'s <b>${k.label}</b> is never marked.`);
+          return;
+        }
+        // First and last mark distances
+        if (marks[0] >= ARC_GAP_THRESHOLD) {
+          out.push(`<b>${escapeHtml(c.name)}</b>'s <b>${k.label}</b> first appears at scene ${marks[0] + 1} — late entry.`);
+        }
+        if (scenes.length - 1 - marks[marks.length - 1] >= ARC_GAP_THRESHOLD) {
+          out.push(`<b>${escapeHtml(c.name)}</b>'s <b>${k.label}</b> drops out after scene ${marks[marks.length - 1] + 1} — no payoff.`);
+        }
+        // Internal runs
+        for (let i = 1; i < marks.length; i++) {
+          const gap = marks[i] - marks[i - 1] - 1;
+          if (gap >= ARC_GAP_THRESHOLD) {
+            out.push(`<b>${escapeHtml(c.name)}</b>'s <b>${k.label}</b> goes quiet between scene ${marks[i - 1] + 1} and ${marks[i] + 1} (${gap} scenes).`);
+          }
+        }
+      });
+    });
+    return out;
+  }
+
+  function wireArcs() {
+    document.querySelectorAll(".arc-cell[data-cid]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const cid = btn.dataset.cid;
+        const sid = parseInt(btn.dataset.sid, 10);
+        const kind = btn.dataset.kind;
+        const c = bible.characters.find(x => x.id === cid);
+        if (!c || Number.isNaN(sid)) return;
+        arcToggle(c, sid, kind);
+        save();
+        // Re-render the arcs tab so counts + gap analysis update too
+        renderTab("arcs");
       });
     });
   }
