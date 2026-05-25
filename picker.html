@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Bestscreen v3 — Feature Picker</title>
+<style>
+  :root {
+    --bg: #efe7d7;
+    --paper: #fbf5e8;
+    --ink: #1a1815;
+    --muted: #82786a;
+    --line: #d8ccaf;
+    --line-2: #eadfc1;
+    --accent: #b3261e;
+    --accent-soft: #fbe2dd;
+    --good: #2f7a3c;
+    --shadow: 0 1px 0 rgba(60,40,10,.06), 0 22px 44px -22px rgba(60,40,10,.30);
+    --font-ui: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+    --font-disp: ui-serif, Georgia, "Times New Roman", serif;
+    --font-mono: "Courier Prime", "Courier New", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font-ui); }
+  body { -webkit-font-smoothing: antialiased; padding-bottom: 120px; }
+
+  .header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+    padding: 20px 40px;
+    display: grid; grid-template-columns: auto 1fr auto; gap: 24px;
+    align-items: center;
+    box-shadow: 0 1px 0 rgba(60,40,10,.04);
+  }
+  .brand {
+    font-family: var(--font-disp);
+    font-weight: 600;
+    font-size: 22px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .brand-mark {
+    width: 30px; height: 30px;
+    display: grid; place-items: center;
+    background: var(--accent); color: #fff;
+    border-radius: 7px;
+    font-family: var(--font-disp); font-weight: 700;
+    font-size: 13px;
+  }
+  .brand .sub {
+    font-family: var(--font-ui); font-weight: 500;
+    font-size: 13px; color: var(--muted);
+    margin-left: 6px;
+  }
+  .hint {
+    font-size: 13px;
+    color: var(--muted);
+    text-align: center;
+  }
+  .hint kbd {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    margin: 0 1px;
+    color: var(--ink);
+  }
+  .submit {
+    appearance: none; border: 0;
+    background: var(--accent); color: #fff;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font: inherit; font-weight: 600; font-size: 14px;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .submit:hover { filter: brightness(1.05); }
+  .submit:disabled { opacity: .5; cursor: not-allowed; }
+  .submit .count {
+    background: rgba(255,255,255,.2);
+    border-radius: 10px;
+    padding: 1px 8px;
+    font-size: 12px;
+    min-width: 22px;
+    text-align: center;
+  }
+
+  .container {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 32px 40px;
+  }
+
+  .intro {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 22px 26px;
+    box-shadow: var(--shadow);
+    margin-bottom: 28px;
+  }
+  .intro h1 {
+    margin: 0 0 10px;
+    font-family: var(--font-disp);
+    font-weight: 600;
+    font-size: 22px;
+  }
+  .intro p {
+    margin: 0 0 8px;
+    color: var(--ink);
+    line-height: 1.55;
+    font-size: 14px;
+  }
+  .intro p.muted { color: var(--muted); font-size: 13px; }
+
+  .forced {
+    background: var(--paper);
+    border: 1px solid var(--good);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 28px;
+    box-shadow: var(--shadow);
+    display: flex; gap: 12px; align-items: start;
+  }
+  .forced .check {
+    width: 22px; height: 22px;
+    border-radius: 5px;
+    background: var(--good); color: #fff;
+    display: grid; place-items: center;
+    flex: 0 0 auto;
+    font-size: 14px;
+    margin-top: 1px;
+  }
+  .forced .title { font-weight: 600; font-size: 14px; }
+  .forced .desc  { color: var(--ink); font-size: 13px; margin-top: 3px; line-height: 1.5; }
+  .forced .tag   { display: inline-block; margin-left: 8px; background: var(--good); color: #fff; font-size: 10.5px; font-weight: 600; padding: 1px 8px; border-radius: 9px; vertical-align: 1px; }
+
+  .category {
+    margin-top: 30px;
+    margin-bottom: 10px;
+  }
+  .category h2 {
+    font-family: var(--font-disp);
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin: 0 0 12px;
+  }
+
+  .item {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 12px 16px 12px 50px;
+    margin-bottom: 8px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s, transform 0.05s;
+    outline: none;
+  }
+  .item:hover { background: #fffaee; }
+  .item.focused {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .item.selected { background: #fef0ee; border-color: var(--accent); }
+  .item.selected:hover { background: #fde6e3; }
+
+  .check-box {
+    position: absolute;
+    left: 14px; top: 13px;
+    width: 22px; height: 22px;
+    border: 2px solid var(--line);
+    border-radius: 5px;
+    background: var(--bg);
+    display: grid; place-items: center;
+    transition: background 0.1s, border-color 0.1s;
+    font-size: 14px;
+    color: #fff;
+  }
+  .item.selected .check-box {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .check-box::after {
+    content: "✓";
+    opacity: 0;
+    transition: opacity 0.1s;
+    line-height: 1;
+  }
+  .item.selected .check-box::after { opacity: 1; }
+
+  .num {
+    position: absolute;
+    right: 16px; top: 12px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .item .title {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 3px;
+    padding-right: 30px;
+  }
+  .item .desc {
+    color: var(--ink);
+    font-size: 13px;
+    line-height: 1.5;
+    opacity: .85;
+  }
+
+  .write-in {
+    margin-top: 30px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 20px;
+  }
+  .write-in label {
+    display: block;
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+  .write-in textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.5;
+    resize: vertical;
+    outline: none;
+  }
+  .write-in textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  .footer-actions {
+    position: fixed;
+    bottom: 24px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+    border-radius: 999px;
+    padding: 8px 12px 8px 16px;
+    display: flex; gap: 10px; align-items: center;
+    z-index: 20;
+  }
+  .footer-actions .stats {
+    font-size: 13px; color: var(--muted);
+  }
+  .footer-actions .stats b { color: var(--ink); font-family: var(--font-disp); }
+  .footer-actions button {
+    appearance: none; border: 0;
+    background: var(--accent); color: #fff;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font: inherit; font-weight: 600; font-size: 13px;
+    cursor: pointer;
+  }
+  .footer-actions button:hover { filter: brightness(1.05); }
+  .footer-actions button.ghost {
+    background: transparent; color: var(--muted);
+    padding: 8px 12px;
+  }
+  .footer-actions button.ghost:hover { background: var(--bg); color: var(--ink); }
+
+  .toast {
+    position: fixed;
+    bottom: 96px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: #fff;
+    padding: 14px 24px;
+    border-radius: 999px;
+    font-size: 14px;
+    box-shadow: var(--shadow);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s, bottom 0.2s;
+    z-index: 30;
+  }
+  .toast.show { opacity: 1; bottom: 110px; }
+  .toast.error { background: var(--accent); }
+
+  .success-panel {
+    background: #eaf6ec;
+    border: 1px solid var(--good);
+    border-radius: 12px;
+    padding: 22px 26px;
+    margin-bottom: 28px;
+    display: none;
+  }
+  .success-panel.show { display: block; }
+  .success-panel h2 { margin: 0 0 10px; font-family: var(--font-disp); font-weight: 600; font-size: 18px; color: var(--good); }
+  .success-panel p  { margin: 6px 0; font-size: 14px; }
+  .success-panel ul { margin: 8px 0 0; padding-left: 20px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="brand">
+    <div class="brand-mark">BS</div>
+    <div>Bestscreen <span class="sub">v3 feature picker</span></div>
+  </div>
+  <div class="hint">
+    <kbd>↑</kbd> <kbd>↓</kbd> move &nbsp;·&nbsp;
+    <kbd>Space</kbd> / <kbd>Enter</kbd> toggle &nbsp;·&nbsp;
+    <kbd>⌘</kbd><kbd>↵</kbd> submit
+  </div>
+  <button class="submit" id="submit-top" disabled>
+    Submit selections <span class="count" id="count-top">0</span>
+  </button>
+</header>
+
+<div class="container">
+
+  <div class="success-panel" id="success-panel"></div>
+
+  <div class="intro">
+    <h1>Pick what to build in v3.</h1>
+    <p>50 features ranked by what I think existing screenwriting tools lack. Use arrow keys to move between rows, Space or Enter to toggle. When you're done, hit submit — your picks get saved to <code>v3-selections.json</code> and I'll build them.</p>
+    <p class="muted">Recommendation: pick 6–10 for a polished v3 rather than 30 for a half-finished one.</p>
+  </div>
+
+  <div class="forced">
+    <div class="check">✓</div>
+    <div>
+      <div class="title">Project Dashboard <span class="tag">CONFIRMED</span></div>
+      <div class="desc">Landing screen before the editor. Cards for each screenplay with cover color, last-edited, page count, pinned star. Quick-create templates (Feature / 1-hour TV / Sitcom / Short / Stage / Comic / Pilot). Search across projects.</div>
+    </div>
+  </div>
+
+  <div id="list"></div>
+
+  <div class="write-in">
+    <label for="custom">Anything else I missed? <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+    <textarea id="custom" placeholder="Write in any feature you'd like in v3…"></textarea>
+  </div>
+</div>
+
+<div class="footer-actions">
+  <span class="stats"><b id="count-bot">0</b> selected · <span id="rec">tip: 6–10 is the sweet spot</span></span>
+  <button class="ghost" id="select-recommended">Pick Claude's 10</button>
+  <button class="ghost" id="clear-all">Clear all</button>
+  <button id="submit-bot" disabled>Submit</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const ITEMS = [
+  { cat: "STORY DESIGN — outlining & structure",
+    items: [
+      { n: 1,  title: "Story templates as scaffold", desc: "Save the Cat (15 beats), Hero's Journey, Three-Act, Story Circle. Pick one when creating a project; beats appear as ghost cards on the Beat Board you fill in." },
+      { n: 2,  title: "Plot-thread visualizer", desc: "Tag scenes with colored threads (A-story, B-story, theme). Horizontal timeline shows where each thread weaves through the script." },
+      { n: 3,  title: "Character arc tracker", desc: "Per character, mark scenes where their Want/Need/Flaw/Change is on-screen. Gap analysis: \"Marcus's arc has no movement in Act II.\"" },
+      { n: 4,  title: "Scene-goal field", desc: "Every scene gets a one-line \"what does this accomplish?\" Flag scenes with no goal." },
+      { n: 5,  title: "Logline workshop", desc: "Dedicated tool to draft and rate loglines (clarity, stakes, irony, protagonist agency)." },
+    ]},
+  { cat: "CHARACTER DEVELOPMENT",
+    items: [
+      { n: 6,  title: "Character bibles", desc: "Per-character document: backstory, voice samples, goals, secrets, contradictions. Link from script lines via @CharacterName." },
+      { n: 7,  title: "Relationship map", desc: "Force-directed graph of who knows / loves / hates whom. Auto-extracted from co-presence + manual annotation." },
+      { n: 8,  title: "\"On-the-nose\" dialogue flagger", desc: "Heuristic warns when dialogue is too literal (\"I'm sad\", \"I feel betrayed\")." },
+      { n: 9,  title: "Voice consistency check", desc: "Each character gets a voice DNA (sentence length, vocab). Flag lines that don't fit that character's pattern." },
+    ]},
+  { cat: "WRITING-FLOW",
+    items: [
+      { n: 10, title: "Typewriter mode", desc: "Current line locked to vertical center of screen; everything else fades. Maximum focus." },
+      { n: 11, title: "Hemingway-style readability", desc: "Heatmap action lines by complexity. Hard-to-read passages highlighted." },
+      { n: 12, title: "Voice dictation", desc: "Browser SpeechRecognition API. Dictate dialogue while pacing the room." },
+      { n: 13, title: "Writing-streak heatmap", desc: "GitHub-style calendar of daily word counts. Gamify the habit." },
+      { n: 14, title: "Inline AI assist (bring-your-own-key)", desc: "Use your own OpenAI / Anthropic key. Right-click a line for \"punch up\", \"alt take\", \"tighten\", \"what if she lies here?\" Fully optional / offline if no key." },
+    ]},
+  { cat: "REWRITING POWER",
+    items: [
+      { n: 15, title: "A/B scene drafts", desc: "Write two versions of a scene side-by-side; promote one to canonical, keep the other in revision history." },
+      { n: 16, title: "Inline comments", desc: "Threaded comments on any line (Google Docs style) without modifying script text." },
+      { n: 17, title: "Track Changes", desc: "Per-line redlines logged with who/when changed what (current revision colors are visual only)." },
+      { n: 18, title: "Page locking", desc: "Industry production feature. Lock page numbers so revisions don't reshuffle the script for the crew (uses A-pages, A1, A2)." },
+      { n: 19, title: "Snapshot-to-snapshot diff", desc: "Compare any two snapshots, not just snapshot vs. current." },
+      { n: 20, title: "Continuity warnings", desc: "Tracks \"Sarah is injured in Scene 12 / no mention by Scene 30 — intentional?\"" },
+    ]},
+  { cat: "PRODUCTION & PRE-PRO",
+    items: [
+      { n: 21, title: "Strip board", desc: "Color-coded scene strips, schedule view, drag to reorder shoot days." },
+      { n: 22, title: "Day Out of Days report", desc: "Per-character shoot days for casting / budget." },
+      { n: 23, title: "Auto-tagger", desc: "Categorize ALL-CAPS terms by props / wardrobe / SFX / vehicles / extras / VFX." },
+      { n: 24, title: "Location packet", desc: "Group scenes by location; export a PDF packet per location for scouts." },
+      { n: 25, title: "Sides export", desc: "Pick specific scenes; export just those, formatted, for talent auditions." },
+    ]},
+  { cat: "READING & FEEDBACK",
+    items: [
+      { n: 26, title: "Public share link", desc: "Generate a read-only URL anyone can open. No account required for the reader." },
+      { n: 27, title: "Annotated reading mode", desc: "Readers leave annotations without touching the script." },
+      { n: 28, title: "Coverage generator", desc: "Auto-produces a synopsis, beat-by-beat, character bios." },
+      { n: 29, title: "Slideshow read mode", desc: "Auto-advance scene by scene for full-screen reading." },
+    ]},
+  { cat: "CONTINUITY / WORLD",
+    items: [
+      { n: 30, title: "Series Bible", desc: "World document linked to scripts. Type @Marcus → tooltip + jump-to-bible-entry." },
+      { n: 31, title: "Story timeline", desc: "Chronological event view, separate from script order (for time-jumping narratives)." },
+      { n: 32, title: "Multi-episode workspace", desc: "Group scripts as a season; characters, locations, world rules shared across episodes." },
+    ]},
+  { cat: "CINEMATIC / VISUAL",
+    items: [
+      { n: 33, title: "Storyboard slots", desc: "Attach images per scene; mood board view." },
+      { n: 34, title: "Soundtrack column", desc: "Attach a song per scene; plays during read-aloud / sprint mode." },
+      { n: 35, title: "Ambient writing sounds", desc: "Built-in cafe / rain / fireplace looping audio." },
+      { n: 36, title: "Cinematic mood per scene", desc: "Tag scenes with a mood; auto-tints the page color when reading." },
+    ]},
+  { cat: "ANALYTICS",
+    items: [
+      { n: 37, title: "Sentiment arc graph", desc: "Emotional curve per scene (lexicon-based). See your protagonist's emotional journey at a glance." },
+      { n: 38, title: "Pace heatmap", desc: "Color the script by scene-length deviation. Find pacing dead zones visually." },
+      { n: 39, title: "Character word cloud", desc: "Per-character vocabulary visualization." },
+      { n: 40, title: "Beat-template fidelity", desc: "If you chose a story template (#1), shows which beats you've hit vs. missed and at which page." },
+    ]},
+  { cat: "EDITOR POWER",
+    items: [
+      { n: 41, title: "Multi-cursor editing", desc: "Multiple cursors via ⌘+Click; bulk edit like modern code editors. Missing from every screenwriting app I know." },
+      { n: 42, title: "Vim mode", desc: "For the keyboard nerds." },
+      { n: 43, title: "Macros", desc: "Record a sequence of edits; replay with a hotkey." },
+      { n: 44, title: "Selection stats", desc: "Highlight any region; instant stats on the selection (words, duration, dialogue %)." },
+    ]},
+  { cat: "PRIVACY & SYNC",
+    items: [
+      { n: 45, title: "End-to-end encrypted cloud sync", desc: "Passphrase-encrypted; works across devices but the server never sees plaintext." },
+      { n: 46, title: "Watermarked PDF export", desc: "Embed reader name + date + \"Confidential Draft\" stamp." },
+      { n: 47, title: "Versioned PDF log", desc: "Every PDF you generate gets logged so you know which version went to whom." },
+    ]},
+  { cat: "FORMAT VARIETY",
+    items: [
+      { n: 48, title: "Stage / radio / comic / game formats", desc: "Switchable formatting rules per project type." },
+      { n: 49, title: "UK BBC TV format", desc: "Sluglines, scene numbering, etc." },
+      { n: 50, title: "Multicam sitcom format", desc: "Double-spaced dialogue in caps, scene-letter naming." },
+    ]},
+];
+
+const RECOMMENDED = new Set([1, 2, 6, 10, 14, 18, 26, 30, 37, 41]);
+
+const selected = new Set();
+let focusIdx = 0;
+let flatItems = [];
+
+function render() {
+  const list = document.getElementById("list");
+  let html = "";
+  ITEMS.forEach(group => {
+    html += `<div class="category"><h2>${group.cat}</h2>`;
+    group.items.forEach(it => {
+      html += `
+        <div class="item" tabindex="-1" data-n="${it.n}">
+          <div class="check-box"></div>
+          <div class="title">${escapeHtml(it.title)}</div>
+          <div class="desc">${escapeHtml(it.desc)}</div>
+          <div class="num">#${it.n}</div>
+        </div>`;
+    });
+    html += `</div>`;
+  });
+  list.innerHTML = html;
+  flatItems = Array.from(list.querySelectorAll(".item"));
+  flatItems.forEach((el, i) => {
+    el.addEventListener("click", () => { focusIdx = i; toggle(); });
+  });
+  refreshUI();
+}
+
+function refreshUI() {
+  flatItems.forEach((el, i) => {
+    const n = parseInt(el.dataset.n, 10);
+    el.classList.toggle("selected", selected.has(n));
+    el.classList.toggle("focused", i === focusIdx);
+  });
+  const c = selected.size;
+  document.getElementById("count-top").textContent = c;
+  document.getElementById("count-bot").textContent = c;
+  document.getElementById("submit-top").disabled = c === 0;
+  document.getElementById("submit-bot").disabled = c === 0;
+
+  const rec = document.getElementById("rec");
+  if (c === 0)         rec.textContent = "tip: 6–10 is the sweet spot";
+  else if (c < 4)      rec.textContent = "going lean — easier to polish";
+  else if (c <= 10)    rec.textContent = "sweet spot — ambitious but achievable";
+  else if (c <= 18)    rec.textContent = "a lot — consider trimming";
+  else                 rec.textContent = "very ambitious — v3.5 / v4 territory";
+}
+
+function toggle() {
+  if (!flatItems[focusIdx]) return;
+  const n = parseInt(flatItems[focusIdx].dataset.n, 10);
+  if (selected.has(n)) selected.delete(n);
+  else selected.add(n);
+  refreshUI();
+}
+
+function move(delta) {
+  if (flatItems.length === 0) return;
+  focusIdx = Math.max(0, Math.min(flatItems.length - 1, focusIdx + delta));
+  flatItems[focusIdx].scrollIntoView({ behavior: "smooth", block: "center" });
+  refreshUI();
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+
+async function submit() {
+  if (selected.size === 0) return;
+  const picks = Array.from(selected).sort((a,b) => a-b);
+  const custom = document.getElementById("custom").value.trim();
+  const labelById = {};
+  ITEMS.forEach(g => g.items.forEach(it => labelById[it.n] = it.title));
+  const payload = {
+    timestamp: new Date().toISOString(),
+    confirmed: ["A — Project Dashboard"],
+    selected: picks.map(n => ({ n, title: labelById[n] })),
+    custom: custom || null,
+  };
+  try {
+    const r = await fetch("/api/selections", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) throw new Error("Bad response");
+    showSuccess(payload);
+    showToast("Saved to v3-selections.json", false);
+  } catch (e) {
+    showToast("Couldn't reach the dev server. Is `npm run dev` running?", true);
+  }
+}
+
+function showSuccess(payload) {
+  const el = document.getElementById("success-panel");
+  el.classList.add("show");
+  el.innerHTML = `
+    <h2>✓ Saved. Tell me to read v3-selections.json in chat.</h2>
+    <p>You selected <b>${payload.selected.length}</b> feature${payload.selected.length===1?'':'s'} (plus the confirmed Project Dashboard).</p>
+    <ul>
+      ${payload.selected.map(s => `<li>#${s.n} — ${escapeHtml(s.title)}</li>`).join("")}
+    </ul>
+    ${payload.custom ? `<p><b>Write-in:</b> ${escapeHtml(payload.custom)}</p>` : ""}
+    <p style="margin-top:14px;color:#555">Go back to the chat and type something like <code>read v3-selections.json and start building</code>.</p>
+  `;
+  el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function showToast(msg, isError) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.toggle("error", !!isError);
+  t.classList.add("show");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove("show"), 2500);
+}
+
+// Wire keyboard
+window.addEventListener("keydown", e => {
+  if (document.activeElement.tagName === "TEXTAREA") return;
+  if (e.key === "ArrowDown" || e.key === "j") { e.preventDefault(); move(1); }
+  else if (e.key === "ArrowUp" || e.key === "k") { e.preventDefault(); move(-1); }
+  else if (e.key === "PageDown") { e.preventDefault(); move(8); }
+  else if (e.key === "PageUp")   { e.preventDefault(); move(-8); }
+  else if (e.key === "Home")     { e.preventDefault(); focusIdx = 0; refreshUI(); flatItems[0].scrollIntoView({block:"center"}); }
+  else if (e.key === "End")      { e.preventDefault(); focusIdx = flatItems.length-1; refreshUI(); flatItems[focusIdx].scrollIntoView({block:"center"}); }
+  else if (e.key === " " || e.key === "Enter") {
+    if (e.metaKey || e.ctrlKey) { e.preventDefault(); submit(); }
+    else { e.preventDefault(); toggle(); }
+  }
+});
+
+document.getElementById("submit-top").addEventListener("click", submit);
+document.getElementById("submit-bot").addEventListener("click", submit);
+document.getElementById("clear-all").addEventListener("click", () => { selected.clear(); refreshUI(); });
+document.getElementById("select-recommended").addEventListener("click", () => {
+  selected.clear();
+  RECOMMENDED.forEach(n => selected.add(n));
+  refreshUI();
+});
+
+render();
+</script>
+</body>
+</html>

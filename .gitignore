@@ -1,0 +1,8 @@
+.DS_Store
+node_modules/
+*.log
+v3-selections.json
+.firebase/
+firebase-debug.log
+.cache/
+.playwright-mcp/

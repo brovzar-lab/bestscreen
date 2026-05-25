@@ -1,0 +1,11 @@
+{
+  "name": "bestscreen",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A screenwriting power tool. Single-page, local-first. No build step.",
+  "scripts": {
+    "dev": "node dev-server.js",
+    "start": "node dev-server.js",
+    "open": "node dev-server.js --open"
+  }
+}

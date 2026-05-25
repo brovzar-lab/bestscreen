@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Bestscreen — A Screenwriting Power Tool</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ============== Inline SVG sprite ============== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+  <symbol id="i-doc"        viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7zM14 3v6h5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="i-folder"     viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-save"       viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5zM8 3v6h7V3M8 14h8v7H8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="i-script"     viewBox="0 0 24 24"><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-beats"      viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="4" width="7" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="15" width="7" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="15" width="7" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-cards"      viewBox="0 0 24 24"><rect x="3" y="5" width="8" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="13" y="5" width="8" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-stats"      viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-bible"      viewBox="0 0 24 24"><path d="M5 4h13a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5zM5 4v16M9 8h6M9 12h4" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-timeline"   viewBox="0 0 24 24"><path d="M3 6h18M3 12h12M3 18h7M3 6v12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-find"       viewBox="0 0 24 24"><circle cx="11" cy="11" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m20 20-4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-rename"     viewBox="0 0 24 24"><path d="M4 19h16M16 4l4 4-11 11H5v-4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="i-sprint"     viewBox="0 0 24 24"><path d="m13 3-1 8h6l-8 10 1-8H5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="i-bin"        viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-snapshot"   viewBox="0 0 24 24"><circle cx="12" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 7h3l1.5-2h5L16 7h3v12H5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="i-aloud"      viewBox="0 0 24 24"><path d="M5 9v6h4l5 4V5L9 9zM17 8a5 5 0 0 1 0 8M20 5a9 9 0 0 1 0 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="i-cmd"        viewBox="0 0 24 24"><path d="M9 9V6a3 3 0 0 0-6 0 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-6 0v3M9 15v3a3 3 0 0 1-6 0 3 3 0 0 1 3-3h12a3 3 0 0 1 3 3 3 3 0 0 1-6 0v-3M9 9h6v6H9z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="i-print"      viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="i-fdx"        viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7zM14 3v6h5M9 14h6M9 18h4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="i-theme"      viewBox="0 0 24 24"><path d="M20 14a8 8 0 1 1-10-10 6 6 0 0 0 10 10z" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-help"       viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 9a3 3 0 0 1 6 0c0 2-3 2-3 5M12 18v.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-inspector"  viewBox="0 0 24 24"><path d="M3 4h18v16H3zM15 4v16" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-sidebar"    viewBox="0 0 24 24"><path d="M3 4h18v16H3zM9 4v16" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-x"          viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-plus"       viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-tag"        viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z M8 8h.01" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+  <symbol id="i-eye"        viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-clock"      viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-target"     viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></symbol>
+  <symbol id="i-arrow-up"   viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-mic"        viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-comment"    viewBox="0 0 24 24"><path d="M3 5h18v12H8l-5 4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="i-share"      viewBox="0 0 24 24"><circle cx="6" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="18" cy="6" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="18" cy="18" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m9 10 6-3M9 14l6 3" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-typewriter" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="9" width="20" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 14h10M7 17h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-sound"      viewBox="0 0 24 24"><path d="M3 10v4h4l5 5V5L7 10z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="i-sparkles"   viewBox="0 0 24 24"><path d="m12 3 1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5zM18 14l1 2.5L21.5 17 19 18l-1 2.5L17 18l-2.5-1L17 16z" fill="currentColor"/></symbol>
+  <symbol id="i-back"       viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-grip"       viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.4" fill="currentColor"/><circle cx="15" cy="6" r="1.4" fill="currentColor"/><circle cx="9" cy="12" r="1.4" fill="currentColor"/><circle cx="15" cy="12" r="1.4" fill="currentColor"/><circle cx="9" cy="18" r="1.4" fill="currentColor"/><circle cx="15" cy="18" r="1.4" fill="currentColor"/></symbol>
+</defs>
+</svg>
+
+<!-- ===================================================================
+     DASHBOARD (project picker — shown when no project loaded)
+     =================================================================== -->
+<section id="dashboard" class="dashboard" style="display:none">
+  <header class="dash-header">
+    <div class="brand">
+      <div class="brand-mark">BS</div>
+      <div class="brand-text">Bestscreen</div>
+      <div class="brand-sub">Screenwriting</div>
+    </div>
+    <div class="grow"></div>
+    <button class="iconbtn" id="btn-theme-dash" title="Theme"><svg class="ic"><use href="#i-theme"/></svg></button>
+  </header>
+  <div id="dashboard-body" class="dashboard-body"></div>
+</section>
+
+<!-- ===================================================================
+     EDITOR SHELL (the actual app — shown when a project is loaded)
+     =================================================================== -->
+<div id="editor-shell" class="editor-shell" style="display:none">
+
+  <header class="titlebar">
+    <button class="iconbtn back-btn" id="btn-back" title="Back to projects"><svg class="ic"><use href="#i-back"/></svg></button>
+    <div class="brand small"><span class="brand-mark">BS</span><span class="brand-text">Bestscreen</span></div>
+
+    <nav class="views" role="tablist">
+      <button class="view-tab active" data-view="script"><svg class="ic"><use href="#i-script"/></svg><span>Script</span></button>
+      <button class="view-tab" data-view="beats"><svg class="ic"><use href="#i-beats"/></svg><span>Beat Board</span></button>
+      <button class="view-tab" data-view="cards"><svg class="ic"><use href="#i-cards"/></svg><span>Cards</span></button>
+      <button class="view-tab" data-view="bible"><svg class="ic"><use href="#i-bible"/></svg><span>Bible</span></button>
+      <button class="view-tab" data-view="timeline"><svg class="ic"><use href="#i-timeline"/></svg><span>Timeline</span></button>
+      <button class="view-tab" data-view="stats"><svg class="ic"><use href="#i-stats"/></svg><span>Stats</span></button>
+    </nav>
+
+    <div class="doc-meta">
+      <button id="doc-title-name" class="doc-title-btn" title="Edit title page">Untitled</button>
+      <div class="rev-badge" id="rev-badge" title="Active revision color"></div>
+      <div class="save-state" id="save-state"><span class="dot"></span><span class="lbl">saved</span></div>
+    </div>
+
+    <div class="tb-actions">
+      <button class="iconbtn" id="btn-cmd" title="Command palette (⌘K)"><svg class="ic"><use href="#i-cmd"/></svg></button>
+      <button class="iconbtn" id="btn-find" title="Find / Replace (⌘F)"><svg class="ic"><use href="#i-find"/></svg></button>
+      <button class="iconbtn" id="btn-typewriter" title="Typewriter mode"><svg class="ic"><use href="#i-typewriter"/></svg></button>
+      <button class="iconbtn" id="btn-dictate" title="Voice dictation"><svg class="ic"><use href="#i-mic"/></svg></button>
+      <button class="iconbtn" id="btn-sprint" title="Sprint mode (⌘⇧F)"><svg class="ic"><use href="#i-sprint"/></svg></button>
+      <button class="iconbtn" id="btn-aloud" title="Table read (⌘⇧R)"><svg class="ic"><use href="#i-aloud"/></svg></button>
+      <button class="iconbtn" id="btn-ai" title="AI assist (BYOK)"><svg class="ic"><use href="#i-sparkles"/></svg></button>
+      <button class="iconbtn" id="btn-sound" title="Ambient sounds"><svg class="ic"><use href="#i-sound"/></svg></button>
+      <button class="iconbtn" id="btn-bin" title="Scrap bin (⌘⇧B)"><svg class="ic"><use href="#i-bin"/></svg><span class="badge" id="bin-count"></span></button>
+      <button class="iconbtn" id="btn-snapshot" title="Snapshots (⌘⇧S)"><svg class="ic"><use href="#i-snapshot"/></svg></button>
+      <button class="iconbtn" id="btn-share" title="Generate share link"><svg class="ic"><use href="#i-share"/></svg></button>
+      <span class="sep"></span>
+      <button class="iconbtn" id="btn-open" title="Open .fountain / .fdx (⌘O)"><svg class="ic"><use href="#i-folder"/></svg></button>
+      <button class="iconbtn" id="btn-save" title="Save .fountain (⌘S)"><svg class="ic"><use href="#i-save"/></svg></button>
+      <button class="iconbtn" id="btn-print" title="Print / Export PDF (⌘P)"><svg class="ic"><use href="#i-print"/></svg></button>
+      <button class="iconbtn" id="btn-export-fdx" title="Export Final Draft .fdx"><svg class="ic"><use href="#i-fdx"/></svg></button>
+      <span class="sep"></span>
+      <button class="iconbtn" id="btn-inspector" title="Inspector"><svg class="ic"><use href="#i-inspector"/></svg></button>
+      <button class="iconbtn" id="btn-theme" title="Theme"><svg class="ic"><use href="#i-theme"/></svg></button>
+      <button class="iconbtn" id="btn-help" title="Help (?)"><svg class="ic"><use href="#i-help"/></svg></button>
+    </div>
+  </header>
+
+  <div class="app" id="app">
+
+    <aside class="sidebar" id="sidebar">
+      <div class="side-tabs">
+        <button class="side-tab active" data-tab="scenes"><svg class="ic"><use href="#i-script"/></svg>Scenes</button>
+        <button class="side-tab" data-tab="characters"><svg class="ic"><use href="#i-eye"/></svg>Cast</button>
+        <button class="side-tab" data-tab="comments"><svg class="ic"><use href="#i-comment"/></svg>Notes</button>
+        <button class="side-tab" data-tab="threads"><svg class="ic"><use href="#i-tag"/></svg>Threads</button>
+      </div>
+      <div class="side-body" id="side-body"></div>
+    </aside>
+
+    <main class="main" id="main">
+
+      <!-- Script view -->
+      <div class="view view-script active" id="view-script">
+        <div class="stage" id="stage">
+          <div class="paper" id="paper">
+            <div id="editor" contenteditable="true" spellcheck="true"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Beat Board -->
+      <div class="view view-beats" id="view-beats">
+        <div class="beats-toolbar">
+          <button class="btn ghost" id="beats-add-section"><svg class="ic"><use href="#i-plus"/></svg> Add Act / Section</button>
+          <button class="btn ghost" id="beats-template-fidelity" title="Template fidelity">Compare with template</button>
+          <span class="hint">Drag cards between sections to restructure. Double-click a card to jump to script.</span>
+          <div class="grow"></div>
+          <span class="legend">
+            <span class="legend-dot" style="background:#cf3a37"></span>Setup
+            <span class="legend-dot" style="background:#dfa116"></span>Conflict
+            <span class="legend-dot" style="background:#4f8a3a"></span>Resolution
+            <span class="legend-dot" style="background:#3878b8"></span>Subplot
+            <span class="legend-dot" style="background:#7a55b8"></span>Theme
+          </span>
+        </div>
+        <div class="beats-board" id="beats-board"></div>
+      </div>
+
+      <!-- Cards view -->
+      <div class="view view-cards" id="view-cards">
+        <div class="cards" id="cards"></div>
+      </div>
+
+      <!-- Bible view -->
+      <div class="view view-bible" id="view-bible"></div>
+
+      <!-- Timeline view -->
+      <div class="view view-timeline" id="view-timeline">
+        <div class="timeline-toolbar">
+          <span class="hint">Story timeline — scenes arranged by their in-story date (set in the Inspector). Drag to reorder doesn't affect the script.</span>
+        </div>
+        <div class="timeline-body" id="timeline-body"></div>
+      </div>
+
+      <!-- Stats view -->
+      <div class="view view-stats" id="view-stats">
+        <div class="stats-body" id="stats-body"></div>
+      </div>
+
+      <!-- Floating UI -->
+      <div class="autocomplete" id="autocomplete" aria-hidden="true"></div>
+
+      <div class="findbar" id="findbar">
+        <div class="fb-row">
+          <input type="text" id="find-input" placeholder="Find…" />
+          <button class="iconbtn small" id="find-prev"><svg class="ic"><use href="#i-arrow-up"/></svg></button>
+          <button class="iconbtn small" id="find-next"><svg class="ic"><use href="#i-arrow-down"/></svg></button>
+        </div>
+        <div class="fb-row">
+          <input type="text" id="replace-input" placeholder="Replace with…" />
+          <button class="btn small" id="find-replace">Replace</button>
+          <button class="btn small primary" id="find-replace-all">All</button>
+        </div>
+        <div class="fb-row meta">
+          <label><input type="checkbox" id="find-case" /> Case</label>
+          <label><input type="checkbox" id="find-word" /> Word</label>
+          <select id="find-scope">
+            <option value="all">All</option>
+            <option value="action">Action</option>
+            <option value="dialogue">Dialogue</option>
+            <option value="character">Character</option>
+            <option value="scene">Scene headings</option>
+            <option value="note">Notes</option>
+          </select>
+          <span class="info" id="find-info">0 / 0</span>
+          <button class="iconbtn small" id="find-close"><svg class="ic"><use href="#i-x"/></svg></button>
+        </div>
+      </div>
+
+      <!-- AI menu (context) -->
+      <div class="ai-menu" id="ai-menu" aria-hidden="true"></div>
+
+      <!-- Comment popover -->
+      <div class="comment-pop" id="comment-pop" aria-hidden="true">
+        <div class="cp-thread" id="cp-thread"></div>
+        <textarea id="cp-input" placeholder="Add a comment…"></textarea>
+        <div class="cp-actions">
+          <button class="btn small ghost" id="cp-close">Close</button>
+          <button class="btn small primary" id="cp-post">Post</button>
+        </div>
+      </div>
+
+      <div class="status">
+        <span class="pill" id="stat-type">Action</span>
+        <span class="stat-item"><svg class="ic"><use href="#i-doc"/></svg><span id="stat-pages">0 pages</span></span>
+        <span class="stat-item"><svg class="ic"><use href="#i-clock"/></svg><span id="stat-runtime">~0 min</span></span>
+        <span class="stat-item"><svg class="ic"><use href="#i-script"/></svg><span id="stat-scenes">0 scenes</span></span>
+        <span class="stat-item"><span id="stat-words">0 words</span></span>
+        <span class="stat-item"><span id="stat-today">0 today</span></span>
+        <span class="stat-item" id="stat-continuity" style="cursor:pointer">·</span>
+        <span class="spacer"></span>
+        <span class="hint" id="stat-hint">⌘K command palette · Tab change element · Enter next line</span>
+      </div>
+    </main>
+
+    <aside class="inspector" id="inspector">
+      <div class="ins-head">Inspector</div>
+      <div class="ins-body" id="inspector-body"></div>
+    </aside>
+  </div>
+
+  <!-- Drawers -->
+  <aside class="drawer" id="drawer-bin" aria-hidden="true">
+    <div class="drawer-head">
+      <div><svg class="ic"><use href="#i-bin"/></svg> Scrap Bin</div>
+      <button class="iconbtn" data-drawer-close="drawer-bin"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="drawer-help">Drag selected text in the script onto the bin button to stash it. Click a scrap to restore it at the cursor.</div>
+    <div class="drawer-body" id="bin-body"></div>
+  </aside>
+
+  <aside class="drawer" id="drawer-snap" aria-hidden="true">
+    <div class="drawer-head">
+      <div><svg class="ic"><use href="#i-snapshot"/></svg> Snapshots</div>
+      <button class="iconbtn" data-drawer-close="drawer-snap"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="drawer-actions">
+      <input type="text" id="snap-name" placeholder="Snapshot name (e.g. First Draft)" />
+      <button class="btn primary" id="snap-take">Save</button>
+    </div>
+    <div class="drawer-help">Compare any two snapshots. Restore in one click. 30 keep-last.</div>
+    <div class="drawer-body" id="snap-body"></div>
+  </aside>
+
+  <aside class="drawer" id="drawer-changes" aria-hidden="true">
+    <div class="drawer-head">
+      <div><svg class="ic"><use href="#i-rename"/></svg> Track Changes</div>
+      <button class="iconbtn" data-drawer-close="drawer-changes"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="drawer-help">Chronological log of every edit. Limit: last 1,000 changes.</div>
+    <div class="drawer-actions">
+      <button class="btn" id="changes-export">Export CSV</button>
+      <button class="btn ghost" id="changes-clear">Clear log</button>
+    </div>
+    <div class="drawer-body" id="changes-body"></div>
+  </aside>
+
+  <aside class="drawer" id="drawer-pdfs" aria-hidden="true">
+    <div class="drawer-head">
+      <div><svg class="ic"><use href="#i-print"/></svg> PDF history</div>
+      <button class="iconbtn" data-drawer-close="drawer-pdfs"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="drawer-help">Every PDF you've generated for this project, with watermark + revision color stamp.</div>
+    <div class="drawer-body" id="pdfs-body"></div>
+  </aside>
+
+  <aside class="drawer" id="drawer-sound" aria-hidden="true">
+    <div class="drawer-head">
+      <div><svg class="ic"><use href="#i-sound"/></svg> Ambient sound</div>
+      <button class="iconbtn" data-drawer-close="drawer-sound"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="drawer-body">
+      <div class="amb-grid">
+        <button class="amb" data-amb="rain"><span class="amb-emoji">☔</span><span>Rain</span></button>
+        <button class="amb" data-amb="fireplace"><span class="amb-emoji">🔥</span><span>Fireplace</span></button>
+        <button class="amb" data-amb="cafe"><span class="amb-emoji">☕</span><span>Café murmur</span></button>
+        <button class="amb" data-amb="vinyl"><span class="amb-emoji">⏺</span><span>Vinyl crackle</span></button>
+        <button class="amb" data-amb="off"><span class="amb-emoji">∅</span><span>Off</span></button>
+      </div>
+      <div class="amb-vol">
+        <label>Volume</label>
+        <input type="range" id="amb-vol" min="0" max="0.6" step="0.01" value="0.18" />
+      </div>
+      <div class="amb-soundtrack">
+        <h4>Scene soundtrack</h4>
+        <input id="amb-st-url" placeholder="URL (mp3 / ogg) — attached to current scene" />
+        <div class="amb-st-actions">
+          <button class="btn small" id="amb-st-attach">Attach</button>
+          <button class="btn small" id="amb-st-play">Play</button>
+          <button class="btn small ghost" id="amb-st-clear">Clear</button>
+        </div>
+        <p class="hint">Plays during Read-Aloud / Sprint mode if the scene under cursor has a soundtrack URL.</p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Sprint mode overlay -->
+  <div class="sprint-overlay" id="sprint-overlay" aria-hidden="true">
+    <div class="sprint-head">
+      <div class="sprint-stat"><span class="lbl">Target</span><b id="sprint-target">500 w</b></div>
+      <div class="sprint-stat"><span class="lbl">Written</span><b id="sprint-written">0</b></div>
+      <div class="sprint-progress"><div id="sprint-bar"></div></div>
+      <div class="sprint-stat"><span class="lbl">Time</span><b id="sprint-clock">15:00</b></div>
+      <div class="sprint-stat"><span class="lbl">WPM</span><b id="sprint-wpm">0</b></div>
+      <button class="btn" id="sprint-end">End sprint</button>
+    </div>
+    <div class="sprint-body">
+      <div class="paper sprint-paper"><div id="sprint-editor" contenteditable="true" spellcheck="true"></div></div>
+    </div>
+  </div>
+
+  <!-- Read-aloud overlay -->
+  <div class="aloud-overlay" id="aloud-overlay" aria-hidden="true">
+    <div class="aloud-head">
+      <div><svg class="ic"><use href="#i-aloud"/></svg> Table Read</div>
+      <div class="grow"></div>
+      <button class="btn" id="aloud-prev">‹ Prev</button>
+      <button class="btn primary" id="aloud-play">Play</button>
+      <button class="btn" id="aloud-next">Next ›</button>
+      <button class="iconbtn" id="aloud-close"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="aloud-body" id="aloud-body"></div>
+    <div class="aloud-foot">
+      <label>Speed <input type="range" id="aloud-rate" min="0.5" max="2" step="0.1" value="1" /></label>
+      <label>Voice <select id="aloud-scheme">
+        <option value="auto">Distinct per character</option>
+        <option value="single">Single voice</option>
+      </select></label>
+      <span class="hint">Uses your browser's voices. Soundtrack plays if attached to scene.</span>
+    </div>
+  </div>
+
+  <!-- Command palette -->
+  <div class="cmdk" id="cmdk" aria-hidden="true">
+    <div class="cmdk-box">
+      <input type="text" id="cmdk-input" placeholder="Jump to scene, character, command…" />
+      <div class="cmdk-list" id="cmdk-list"></div>
+      <div class="cmdk-foot">
+        <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+        <span><kbd>⏎</kbd> select</span>
+        <span><kbd>esc</kbd> close</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================
+     MODALS (shared across dashboard and editor)
+     =================================================================== -->
+
+<!-- New project -->
+<div class="modal-backdrop" id="modal-newproj">
+  <div class="modal">
+    <h2>New screenplay</h2>
+    <div class="form-row"><label>Title</label><input type="text" id="np-name" placeholder="The Last Train" /></div>
+    <div class="form-row"><label>Type</label>
+      <select id="np-type">
+        <option value="feature">Feature film</option>
+        <option value="tv-hour">1-hour TV (drama)</option>
+        <option value="tv-half">Half-hour TV (comedy)</option>
+        <option value="short">Short film</option>
+        <option value="stage">Stage play</option>
+        <option value="comic">Comic / graphic novel</option>
+      </select>
+    </div>
+    <div class="form-row"><label>Logline</label><input type="text" id="np-logline" placeholder="A one-sentence pitch" /></div>
+    <div class="form-row"><label>Template</label><select id="np-template"></select></div>
+    <div class="form-row"><label>Series</label><select id="np-series"></select></div>
+    <div class="form-row"><label>Cover</label>
+      <div class="np-colors">
+        <span class="np-color selected" data-color="#b3261e" style="background:#b3261e"></span>
+        <span class="np-color" data-color="#dfa116" style="background:#dfa116"></span>
+        <span class="np-color" data-color="#4f8a3a" style="background:#4f8a3a"></span>
+        <span class="np-color" data-color="#3878b8" style="background:#3878b8"></span>
+        <span class="np-color" data-color="#7a55b8" style="background:#7a55b8"></span>
+        <span class="np-color" data-color="#36989d" style="background:#36989d"></span>
+        <span class="np-color" data-color="#c2486d" style="background:#c2486d"></span>
+        <span class="np-color" data-color="#3a3a3a" style="background:#3a3a3a"></span>
+      </div>
+    </div>
+    <p class="help">Pick a template to seed your beat board with structural targets (Save the Cat, Hero's Journey, etc.). The Stats view will track how well your real script hits those targets.</p>
+    <div class="actions">
+      <button class="btn" id="np-cancel">Cancel</button>
+      <button class="btn primary" id="np-go">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- New series -->
+<div class="modal-backdrop" id="modal-newseries">
+  <div class="modal">
+    <h2>New series</h2>
+    <div class="form-row"><label>Name</label><input type="text" id="ns-name" placeholder="Stranger Hour" /></div>
+    <div class="form-row"><label>Type</label>
+      <select id="ns-type">
+        <option value="tv-hour">1-hour drama</option>
+        <option value="tv-half">Half-hour comedy</option>
+      </select>
+    </div>
+    <p class="help">A series groups episodes that share a Bible (characters, locations, world rules).</p>
+    <div class="actions">
+      <button class="btn" id="ns-cancel">Cancel</button>
+      <button class="btn primary" id="ns-go">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings -->
+<div class="modal-backdrop" id="modal-settings">
+  <div class="modal">
+    <h2>Settings</h2>
+    <div class="form-row"><label>Your name</label><input type="text" id="st-author" placeholder="Will be used on title pages" /></div>
+    <h3 style="margin-top:18px;margin-bottom:8px">AI assistant (bring your own key)</h3>
+    <div class="form-row"><label>Provider</label>
+      <select id="st-ai-provider">
+        <option value="anthropic">Anthropic (Claude)</option>
+        <option value="openai">OpenAI</option>
+      </select>
+    </div>
+    <div class="form-row"><label>Model</label><input type="text" id="st-ai-model" placeholder="claude-sonnet-4-6 or gpt-4o-mini" /></div>
+    <div class="form-row"><label>API key</label><input type="password" id="st-ai-key" placeholder="sk-…" /></div>
+    <p class="help">Your key stays in this browser. Requests go directly from this browser to the provider. Leave blank to disable AI assist.</p>
+    <div class="actions">
+      <button class="btn" id="st-cancel">Cancel</button>
+      <button class="btn primary" id="st-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Title page -->
+<div class="modal-backdrop" id="modal-titlepage">
+  <div class="modal">
+    <h2>Title page</h2>
+    <div class="form-row"><label>Title</label><input type="text" id="tp-title" /></div>
+    <div class="form-row"><label>Credit</label><input type="text" id="tp-credit" placeholder="Written by" /></div>
+    <div class="form-row"><label>Author</label><input type="text" id="tp-author" /></div>
+    <div class="form-row"><label>Source</label><input type="text" id="tp-source" placeholder="Based on…" /></div>
+    <div class="form-row"><label>Draft date</label><input type="text" id="tp-date" /></div>
+    <div class="form-row"><label>Contact</label><input type="text" id="tp-contact" /></div>
+    <div class="form-row"><label>Episode</label><input type="text" id="tp-episode" /></div>
+    <div class="form-row"><label>Logline</label><input type="text" id="tp-logline" /></div>
+    <div class="form-row"><label>Theme</label><input type="text" id="tp-theme" /></div>
+    <div class="form-row"><label>Premise</label><input type="text" id="tp-premise" /></div>
+    <div class="actions">
+      <button class="btn" id="tp-cancel">Cancel</button>
+      <button class="btn primary" id="tp-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sprint setup -->
+<div class="modal-backdrop" id="modal-sprint">
+  <div class="modal">
+    <h2>Sprint setup</h2>
+    <div class="form-row"><label>Word goal</label><input type="number" id="sprint-goal" value="500" /></div>
+    <div class="form-row"><label>Duration (min)</label><input type="number" id="sprint-min" value="15" /></div>
+    <p class="help">In sprint mode the UI hides and you write into a clean canvas. When you finish, your sprint text appends to your screenplay.</p>
+    <div class="actions">
+      <button class="btn" id="sprint-cancel">Cancel</button>
+      <button class="btn primary" id="sprint-go">Start</button>
+    </div>
+  </div>
+</div>
+
+<!-- Diff -->
+<div class="modal-backdrop" id="modal-diff">
+  <div class="modal big">
+    <h2>Compare snapshot <span id="diff-name" class="muted"></span></h2>
+    <div class="form-row" style="margin-bottom:10px">
+      <label>vs</label>
+      <select id="diff-pick">
+        <option value="current">Current document</option>
+      </select>
+    </div>
+    <div class="diff-grid">
+      <div class="diff-pane"><h3 id="diff-a-label">Snapshot</h3><pre id="diff-old"></pre></div>
+      <div class="diff-pane"><h3 id="diff-b-label">Current</h3><pre id="diff-new"></pre></div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="diff-close">Close</button>
+      <button class="btn primary" id="diff-restore">Restore left side</button>
+    </div>
+  </div>
+</div>
+
+<!-- Logline workshop -->
+<div class="modal-backdrop" id="modal-logline">
+  <div class="modal">
+    <h2>Logline workshop</h2>
+    <p class="help">A good logline is one sentence with: <b>WHO</b> (protagonist + something memorable about them), <b>WHEN/WHERE</b> (setting + inciting incident), <b>MUST</b> (the goal), <b>OR ELSE</b> (the stakes).</p>
+    <div class="form-row"><label>Logline</label><input type="text" id="ll-input" /></div>
+    <div id="ll-score" class="ll-score"></div>
+    <div class="actions">
+      <button class="btn" id="ll-cancel">Close</button>
+      <button class="btn primary" id="ll-save">Save to project</button>
+    </div>
+  </div>
+</div>
+
+<!-- Share -->
+<div class="modal-backdrop" id="modal-share">
+  <div class="modal">
+    <h2>Share</h2>
+    <p class="help">Generates a self-contained, read-only HTML file you can email or upload anywhere. No account needed for the reader. Annotation mode lets them leave inline comments that they can email back.</p>
+    <div class="form-row"><label>Mode</label>
+      <select id="share-mode">
+        <option value="read">Read-only</option>
+        <option value="annotate">Read &amp; annotate</option>
+      </select>
+    </div>
+    <div class="form-row"><label>Reader name</label><input type="text" id="share-name" placeholder="Optional — for watermark" /></div>
+    <div class="form-row"><label>Watermark</label><input type="text" id="share-watermark" value="CONFIDENTIAL DRAFT" /></div>
+    <div class="actions">
+      <button class="btn" id="share-cancel">Cancel</button>
+      <button class="btn primary" id="share-go">Generate file</button>
+    </div>
+  </div>
+</div>
+
+<!-- Coverage -->
+<div class="modal-backdrop" id="modal-coverage">
+  <div class="modal big">
+    <h2>Coverage</h2>
+    <div id="coverage-body"></div>
+    <div class="actions">
+      <button class="btn" id="cov-copy">Copy</button>
+      <button class="btn" id="cov-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Beat-template fidelity -->
+<div class="modal-backdrop" id="modal-fidelity">
+  <div class="modal big">
+    <h2>Template fidelity</h2>
+    <p class="help">Each row is a beat your template expects. Mark scenes with a beat tag in the Inspector. Green = on target; red = far off; gray = not yet marked.</p>
+    <div id="fidelity-body"></div>
+    <div class="actions"><button class="btn" id="fid-close">Close</button></div>
+  </div>
+</div>
+
+<!-- Sides export -->
+<div class="modal-backdrop" id="modal-sides">
+  <div class="modal">
+    <h2>Sides export</h2>
+    <p class="help">Pick the scenes a performer needs. Bestscreen will export just those, with character names and lines isolated.</p>
+    <div id="sides-list" class="sides-list"></div>
+    <div class="form-row"><label>For</label><input type="text" id="sides-actor" placeholder="Actor name (optional)" /></div>
+    <div class="actions">
+      <button class="btn" id="sides-cancel">Cancel</button>
+      <button class="btn primary" id="sides-go">Generate sides</button>
+    </div>
+  </div>
+</div>
+
+<!-- Continuity -->
+<div class="modal-backdrop" id="modal-continuity">
+  <div class="modal big">
+    <h2>Continuity warnings</h2>
+    <div id="continuity-body"></div>
+    <div class="actions"><button class="btn" id="cont-close">Close</button></div>
+  </div>
+</div>
+
+<!-- Help -->
+<div class="modal-backdrop" id="modal-help">
+  <div class="modal big">
+    <h2>Keyboard reference</h2>
+    <div class="kb-cols">
+      <div>
+        <h3>Writing</h3>
+        <table>
+          <tr><td><kbd>Tab</kbd></td><td>Cycle element type</td></tr>
+          <tr><td><kbd>⇧</kbd><kbd>Tab</kbd></td><td>Cycle backward</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Next line (smart)</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>1</kbd>–<kbd>6</kbd></td><td>Force element</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>K</kbd></td><td>Command palette</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>G</kbd></td><td>Goto scene</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>/</kbd></td><td>Toggle note</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>;</kbd></td><td>Add comment on current line</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>D</kbd></td><td>Dual dialogue</td></tr>
+        </table>
+      </div>
+      <div>
+        <h3>Rewriting</h3>
+        <table>
+          <tr><td><kbd>⌘</kbd><kbd>F</kbd></td><td>Find / Replace</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>S</kbd></td><td>Snapshots</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>B</kbd></td><td>Scrap bin</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd></td><td>Sprint mode</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>R</kbd></td><td>Table read</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>R</kbd></td><td>Mark revision on current line</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>'</kbd></td><td>Typewriter mode toggle</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>L</kbd></td><td>Logline workshop</td></tr>
+        </table>
+      </div>
+      <div>
+        <h3>File &amp; view</h3>
+        <table>
+          <tr><td><kbd>⌘</kbd><kbd>S</kbd></td><td>Save (.fountain)</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>O</kbd></td><td>Open (.fountain / .fdx)</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>P</kbd></td><td>Print / PDF</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>P</kbd></td><td>Watermarked PDF</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>\</kbd></td><td>Toggle sidebar</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>I</kbd></td><td>Toggle inspector</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>H</kbd></td><td>Back to dashboard</td></tr>
+          <tr><td><kbd>?</kbd></td><td>This help</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="actions"><button class="btn primary" id="help-close">Close</button></div>
+  </div>
+</div>
+
+<!-- Rename modal — used by character rename -->
+<div class="modal-backdrop" id="modal-rename">
+  <div class="modal">
+    <h2>Rename character</h2>
+    <div class="form-row"><label>From</label><input type="text" id="rename-from" placeholder="JOHN" /></div>
+    <div class="form-row"><label>To</label><input type="text" id="rename-to" placeholder="JONATHAN" /></div>
+    <p class="help">Renames every cue, parenthetical reference, and mention in dialogue/action. Preserves the original case style.</p>
+    <div class="actions">
+      <button class="btn" id="rename-cancel">Cancel</button>
+      <button class="btn primary" id="rename-go">Rename</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="file-input" style="display:none" accept=".fountain,.txt,.fdx,.spmd" />
+
+<!-- Toasts -->
+<div class="toasts" id="toasts"></div>
+
+<!-- Scripts (load order matters: storage → templates → modules → app) -->
+<script src="storage.js"></script>
+<script src="templates.js"></script>
+<script src="audio.js"></script>
+<script src="ai.js"></script>
+<script src="dashboard.js"></script>
+<script src="bible.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
