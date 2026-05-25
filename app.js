@@ -178,6 +178,9 @@ function loadProject(id, opts={}) {
 
   loadFountain(doc || sampleStarter(project?.type));
 
+  // Bind Bible to this project so character hover popovers work before Bible view is opened
+  if (typeof Bible !== "undefined" && Bible.bind) Bible.bind(id);
+
   // Project name from dashboard wins over starter's "Title: Untitled"
   if (project?.name && (appState.titleMeta.title === "Untitled" || !appState.titleMeta.title)) {
     appState.titleMeta.title = project.name;
@@ -498,9 +501,8 @@ function onEditorKeydown(e) {
     return;
   }
   if (isModKey(e) && (e.key === "d" || e.key === "D")) {
-    // Dual dialogue toggle — simplified
     e.preventDefault();
-    toast("Dual dialogue: place cursor between two character blocks (feature stub)");
+    toggleDualDialogueAt(line);
     return;
   }
 }
@@ -528,6 +530,181 @@ function onEditorInput() {
 }
 
 function isModKey(e) { return e.metaKey || e.ctrlKey; }
+
+/* =====================================================================
+ * Character-name hover popover (bible linking)
+ *
+ * Mouse over any character cue or an ALL-CAPS name mention in action/dialogue
+ * and a small popover floats nearby showing the bible entry (role, want, need,
+ * flaw). Click the popover to jump to the Bible view's character card.
+ * =================================================================== */
+let charHoverPopEl = null;
+let charHoverTimer = null;
+
+function ensureCharHoverPop() {
+  if (charHoverPopEl) return charHoverPopEl;
+  charHoverPopEl = document.createElement("div");
+  charHoverPopEl.className = "char-hover-pop";
+  charHoverPopEl.style.cssText = "position:absolute;display:none;background:var(--paper);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow-2);padding:10px 12px;min-width:220px;max-width:300px;z-index:90;font-size:12.5px;line-height:1.45;color:var(--ink);cursor:pointer";
+  $("#main").appendChild(charHoverPopEl);
+  charHoverPopEl.addEventListener("mouseleave", hideCharHover);
+  charHoverPopEl.addEventListener("click", () => {
+    const name = charHoverPopEl.dataset.name;
+    setView("bible");
+    setTimeout(() => {
+      // Scroll the right character card into view
+      const cards = $$(".bib-char");
+      const target = cards.find(c => c.querySelector(".bib-name")?.value?.toUpperCase() === name);
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      target?.classList.add("nav-target");
+      setTimeout(() => target?.classList.remove("nav-target"), 1200);
+    }, 200);
+    hideCharHover();
+  });
+  return charHoverPopEl;
+}
+
+function showCharHover(name, x, y) {
+  const c = Bible.getCharacterByName(name);
+  const pop = ensureCharHoverPop();
+  if (!c) {
+    pop.innerHTML = `<div style="font-family:var(--font-screen);font-weight:700;font-size:12px">${escapeHtml(name)}</div>
+      <div style="color:var(--muted);font-size:11px;margin-top:4px">Not in Bible yet — opens the Bible view to add.</div>`;
+    pop.dataset.name = name;
+  } else {
+    const parts = [];
+    if (c.role)   parts.push(`<div style="color:var(--muted);font-size:11px">${escapeHtml(c.role)}</div>`);
+    if (c.want)   parts.push(`<div><b style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.04em">Want</b> ${escapeHtml(c.want)}</div>`);
+    if (c.need)   parts.push(`<div><b style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.04em">Need</b> ${escapeHtml(c.need)}</div>`);
+    if (c.flaw)   parts.push(`<div><b style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.04em">Flaw</b> ${escapeHtml(c.flaw)}</div>`);
+    if (c.traits) parts.push(`<div><b style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.04em">Traits</b> ${escapeHtml(c.traits)}</div>`);
+    if (parts.length === 0) parts.push(`<div style="color:var(--muted);font-size:11px">No details yet — click to open.</div>`);
+    pop.innerHTML =
+      `<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+        <div style="width:24px;height:24px;border-radius:5px;background:${c.avatar};color:#fff;display:grid;place-items:center;font-family:var(--font-screen);font-weight:700;font-size:10px;flex:0 0 auto">${escapeHtml((c.name||"?").slice(0,2))}</div>
+        <div style="font-family:var(--font-screen);font-weight:700;font-size:12px">${escapeHtml(c.name)}</div>
+      </div>` + parts.join("");
+    pop.dataset.name = c.name;
+  }
+  // Position relative to #main
+  const mainRect = $("#main").getBoundingClientRect();
+  const popMaxLeft = mainRect.width - 320;
+  pop.style.left = Math.min(popMaxLeft, x - mainRect.left + 12) + "px";
+  pop.style.top  = (y - mainRect.top + $("#main").scrollTop + 18) + "px";
+  pop.style.display = "block";
+}
+
+function hideCharHover() {
+  if (charHoverPopEl) charHoverPopEl.style.display = "none";
+}
+
+function attachCharHover() {
+  let lastName = null;
+  editor.addEventListener("mousemove", (e) => {
+    // Find the line under the cursor
+    const target = e.target.closest("#editor > div");
+    if (!target) return clearTimeout(charHoverTimer);
+    let name = null;
+    if (target.dataset.type === "character") {
+      name = target.textContent.replace(/\s*\(.*\)\s*$/, "").trim().toUpperCase();
+    } else if (["action","dialogue"].includes(target.dataset.type)) {
+      // Find the ALL-CAPS word under the cursor by inspecting selection caret
+      const range = document.caretRangeFromPoint?.(e.clientX, e.clientY);
+      if (range && range.startContainer.nodeType === 3) {
+        const txt = range.startContainer.textContent;
+        // Walk left/right from caret to find a word
+        let l = range.startOffset, r = range.startOffset;
+        while (l > 0 && /[A-Z'\-]/.test(txt[l-1])) l--;
+        while (r < txt.length && /[A-Z'\-]/.test(txt[r])) r++;
+        const word = txt.substring(l, r);
+        if (word && word.length >= 2 && word === word.toUpperCase() && /^[A-Z]/.test(word)) {
+          // Only show if this name is actually in cast / bible
+          const cast = analyzeCharacters().map(c => c.name);
+          if (cast.includes(word)) name = word;
+        }
+      }
+    }
+    if (name && name === lastName) return;
+    lastName = name;
+    clearTimeout(charHoverTimer);
+    if (name) {
+      charHoverTimer = setTimeout(() => {
+        const rect = target.getBoundingClientRect();
+        showCharHover(name, e.clientX, rect.top);
+      }, 250);
+    } else {
+      hideCharHover();
+    }
+  });
+  editor.addEventListener("mouseleave", () => { clearTimeout(charHoverTimer); hideCharHover(); });
+}
+
+/* =====================================================================
+ * Dual dialogue (Fountain ^)
+ * =================================================================== */
+function getDialogueBlockAround(line) {
+  if (!line) return null;
+  const lines = $$("#editor > div");
+  let idx = lines.indexOf(line);
+  if (idx < 0) return null;
+  while (idx >= 0 && lines[idx].dataset.type !== "character") {
+    const t = lines[idx].dataset.type;
+    if (t === "scene" || t === "action" || t === "transition") return null;
+    idx--;
+  }
+  if (idx < 0) return null;
+  const block = [lines[idx]];
+  for (let j = idx + 1; j < lines.length; j++) {
+    const t = lines[j].dataset.type;
+    if (t === "dialogue" || t === "parenthetical") block.push(lines[j]);
+    else break;
+  }
+  return { startIdx: idx, lines: block };
+}
+
+function toggleDualDialogueAt(line) {
+  if (!line) return toast("Place cursor in a dialogue block first");
+
+  // If already inside a .dual-pair, undo it
+  const wrap = line.closest("div.dual-pair");
+  if (wrap) {
+    Array.from(wrap.children).forEach(half => {
+      Array.from(half.children).forEach(child => editor.insertBefore(child, wrap));
+    });
+    wrap.remove();
+    reclassifyAll(); setDirty();
+    return toast("Dual dialogue removed");
+  }
+
+  const right = getDialogueBlockAround(line);
+  if (!right) return toast("Cursor isn't in a dialogue block");
+
+  // Walk back from this block's start to find the previous adjacent character cue
+  const lines = $$("#editor > div");
+  let i = right.startIdx - 1;
+  while (i >= 0) {
+    const t = lines[i].dataset.type;
+    if (t === "character") break;
+    if (t === "scene" || t === "action" || t === "transition") return toast("Need two adjacent character blocks");
+    i--;
+  }
+  if (i < 0) return toast("No previous character cue found");
+  const left = getDialogueBlockAround(lines[i]);
+  if (!left || left.startIdx >= right.startIdx) return toast("Blocks must be adjacent");
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "dual-pair";
+  const leftCol = document.createElement("div");
+  const rightCol = document.createElement("div");
+  wrapper.appendChild(leftCol);
+  wrapper.appendChild(rightCol);
+  editor.insertBefore(wrapper, left.lines[0]);
+  left.lines.forEach(n => leftCol.appendChild(n));
+  right.lines.forEach(n => rightCol.appendChild(n));
+
+  reclassifyAll(); setDirty();
+  toast("Dual dialogue applied (⌘D again to undo)");
+}
 
 /* =====================================================================
  * Smart typography
@@ -625,9 +802,14 @@ function updateStatus() {
   const pages = Math.max(0, Math.ceil(linesToPages()));
   const scenes = $$("#editor > div[data-type='scene']").length;
   $("#stat-pages").textContent = `${pages} ${pages===1?"page":"pages"}`;
+  $("#stat-pages").parentElement.title = `Estimated using industry standard ≈ 54 lines per page (12pt Courier, single-spaced). Counts each element type with its real wrap width and vertical spacing. ${words} words ÷ ~220 words/page ≈ ${Math.max(1, Math.round(words/220))}.`;
   $("#stat-runtime").textContent = `~${pages} min`;
+  $("#stat-runtime").parentElement.title = `Hollywood rule of thumb: 1 page ≈ 1 minute of screen time. Action-heavy scripts run slightly faster, dialogue-heavy scripts slower.`;
   $("#stat-words").textContent = `${words.toLocaleString()} words`;
+  $("#stat-words").parentElement.title = `Total spoken + action words across the screenplay (excludes notes, section headings, synopses).`;
   $("#stat-scenes").textContent = `${scenes} ${scenes===1?"scene":"scenes"}`;
+  $("#stat-scenes").parentElement.title = `Number of INT./EXT. scene headings.`;
+  $("#stat-today").parentElement.title = `Words you've added today across this project. Resets at midnight local time. Across all projects: see the streak heatmap on the dashboard.`;
   const todayDelta = Math.max(0, words - appState.todayBaseline);
   $("#stat-today").textContent = `${todayDelta.toLocaleString()} today`;
   const warnings = quickContinuityCount();
@@ -1469,6 +1651,12 @@ function renderStats() {
     </div>
 
     <div class="stat-chart">
+      <h3>Plot threads — timeline</h3>
+      <div class="sc-sub">Each row is one plot thread; each column is one scene in script order. A filled cell means that thread is on-screen in that scene. Use the Inspector to tag scenes with threads.</div>
+      ${svgPlotThreadRibbon(scenes)}
+    </div>
+
+    <div class="stat-chart">
       <h3>Pace heatmap — scene length</h3>
       <div class="sc-sub">Long bars = long scenes. Red = above average, blue = below. Click a bar to jump.</div>
       ${svgPaceBars(scenes)}
@@ -1504,6 +1692,63 @@ function renderStats() {
       </div>
     ` : ""}
   `;
+}
+
+function svgPlotThreadRibbon(scenes) {
+  if (scenes.length === 0) return `<div class="muted">No scenes yet.</div>`;
+  const tagged = scenes.some(s => s.threadIds && s.threadIds.length);
+  if (!tagged) return `<div class="muted" style="padding:16px 0">No threads tagged yet. Click a scene → Inspector → Plot threads to tag.</div>`;
+
+  const w = 900, rowH = 28, pad = 100, gap = 6;
+  const h = PLOT_THREADS.length * rowH + 30;
+  const cellW = Math.max(4, (w - pad - 16) / scenes.length);
+
+  let svg = `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMinYMin meet" style="height:${h}px">`;
+  // Row backgrounds + labels
+  PLOT_THREADS.forEach((thread, ri) => {
+    const y = ri * rowH + 16;
+    svg += `<rect x="${pad}" y="${y - rowH/2 + 4}" width="${w - pad - 16}" height="${rowH - 8}" fill="var(--line-2)" opacity="0.25" rx="3"/>`;
+    svg += `<text x="${pad - 10}" y="${y + 4}" text-anchor="end" font-family="var(--font-screen)" font-size="11" font-weight="700" fill="${thread.css}">${thread.label}</text>`;
+  });
+  // Cells
+  PLOT_THREADS.forEach((thread, ri) => {
+    const y = ri * rowH + 16;
+    // Collect runs of consecutive scenes with this thread, so we can draw connectors
+    let runStart = null;
+    scenes.forEach((s, ci) => {
+      const present = (s.threadIds || []).includes(thread.id);
+      const x = pad + ci * cellW;
+      if (present) {
+        if (runStart === null) runStart = ci;
+        svg += `<rect x="${x + 1}" y="${y - rowH/2 + 8}" width="${Math.max(2, cellW - 2)}" height="${rowH - 16}" fill="${thread.css}" rx="2">`;
+        svg += `<title>Scene ${ci+1}: ${escapeHtml(s.slug)}</title></rect>`;
+      } else if (runStart !== null) {
+        // Draw a thin connector line back to runStart so the thread "weaves"
+        const startX = pad + runStart * cellW + cellW/2;
+        const endX = pad + (ci - 1) * cellW + cellW/2;
+        if (endX > startX) {
+          svg += `<line x1="${startX}" y1="${y}" x2="${endX}" y2="${y}" stroke="${thread.css}" stroke-width="2" opacity="0.6"/>`;
+        }
+        runStart = null;
+      }
+    });
+    if (runStart !== null) {
+      const startX = pad + runStart * cellW + cellW/2;
+      const endX = pad + (scenes.length - 1) * cellW + cellW/2;
+      if (endX > startX) {
+        svg += `<line x1="${startX}" y1="${y}" x2="${endX}" y2="${y}" stroke="${thread.css}" stroke-width="2" opacity="0.6"/>`;
+      }
+    }
+  });
+  // X-axis scene labels
+  scenes.forEach((s, ci) => {
+    if ((ci+1) % 5 === 0 || ci === 0 || ci === scenes.length - 1) {
+      const x = pad + ci * cellW + cellW/2;
+      svg += `<text x="${x}" y="${h - 6}" text-anchor="middle" font-size="9" fill="var(--muted)">${ci+1}</text>`;
+    }
+  });
+  svg += `</svg>`;
+  return svg;
 }
 
 function svgPaceBars(scenes) {
@@ -2390,11 +2635,27 @@ async function runAiCommand(id) {
   const cmd = AI.getCommands().find(c => c.id === id);
   if (!cmd) return;
   const line = currentLine();
-  const text = line ? line.textContent : "";
+  // Capture selection details BEFORE any await (DOM range survives but its anchors
+  // can be invalidated by re-render, so snapshot text + offsets up front).
+  const sel = window.getSelection();
+  const selText = sel ? sel.toString() : "";
+  let selRange = null;
+  if (line && selText && sel.rangeCount) {
+    const r = sel.getRangeAt(0);
+    if (line.contains(r.startContainer) && line.contains(r.endContainer)) {
+      // Compute string offsets relative to the line's full text
+      const before = document.createRange();
+      before.selectNodeContents(line);
+      before.setEnd(r.startContainer, r.startOffset);
+      const startOff = before.toString().length;
+      selRange = { startOff, endOff: startOff + selText.length };
+    }
+  }
+  const targetText = selText || (line ? line.textContent : "");
   const context = line ? gatherContextAround(line, 6) : "";
   try {
-    toast("AI thinking…", 8000);
-    const result = await AI.complete(cmd.prompt, { TEXT: text, CONTEXT: context });
+    toast(selText ? "AI rewriting selection…" : "AI thinking…", 8000);
+    const result = await AI.complete(cmd.prompt, { TEXT: targetText, CONTEXT: context });
     if (!result) { toast("AI returned nothing"); return; }
     if (id === "coverage") {
       $("#modal-coverage").classList.add("open");
@@ -2406,14 +2667,18 @@ async function runAiCommand(id) {
       $("#coverage-body").textContent = "Brainstorm:\n\n" + result;
       return;
     }
-    if (line) {
-      const ok = await modalConfirm({
-        title: "Apply AI suggestion?",
-        body: "Replace current line with:\n\n" + result.trim().slice(0, 400),
-        okText: "Replace"
-      });
-      if (ok) { line.textContent = result.trim(); markRevised(line); reclassifyAll(); setDirty(); }
+    if (!line) return;
+    const cleaned = result.trim();
+    const preview = (selText ? "Replace selection:\n\n" + selText + "\n\n→\n\n" : "Replace current line:\n\n") + cleaned.slice(0, 400);
+    const ok = await modalConfirm({ title: "Apply AI suggestion?", body: preview, okText: "Replace" });
+    if (!ok) return;
+    if (selRange && selText) {
+      const t = line.textContent;
+      line.textContent = t.substring(0, selRange.startOff) + cleaned + t.substring(selRange.endOff);
+    } else {
+      line.textContent = cleaned;
     }
+    markRevised(line); reclassifyAll(); setDirty();
   } catch (e) { toast("AI error: " + e.message, 5000); }
 }
 function gatherContextAround(line, n) {
@@ -2535,6 +2800,28 @@ function serializeFountain(includeTitle=true) {
   }
   const lines = $$("#editor > div"); let prevType = "";
   lines.forEach(line => {
+    // Dual-pair: serialize left half normally, then right half with ^ on the character cue
+    if (line.classList.contains("dual-pair")) {
+      const halves = Array.from(line.children);
+      halves.forEach((half, hi) => {
+        Array.from(half.children).forEach((il, ii) => {
+          const t = il.textContent;
+          const type = il.dataset.type;
+          if (type === "character" && hi === 1 && ii === 0) {
+            out += t.trim() + " ^\n";
+          } else if (type === "character") {
+            out += t.trim() + "\n";
+          } else if (type === "parenthetical") {
+            out += t.trim() + "\n";
+          } else {
+            out += t + "\n";
+          }
+        });
+        if (hi === 0) out += "\n"; // blank line between blocks inside fountain
+      });
+      prevType = "dialogue";
+      return;
+    }
     const t = line.textContent; const type = line.dataset.type;
     const meta = [];
     ["color","tags","beat","thread","goal","mood","date","sound","rev"].forEach(k => {
@@ -2594,7 +2881,20 @@ function loadFountain(src) {
   }).replace(/\/\*[\s\S]*?\*\//g, "");
 
   const rawLines = body.split(/\r?\n/);
-  const objs = rawLines.map(text => ({ text, type: null }));
+  const objs = rawLines.map(text => ({ text, type: null, dualRight: false }));
+  // First, strip Fountain dual-dialogue marker (^ at end of character cue) so
+  // the line is recognized as a normal character cue by the classifier below.
+  for (let k = 0; k < objs.length; k++) {
+    const tk = objs[k].text.trim();
+    if (/\^\s*$/.test(tk)) {
+      // It must look like a character cue (ALL CAPS, short) — otherwise leave it.
+      const candidate = tk.replace(/\s*\^\s*$/, "").trim();
+      if (ALLCAPS_RE.test(candidate) && !candidate.endsWith(":") && candidate.length > 0) {
+        objs[k].text = objs[k].text.replace(/\s*\^\s*$/, "");
+        objs[k].dualRight = true;
+      }
+    }
+  }
   for (let i = 0; i < objs.length; i++) {
     const cur = objs[i]; const t = cur.text.trim();
     const prev = i > 0 ? objs[i-1] : { text: "" };
@@ -2630,18 +2930,55 @@ function loadFountain(src) {
   }
 
   editor.innerHTML = "";
+  // First pass: append all lines. Track which character cues are "dual" (end in ^).
+  const dualRightCharIdx = new Set();
   objs.forEach(o => {
     if (o.type === "blank") return;
     const d = document.createElement("div");
     d.dataset.type = o.type;
     d.dataset.forced = (o.type !== "action" && o.type !== "dialogue") ? "true" : "false";
-    d.textContent = o.text.replace(/^\s+/, "");
+    let text = o.text.replace(/^\s+/, "");
+    if (o.type === "character" && o.dualRight) {
+      dualRightCharIdx.add(editor.children.length);
+    }
+    d.textContent = text;
     if (metaByText.has(o.text)) {
       metaByText.get(o.text).split(";").forEach(kv => {
         const [k,v] = kv.split("="); if (k && v) d.dataset[k.trim()] = v.trim();
       });
     }
     editor.appendChild(d);
+  });
+  // Second pass: for each "right" character cue, find the preceding character block
+  // and wrap both into a .dual-pair. Process in reverse so indices stay stable.
+  Array.from(dualRightCharIdx).sort((a,b) => b - a).forEach(rightIdx => {
+    const kids = Array.from(editor.children);
+    const rightChar = kids[rightIdx];
+    if (!rightChar || rightChar.dataset.type !== "character") return;
+    // Right block extends through dialog/parenthetical
+    const rightBlock = [rightChar];
+    for (let j = rightIdx + 1; j < kids.length; j++) {
+      if (["dialogue","parenthetical"].includes(kids[j].dataset.type)) rightBlock.push(kids[j]);
+      else break;
+    }
+    // Walk back for left character cue
+    let i = rightIdx - 1;
+    while (i >= 0 && kids[i].dataset.type !== "character") i--;
+    if (i < 0) return;
+    const leftChar = kids[i];
+    const leftBlock = [leftChar];
+    for (let j = i + 1; j < rightIdx; j++) {
+      if (["dialogue","parenthetical"].includes(kids[j].dataset.type)) leftBlock.push(kids[j]);
+    }
+    // Build wrapper and move
+    const wrap = document.createElement("div");
+    wrap.className = "dual-pair";
+    const leftCol = document.createElement("div");
+    const rightCol = document.createElement("div");
+    wrap.appendChild(leftCol); wrap.appendChild(rightCol);
+    editor.insertBefore(wrap, leftChar);
+    leftBlock.forEach(n => leftCol.appendChild(n));
+    rightBlock.forEach(n => rightCol.appendChild(n));
   });
   if (editor.childNodes.length === 0) {
     const d = document.createElement("div"); d.dataset.type = "action"; d.innerHTML = "<br>";
@@ -2922,6 +3259,7 @@ function bindEditorUI() {
     if (/^Arrow/.test(e.key)) { updateStatus(); updateInspector(); if (appState.typewriter) tightenTypewriter(); }
   });
   editor.addEventListener("blur", () => acClose());
+  attachCharHover();
   editor.addEventListener("paste", e => {
     e.preventDefault();
     const text = (e.clipboardData || window.clipboardData).getData("text/plain");

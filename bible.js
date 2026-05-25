@@ -410,16 +410,33 @@ const Bible = (() => {
     return (s || "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
   }
 
+  // Allow the app to bind the active project id without opening the view
+  function bind(pid) {
+    projectId = pid;
+    bible = Storage.getBible(pid);
+  }
+
   // Public — used by App to pre-populate characters when script changes
   function syncCharactersFromScript(cast) {
+    // Be defensive: if no projectId set yet, try to recover from the global appState
+    if (!projectId && typeof appState !== "undefined" && appState.projectId) {
+      projectId = appState.projectId;
+    }
     if (!projectId) return;
     bible = Storage.getBible(projectId);
     cast.forEach(name => ensureCharacter(name));
   }
   function getCharacterByName(name) {
+    // Fall back to fresh storage read if bible isn't loaded yet
+    if (!bible) {
+      const pid = (typeof appState !== "undefined" && appState.projectId) || null;
+      if (!pid) return null;
+      bible = Storage.getBible(pid);
+      projectId = pid;
+    }
     if (!bible) return null;
-    return bible.characters.find(c => c.name.toUpperCase() === name.toUpperCase());
+    return bible.characters.find(c => (c.name || "").toUpperCase() === (name || "").toUpperCase());
   }
 
-  return { open, render, syncCharactersFromScript, getCharacterByName };
+  return { open, render, bind, syncCharactersFromScript, getCharacterByName };
 })();
