@@ -513,7 +513,7 @@
   <div class="modal">
     <h2>Logline workshop</h2>
     <p class="help">A good logline is one sentence with: <b>WHO</b> (protagonist + something memorable about them), <b>WHEN/WHERE</b> (setting + inciting incident), <b>MUST</b> (the goal), <b>OR ELSE</b> (the stakes).</p>
-    <div class="form-row"><label>Logline</label><input type="text" id="ll-input" /></div>
+    <div class="form-row"><label>Logline</label><span class="lab-row" style="flex:1"><input type="text" id="ll-input" /><button class="btn small" id="ll-ai" title="AI: generate a logline candidate from the full script">✨ AI</button></span></div>
     <div id="ll-score" class="ll-score"></div>
     <div class="actions">
       <button class="btn" id="ll-cancel">Close</button>
@@ -549,6 +549,7 @@
     <div id="coverage-body"></div>
     <div class="actions">
       <button class="btn" id="cov-copy">Copy</button>
+      <button class="btn" id="cov-save">Save .txt</button>
       <button class="btn" id="cov-close">Close</button>
     </div>
   </div>
@@ -571,6 +572,7 @@
     <p class="help">Pick the scenes a performer needs. Bestscreen will export just those, with character names and lines isolated.</p>
     <div id="sides-list" class="sides-list"></div>
     <div class="form-row"><label>For</label><input type="text" id="sides-actor" placeholder="Actor name (optional)" /></div>
+    <label class="sides-anon-row"><input type="checkbox" id="sides-anon" /> <span>Anonymize other characters' lines <span class="muted">(replace dialogue with <code>…</code>)</span></span></label>
     <div class="actions">
       <button class="btn" id="sides-cancel">Cancel</button>
       <button class="btn primary" id="sides-go">Generate sides</button>
@@ -657,12 +659,19 @@
 <div class="toasts" id="toasts"></div>
 
 <!-- Scripts (load order matters: storage → templates → modules → app) -->
+<!-- Optional local config (gitignored). 404 in production is expected; users fall back to the Settings UI. -->
+<script src="config.local.js" onerror="this.remove()"></script>
 <script src="storage.js"></script>
 <script src="templates.js"></script>
 <script src="audio.js"></script>
 <script src="ai.js"></script>
 <script src="dashboard.js"></script>
 <script src="bible.js"></script>
+<script src="editor.js"></script>
+<script src="panels.js"></script>
+<script src="views.js"></script>
+<script src="features.js"></script>
+<script src="io.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

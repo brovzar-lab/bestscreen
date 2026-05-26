@@ -26,11 +26,24 @@ const AI = (() => {
 
   function getCommands() { return COMMANDS; }
 
+  // Resolve the active provider config. Precedence:
+  //   1. window.BS_CONFIG.ai  — set in config.local.js (gitignored, local dev)
+  //   2. Settings UI          — per-browser localStorage (BYOK production path)
+  // The chosen apiKey/model/provider come from whichever source has values.
+  function resolveAI() {
+    const local = (typeof window !== "undefined" && window.BS_CONFIG?.ai) || {};
+    const stored = (Storage.getSettings().ai) || {};
+    return {
+      provider: local.apiKey ? (local.provider || "anthropic") : (stored.provider || "anthropic"),
+      apiKey:   local.apiKey || stored.apiKey || "",
+      model:    local.model || stored.model || "",
+    };
+  }
+
   async function complete(promptTemplate, vars) {
-    const settings = Storage.getSettings();
-    const ai = settings.ai || {};
+    const ai = resolveAI();
     if (!ai.apiKey) {
-      throw new Error("No API key. Open Settings and add your key first.");
+      throw new Error("No API key. Either fill config.local.js or open Settings and add your key.");
     }
     let prompt = promptTemplate;
     Object.entries(vars).forEach(([k,v]) => {
@@ -88,5 +101,82 @@ const AI = (() => {
     return j.choices?.[0]?.message?.content || "";
   }
 
-  return { getCommands, complete };
+  /* ----------------------------------------------------------------------
+   * Streaming — returns an async iterator that yields text chunks as they
+   * arrive. Callers can render them progressively into a ghost overlay.
+   * -------------------------------------------------------------------- */
+  async function* stream(promptTemplate, vars) {
+    const ai = resolveAI();
+    if (!ai.apiKey) throw new Error("No API key. Either fill config.local.js or open Settings and add your key.");
+    let prompt = promptTemplate;
+    Object.entries(vars || {}).forEach(([k, v]) => { prompt = prompt.replaceAll("{" + k + "}", v || ""); });
+    if (ai.provider === "anthropic") { yield* streamAnthropic(ai, prompt); return; }
+    if (ai.provider === "openai")    { yield* streamOpenAI(ai, prompt); return; }
+    throw new Error("Unknown provider: " + ai.provider);
+  }
+
+  // Parse a stream of `data: …` lines (SSE) into JSON event objects.
+  async function* readSSE(response) {
+    if (!response.body) return;
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n")) !== -1) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line || !line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (payload === "[DONE]") return;
+        try { yield JSON.parse(payload); } catch { /* skip malformed */ }
+      }
+    }
+  }
+
+  async function* streamAnthropic(ai, prompt) {
+    const model = ai.model || "claude-sonnet-4-6";
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": ai.apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({ model, max_tokens: 1024, stream: true, messages: [{ role: "user", content: prompt }] }),
+    });
+    if (!r.ok) { const t = await r.text(); throw new Error("Anthropic " + r.status + ": " + t.slice(0, 200)); }
+    for await (const ev of readSSE(r)) {
+      if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") {
+        yield ev.delta.text;
+      }
+    }
+  }
+
+  async function* streamOpenAI(ai, prompt) {
+    const model = ai.model || "gpt-4o-mini";
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "authorization": "Bearer " + ai.apiKey,
+      },
+      body: JSON.stringify({ model, max_tokens: 1024, stream: true, messages: [{ role: "user", content: prompt }] }),
+    });
+    if (!r.ok) { const t = await r.text(); throw new Error("OpenAI " + r.status + ": " + t.slice(0, 200)); }
+    for await (const ev of readSSE(r)) {
+      const chunk = ev.choices?.[0]?.delta?.content;
+      if (chunk) yield chunk;
+    }
+  }
+
+  function isConfigured() {
+    try { return !!resolveAI().apiKey; } catch { return false; }
+  }
+
+  return { getCommands, complete, stream, isConfigured };
 })();
