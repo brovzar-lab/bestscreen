@@ -1937,6 +1937,88 @@ kbd {
   border-left: 3px solid #7a55b8;
 }
 
+/* ---------- AI sparkle buttons across the app (Sprint 5) ---------- */
+.bc-card-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px;
+}
+.bc-ai, .ic-ai, .bib-ai {
+  background: transparent;
+  border: 1px solid var(--line-2);
+  color: var(--accent);
+  width: 24px; height: 22px;
+  border-radius: 6px;
+  font-size: 12px; line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s, transform 0.08s, border-color 0.12s;
+  flex: 0 0 auto;
+}
+.bc-ai:hover, .ic-ai:hover, .bib-ai:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  transform: scale(1.05);
+}
+.idx-card .ic-head {
+  display: flex; justify-content: space-between; align-items: center;
+  position: absolute; top: 8px; left: 18px; right: 12px; z-index: 1;
+}
+.idx-card .ic-num { position: static; }
+.idx-card .ic-slug { margin-top: 18px; }
+.beat-card .bc-tag {
+  margin-top: 6px;
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 11px;
+  font-family: var(--font-ui);
+  color: var(--ink);
+}
+.beat-card .bc-foot .bc-beat-tag {
+  background: var(--accent);
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.beat-card .bc-color.selected {
+  box-shadow: 0 0 0 2px var(--paper), 0 0 0 3px var(--ink);
+}
+/* Bible field rows: input + sparkle side by side */
+.bib-grid .lab-row {
+  display: flex; align-items: stretch; gap: 6px;
+}
+.bib-grid .lab-row > input,
+.bib-grid .lab-row > textarea {
+  flex: 1; min-width: 0;
+}
+.bib-grid .lab-row > .bib-ai {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+/* Inspector template select */
+.ins-template-sel {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+  color: var(--ink);
+  max-width: 100%;
+}
+/* Logline workshop AI button row */
+#modal-logline .lab-row {
+  display: flex; gap: 6px; align-items: center;
+}
+#modal-logline .lab-row > input { flex: 1; }
+#modal-logline .lab-row > .btn { flex: 0 0 auto; font-size: 12px; padding: 4px 10px; }
+
 /* ---------- Arcs tab (Sprint 2 / M2) ---------- */
 .arc-wrap { padding: 4px 0 20px; }
 .arc-legend {

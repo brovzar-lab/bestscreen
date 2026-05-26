@@ -244,15 +244,15 @@ const Bible = (() => {
           <button class="bib-del" data-act="delete">✕</button>
         </div>
         <div class="bib-grid">
-          <label>Age <input data-field="age" value="${escapeHtml(c.age)}" /></label>
-          <label>Physical <input data-field="physical" value="${escapeHtml(c.physical)}" /></label>
-          <label class="span">Want (external goal) <input data-field="want" value="${escapeHtml(c.want)}" /></label>
-          <label class="span">Need (internal lesson) <input data-field="need" value="${escapeHtml(c.need)}" /></label>
-          <label class="span">Flaw <input data-field="flaw" value="${escapeHtml(c.flaw)}" /></label>
-          <label class="span">Backstory <textarea data-field="backstory">${escapeHtml(c.backstory)}</textarea></label>
-          <label class="span">Voice / how they speak <textarea data-field="voice" placeholder="Vocabulary, rhythm, sample lines">${escapeHtml(c.voice)}</textarea></label>
-          <label class="span">Secrets <textarea data-field="secrets">${escapeHtml(c.secrets)}</textarea></label>
-          <label class="span">Traits <input data-field="traits" placeholder="warm, suspicious, deadpan…" value="${escapeHtml(c.traits)}" /></label>
+          <label>Age <span class="lab-row"><input data-field="age" value="${escapeHtml(c.age)}" /><button class="bib-ai" data-ai-field="age" title="AI: infer age from script">✨</button></span></label>
+          <label>Physical <span class="lab-row"><input data-field="physical" value="${escapeHtml(c.physical)}" /><button class="bib-ai" data-ai-field="physical" title="AI: write physical description">✨</button></span></label>
+          <label class="span">Want (external goal) <span class="lab-row"><input data-field="want" value="${escapeHtml(c.want)}" /><button class="bib-ai" data-ai-field="want" title="AI: propose what they want">✨</button></span></label>
+          <label class="span">Need (internal lesson) <span class="lab-row"><input data-field="need" value="${escapeHtml(c.need)}" /><button class="bib-ai" data-ai-field="need" title="AI: propose what they need">✨</button></span></label>
+          <label class="span">Flaw <span class="lab-row"><input data-field="flaw" value="${escapeHtml(c.flaw)}" /><button class="bib-ai" data-ai-field="flaw" title="AI: propose their flaw">✨</button></span></label>
+          <label class="span">Backstory <span class="lab-row"><textarea data-field="backstory">${escapeHtml(c.backstory)}</textarea><button class="bib-ai" data-ai-field="backstory" title="AI: write backstory">✨</button></span></label>
+          <label class="span">Voice / how they speak <span class="lab-row"><textarea data-field="voice" placeholder="Vocabulary, rhythm, sample lines">${escapeHtml(c.voice)}</textarea><button class="bib-ai" data-ai-field="voice" title="AI: describe their voice">✨</button></span></label>
+          <label class="span">Secrets <span class="lab-row"><textarea data-field="secrets">${escapeHtml(c.secrets)}</textarea><button class="bib-ai" data-ai-field="secrets" title="AI: propose a secret">✨</button></span></label>
+          <label class="span">Traits <span class="lab-row"><input data-field="traits" placeholder="warm, suspicious, deadpan…" value="${escapeHtml(c.traits)}" /><button class="bib-ai" data-ai-field="traits" title="AI: list traits">✨</button></span></label>
         </div>
       </div>
     `;
@@ -322,6 +322,16 @@ const Bible = (() => {
         if (!ok) return;
         demoteCharacter(cid);
         renderTab("characters");
+      });
+      // AI sparkle buttons — one per bible field. Use the global helper so
+      // every field call carries the full project context (script + bible).
+      card.querySelectorAll(".bib-ai[data-ai-field]").forEach(btn => {
+        btn.addEventListener("click", async e => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof aiFillCharacterField !== "function") return;
+          await aiFillCharacterField(cid, btn.dataset.aiField, btn);
+        });
       });
     });
     document.getElementById("bib-import-cast")?.addEventListener("click", () => {

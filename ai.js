@@ -26,11 +26,24 @@ const AI = (() => {
 
   function getCommands() { return COMMANDS; }
 
+  // Resolve the active provider config. Precedence:
+  //   1. window.BS_CONFIG.ai  — set in config.local.js (gitignored, local dev)
+  //   2. Settings UI          — per-browser localStorage (BYOK production path)
+  // The chosen apiKey/model/provider come from whichever source has values.
+  function resolveAI() {
+    const local = (typeof window !== "undefined" && window.BS_CONFIG?.ai) || {};
+    const stored = (Storage.getSettings().ai) || {};
+    return {
+      provider: local.apiKey ? (local.provider || "anthropic") : (stored.provider || "anthropic"),
+      apiKey:   local.apiKey || stored.apiKey || "",
+      model:    local.model || stored.model || "",
+    };
+  }
+
   async function complete(promptTemplate, vars) {
-    const settings = Storage.getSettings();
-    const ai = settings.ai || {};
+    const ai = resolveAI();
     if (!ai.apiKey) {
-      throw new Error("No API key. Open Settings and add your key first.");
+      throw new Error("No API key. Either fill config.local.js or open Settings and add your key.");
     }
     let prompt = promptTemplate;
     Object.entries(vars).forEach(([k,v]) => {
@@ -93,9 +106,8 @@ const AI = (() => {
    * arrive. Callers can render them progressively into a ghost overlay.
    * -------------------------------------------------------------------- */
   async function* stream(promptTemplate, vars) {
-    const settings = Storage.getSettings();
-    const ai = settings.ai || {};
-    if (!ai.apiKey) throw new Error("No API key. Open Settings and add your key first.");
+    const ai = resolveAI();
+    if (!ai.apiKey) throw new Error("No API key. Either fill config.local.js or open Settings and add your key.");
     let prompt = promptTemplate;
     Object.entries(vars || {}).forEach(([k, v]) => { prompt = prompt.replaceAll("{" + k + "}", v || ""); });
     if (ai.provider === "anthropic") { yield* streamAnthropic(ai, prompt); return; }
@@ -162,5 +174,9 @@ const AI = (() => {
     }
   }
 
-  return { getCommands, complete, stream };
+  function isConfigured() {
+    try { return !!resolveAI().apiKey; } catch { return false; }
+  }
+
+  return { getCommands, complete, stream, isConfigured };
 })();

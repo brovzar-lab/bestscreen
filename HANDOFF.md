@@ -6,7 +6,15 @@
 
 ## TL;DR
 
-Vanilla JS / CSS / HTML, no build. See `CLAUDE.md` for architecture. **Sprints 2 + 3 + 4 shipped on `sprints` this session.** Summary:
+Vanilla JS / CSS / HTML, no build. See `CLAUDE.md` for architecture. **Sprints 2 + 3 + 4 + 5 shipped on `sprints` this session.** Summary:
+
+- **Sprint 5 — AI everywhere + config bootstrap + beat-template bug fix**:
+  - `.env.example` + `config.example.js` for hardcoded API keys (gitignored `config.local.js` is the actual loader).
+  - New `gatherProjectContext()` provides every AI call with title / logline / theme / template / bible (episode + series) / scene list / full Fountain script.
+  - ✨ sparkle buttons on: every beat card (synopsis); every scene index-card (synopsis); every bible character field (age / physical / want / need / flaw / backstory / voice / traits / secrets); logline workshop ("AI" button next to the input). Each uses the same `aiInlineFill()` ghost-overlay with streaming + accept/cancel.
+  - **Beat-template bug fix**: `data-beat` was being clobbered with COLOR values when users clicked color dots on scene cards — so beat-tag fidelity never matched a template beat. Split into `data-color` (visual) and `data-beat` (template-beat id). Added a per-card template-beat selector dropdown so users can actually assign scenes to template beats.
+  - **Inspector**: template choice is now an editable dropdown (was read-only).
+
 
 - **Sprint 4 — L4 + CV + SA**: AI streaming (SSE for Anthropic + OpenAI; ghost-overlay accept/cancel for line rewrites; live partial render in coverage modal). Coverage parsed into themed sections (LOGLINE/SYNOPSIS/STRENGTHS/CONCERNS/VERDICT) with a Save .txt button. Sides export gains an "Anonymize other characters' lines" toggle.
 - **Sprint 3 — L1 + L2**: Series-shared bible (storage, merge, badges, promote/demote, conflict prompt). Entity-tracking continuity engine (state vocab, per-character timeline, categorized issue list with jump-to-scene).
@@ -15,7 +23,16 @@ Vanilla JS / CSS / HTML, no build. See `CLAUDE.md` for architecture. **Sprints 2
 
 **Bug audit done.** Fixed: `REVISION_COLORS.find().css` crash on unknown rev value, `quickContinuityCount` running 30k regex tests per keystroke (now cached 2s). 21/21 smoke checks pass in Playwright.
 
-**Branch state:** `sprints` is 4 commits ahead of `main` and `origin/sprints`. `main` still at `9b0a57e`. **Not yet pushed or deployed** — waiting on user confirmation per the no-auto-deploy rule.
+**Branch state:** `sprints` is 5 commits ahead of `main` and `origin/sprints`. `main` still at `9b0a57e`. **Not yet pushed or deployed** — waiting on user confirmation per the no-auto-deploy rule.
+
+### Local-dev API key setup (one-time)
+
+```bash
+cp .env.example .env                  # fill in ANTHROPIC_API_KEY etc.
+cp config.example.js config.local.js  # paste the same keys
+```
+
+Both files are gitignored. `index.html` loads `config.local.js` (404 in production is expected — `onerror="this.remove()"` keeps it from breaking anything). The AI module reads keys with this precedence: `window.BS_CONFIG.ai.apiKey` → Settings UI (localStorage). So filling `config.local.js` skips the Settings prompt forever in dev.
 
 ---
 

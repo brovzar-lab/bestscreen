@@ -6,3 +6,7 @@ v3-selections.json
 firebase-debug.log
 .cache/
 .playwright-mcp/
+
+# Local config — secrets live here, never commit
+.env
+config.local.js

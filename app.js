@@ -452,6 +452,7 @@ function bindEditorUI() {
     toast("Logline saved");
   });
   $("#ll-input").addEventListener("input", updateLoglineScore);
+  $("#ll-ai")?.addEventListener("click", e => { e.preventDefault(); aiGenerateLogline(); });
 
   // Diff modal
   $("#diff-close").addEventListener("click", () => $("#modal-diff").classList.remove("open"));

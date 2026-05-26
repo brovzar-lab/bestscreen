@@ -925,6 +925,267 @@ function openContinuity() {
 }
 
 /* =====================================================================
+ * AI everywhere (Sprint 5) — context gatherer + per-target helpers
+ *
+ * Every AI affordance in the app routes through gatherProjectContext() so
+ * the model sees the whole project: title, logline, theme, template, cast
+ * (with bible details), locations, scene list, and the full Fountain
+ * script (truncated to ~30k chars to stay under typical token budgets).
+ *
+ * Each sparkle button calls aiInlineFill() with a target-specific prompt;
+ * the helper streams the response into a small ghost overlay anchored to
+ * the target element, then writes the chosen text back on accept.
+ * =================================================================== */
+function gatherProjectContext({ scriptChars = 30000 } = {}) {
+  const tm = appState.titleMeta || {};
+  const project = appState.projectId ? Storage.getProject(appState.projectId) : null;
+  const bible   = appState.projectId ? Storage.getBible(appState.projectId) : { characters: [], locations: [], rules: [] };
+  const seriesBible = (project?.seriesId) ? Storage.getSeriesBible(project.seriesId) : null;
+  const allBibleChars = [...(seriesBible?.characters || []), ...(bible.characters || [])];
+  const allBibleLocs  = [...(seriesBible?.locations  || []), ...(bible.locations  || [])];
+  const cast = analyzeCharacters();
+  const scenes = collectScenes();
+  let script;
+  try { script = serializeFountain(false); }
+  catch { script = $$("#editor > div").map(d => d.textContent).join("\n"); }
+  const trunc = script.length > scriptChars
+    ? script.slice(0, scriptChars) + "\n\n[…script truncated for context budget — earlier scenes shown above…]"
+    : script;
+  const out = [];
+  out.push("=== PROJECT META ===");
+  out.push(`Title: ${tm.title || "(untitled)"}`);
+  out.push(`Type: ${project?.type || "feature"}`);
+  if (project?.episode) out.push(`Episode: ${project.episode}`);
+  if (project?.seriesId) {
+    const s = Storage.getSeries(project.seriesId);
+    if (s) out.push(`Series: ${s.name}`);
+  }
+  out.push(`Logline: ${appState.logline || "(none set)"}`);
+  if (appState.premise) out.push(`Premise: ${appState.premise}`);
+  if (appState.theme)   out.push(`Theme: ${appState.theme}`);
+  if (appState.template) {
+    const t = Templates.get(appState.template);
+    if (t) out.push(`Story template: ${t.name} (${t.beats.length} beats)`);
+  }
+  out.push("");
+  out.push(`=== CHARACTERS — ${allBibleChars.length} in bible, ${cast.length} speaking ===`);
+  allBibleChars.forEach(c => {
+    const bits = [];
+    if (c.role) bits.push(`role: ${c.role}`);
+    if (c.age)  bits.push(`age: ${c.age}`);
+    if (c.want) bits.push(`want: ${c.want}`);
+    if (c.need) bits.push(`need: ${c.need}`);
+    if (c.flaw) bits.push(`flaw: ${c.flaw}`);
+    out.push(`- ${c.name}${bits.length ? " — " + bits.join("; ") : ""}`);
+  });
+  if (allBibleChars.length === 0) {
+    cast.slice(0, 12).forEach(c => out.push(`- ${c.name} (${c.words} dialogue words across ${c.scenes} scenes)`));
+  }
+  out.push("");
+  if (allBibleLocs.length > 0) {
+    out.push("=== LOCATIONS ===");
+    allBibleLocs.forEach(l => out.push(`- ${l.name}${l.desc ? ": " + l.desc.slice(0, 120) : ""}`));
+    out.push("");
+  }
+  out.push(`=== SCENES (${scenes.length}) ===`);
+  scenes.forEach((s, i) => {
+    const syn = synopsisAfter(s.lineIndex);
+    out.push(`${i + 1}. ${s.slug}${s.beatTag ? " [beat: " + s.beatTag + "]" : ""}${syn ? " — " + syn.slice(0, 120) : ""}`);
+  });
+  out.push("");
+  out.push("=== SCREENPLAY (Fountain) ===");
+  out.push(trunc);
+  return out.join("\n");
+}
+
+// Small floating overlay anchored to an arbitrary element. Streams text in,
+// then asks the user to accept/cancel. Returns the accepted text (or null).
+async function aiInlineFill({ anchor, label, prompt, vars }) {
+  if (!AI.isConfigured()) {
+    toast("No API key. Fill config.local.js or open Settings.", 4000);
+    return null;
+  }
+  const host = document.createElement("div");
+  host.className = "ai-ghost";
+  host.innerHTML = `
+    <div class="ai-ghost-head">
+      <span class="ai-ghost-tag">${escapeHtml(label || "AI")}</span>
+      <span class="ai-ghost-status">streaming…</span>
+    </div>
+    <div class="ai-ghost-body"></div>
+    <div class="ai-ghost-actions">
+      <button class="btn ai-ghost-cancel">Cancel</button>
+      <button class="btn primary ai-ghost-accept" disabled>Use this</button>
+    </div>`;
+  document.body.appendChild(host);
+  host.style.position = "fixed";
+  const rect = anchor?.getBoundingClientRect?.() || { left: 100, bottom: 120 };
+  host.style.left = Math.min(window.innerWidth - 480, Math.max(20, rect.left)) + "px";
+  host.style.top  = Math.min(window.innerHeight - 200, rect.bottom + 6) + "px";
+  host.style.zIndex = 95;
+
+  const body   = host.querySelector(".ai-ghost-body");
+  const status = host.querySelector(".ai-ghost-status");
+  const accept = host.querySelector(".ai-ghost-accept");
+  const cancel = host.querySelector(".ai-ghost-cancel");
+
+  let resolve;
+  const decision = new Promise(r => { resolve = r; });
+  accept.addEventListener("click", () => resolve(true));
+  cancel.addEventListener("click", () => resolve(false));
+  const onKey = (e) => { if (e.key === "Escape") { e.preventDefault(); resolve(false); } };
+  document.addEventListener("keydown", onKey);
+
+  let full = "";
+  try {
+    for await (const chunk of AI.stream(prompt, vars || {})) {
+      full += chunk;
+      body.textContent = full;
+    }
+  } catch (e) {
+    status.textContent = "error";
+    body.textContent = "AI error: " + e.message;
+    accept.disabled = true;
+    const cleanup = () => { document.removeEventListener("keydown", onKey); host.remove(); };
+    setTimeout(cleanup, 4000);
+    return null;
+  }
+  const cleaned = full.trim();
+  if (!cleaned) {
+    document.removeEventListener("keydown", onKey);
+    host.remove();
+    toast("AI returned nothing");
+    return null;
+  }
+  status.textContent = "ready — accept or cancel";
+  accept.disabled = false;
+  const ok = await decision;
+  document.removeEventListener("keydown", onKey);
+  host.remove();
+  return ok ? cleaned : null;
+}
+
+// Fill in a synopsis for the scene starting at lineIdx. Called from both the
+// Beat Board and the Cards view sparkle buttons — same prompt + same write
+// target (synopsisAfter).
+async function aiFillBeatSynopsis(lineIdx) {
+  const sceneLine = $$("#editor > div")[lineIdx];
+  if (!sceneLine) return;
+  const slug = sceneLine.textContent.replace(/^\./, "").trim();
+  const beatTag = sceneLine.dataset.beat || "";
+  const template = appState.template ? Templates.get(appState.template) : null;
+  const beat = template?.beats.find(b => b.id === beatTag);
+  const beatHint = beat
+    ? `This scene is tagged as the **${beat.name}** beat in the ${template.name} structure. The expected role for this beat is: ${beat.desc || "(none)"}`
+    : `This scene has no beat tag yet — propose a synopsis that fits where it sits in the overall arc.`;
+  const promptTemplate = `You are helping a screenwriter outline a scene. Below is the full project context, including the script so far.
+
+Write ONE or TWO sentences (no more) of a SCENE SYNOPSIS for the scene whose slug is:
+
+    ${slug}
+
+${beatHint}
+
+Keep it concrete (who does what, what changes), present-tense, no quotation marks, no commentary. Output ONLY the synopsis text.
+
+PROJECT:
+{CONTEXT}`;
+  const card = document.querySelector(`.beat-card[data-line="${lineIdx}"], .card-item[data-line="${lineIdx}"]`);
+  const result = await aiInlineFill({
+    anchor: card,
+    label: beat ? `AI · ${beat.name}` : "AI · synopsis",
+    prompt: promptTemplate,
+    vars: { CONTEXT: gatherProjectContext() },
+  });
+  if (!result) return;
+  setSynopsisAfter(lineIdx, result);
+  setDirty();
+  if (appState.view === "beats") renderBeatBoard();
+  else if (appState.view === "cards") renderCards();
+}
+
+// Generate a logline candidate based on the full project context.
+async function aiGenerateLogline() {
+  const promptTemplate = `Write ONE line of LOGLINE for this screenplay. It must follow the standard structure:
+[PROTAGONIST] (description) MUST [GOAL] OR [STAKES] when/because [TRIGGER].
+
+Make it concrete, specific, and under 35 words. Output ONLY the logline — no preamble, no quotes, no commentary.
+
+PROJECT:
+{CONTEXT}`;
+  const anchor = $("#ll-input") || $("#ll-ai") || $("#modal-logline");
+  const result = await aiInlineFill({
+    anchor,
+    label: "AI · logline",
+    prompt: promptTemplate,
+    vars: { CONTEXT: gatherProjectContext() },
+  });
+  if (!result) return;
+  appState.logline = result;
+  const meta = Storage.getMeta(appState.projectId) || {};
+  meta.logline = result;
+  Storage.setMeta(appState.projectId, meta);
+  setDirty();
+  const input = $("#ll-input");
+  if (input) input.value = result;
+  if (typeof updateLoglineScore === "function") updateLoglineScore();
+  toast("Logline updated");
+}
+
+// Fill in a character bible field (want/need/flaw/backstory/voice/traits).
+// Uses the current script + project context.
+async function aiFillCharacterField(charId, field, anchor) {
+  // Resolve character across episode + series bible
+  const pid = appState.projectId;
+  if (!pid) return;
+  const project = Storage.getProject(pid);
+  const epBible = Storage.getBible(pid);
+  const sBible = project?.seriesId ? Storage.getSeriesBible(project.seriesId) : null;
+  let source = "episode";
+  let c = epBible.characters.find(x => x.id === charId);
+  if (!c && sBible) { c = sBible.characters.find(x => x.id === charId); source = "series"; }
+  if (!c) { toast("Character not found"); return; }
+  const FIELD_PROMPTS = {
+    want:     `Write ONE sentence describing what ${c.name} WANTS (their external, conscious goal — the thing they're chasing). Concrete, specific. Output ONLY the sentence.`,
+    need:     `Write ONE sentence describing what ${c.name} NEEDS (their internal lesson — the thing they must learn or accept). Different from what they want. Output ONLY the sentence.`,
+    flaw:     `Write ONE sentence describing ${c.name}'s FLAW — the trait or behavior that gets in their own way. Concrete. Output ONLY the sentence.`,
+    backstory:`Write a SHORT backstory for ${c.name} (3-5 sentences) — formative events that explain who they are now. Output ONLY the backstory.`,
+    voice:    `Describe ${c.name}'s VOICE in 2-3 sentences: vocabulary, rhythm, what they avoid saying, a sample line or two. Output ONLY the description.`,
+    traits:   `List 3-5 vivid TRAITS for ${c.name}, comma-separated (e.g. "warm, evasive, deadpan, hyper-observant"). Output ONLY the list, no preamble.`,
+    secrets:  `Describe a meaningful SECRET ${c.name} carries — something that complicates their relationships. 1-2 sentences. Output ONLY the secret.`,
+    role:     `Write ${c.name}'s ROLE in this story in 3-6 words (e.g. "Protagonist", "Reluctant mentor", "Antagonist's enforcer"). Output ONLY the role.`,
+    physical: `Describe ${c.name}'s physical presence in 1-2 sentences — what makes them recognizable on screen. Output ONLY the description.`,
+    age:      `Estimate ${c.name}'s AGE based on the script context. Output ONLY a number or range like "30s" or "42".`,
+  };
+  const fieldPrompt = FIELD_PROMPTS[field];
+  if (!fieldPrompt) { toast("AI not available for this field"); return; }
+  const promptTemplate = `${fieldPrompt}
+
+If the script and existing bible give you signals, use them — stay consistent with what's already there. Otherwise, propose something that fits the story's tone and genre.
+
+PROJECT:
+{CONTEXT}
+
+EXISTING BIBLE FOR ${c.name}:
+${JSON.stringify({ role: c.role, age: c.age, want: c.want, need: c.need, flaw: c.flaw, traits: c.traits, voice: c.voice, secrets: c.secrets, backstory: c.backstory }, null, 2)}`;
+  const result = await aiInlineFill({
+    anchor,
+    label: `AI · ${field}`,
+    prompt: promptTemplate,
+    vars: { CONTEXT: gatherProjectContext() },
+  });
+  if (!result) return;
+  c[field] = result;
+  if (source === "series") Storage.setSeriesBible(project.seriesId, sBible);
+  else Storage.setBible(pid, epBible);
+  // Refresh bible view if it's open so the user sees the new value
+  if (appState.view === "bible" && typeof Bible !== "undefined" && Bible.render) {
+    Bible.open(pid);
+  }
+  toast(`Filled ${c.name}'s ${field}`);
+}
+
+/* =====================================================================
  * AI menu
  * =================================================================== */
 function openAiMenu(at) {

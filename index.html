@@ -513,7 +513,7 @@
   <div class="modal">
     <h2>Logline workshop</h2>
     <p class="help">A good logline is one sentence with: <b>WHO</b> (protagonist + something memorable about them), <b>WHEN/WHERE</b> (setting + inciting incident), <b>MUST</b> (the goal), <b>OR ELSE</b> (the stakes).</p>
-    <div class="form-row"><label>Logline</label><input type="text" id="ll-input" /></div>
+    <div class="form-row"><label>Logline</label><span class="lab-row" style="flex:1"><input type="text" id="ll-input" /><button class="btn small" id="ll-ai" title="AI: generate a logline candidate from the full script">✨ AI</button></span></div>
     <div id="ll-score" class="ll-score"></div>
     <div class="actions">
       <button class="btn" id="ll-cancel">Close</button>
@@ -659,6 +659,8 @@
 <div class="toasts" id="toasts"></div>
 
 <!-- Scripts (load order matters: storage → templates → modules → app) -->
+<!-- Optional local config (gitignored). 404 in production is expected; users fall back to the Settings UI. -->
+<script src="config.local.js" onerror="this.remove()"></script>
 <script src="storage.js"></script>
 <script src="templates.js"></script>
 <script src="audio.js"></script>

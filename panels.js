@@ -483,7 +483,10 @@ function updateInspector() {
     <div class="ins-section">
       <h4>Story</h4>
       <div class="ins-kv">
-        <dt>Template</dt><dd>${appState.template ? Templates.get(appState.template)?.name : "—"}</dd>
+        <dt>Template</dt><dd><select id="ins-template-sel" class="ins-template-sel">
+          <option value="">— No template —</option>
+          ${Templates.list.map(t => `<option value="${t.id}" ${appState.template === t.id ? "selected" : ""}>${escapeHtml(t.name)}</option>`).join("")}
+        </select></dd>
         <dt>Logline</dt><dd style="white-space:normal">${escapeHtml(appState.logline) || "<i style='color:var(--muted)'>none</i>"}</dd>
         <dt>Theme</dt><dd>${escapeHtml(appState.theme) || "—"}</dd>
       </div>
@@ -522,6 +525,12 @@ function updateInspector() {
   $("#opt-smart-typo")?.addEventListener("change", e => { appState.smartTypo = e.target.checked; setDirty(); });
   $("#opt-scene-num")?.addEventListener("change", e => { appState.showSceneNumbersInPdf = e.target.checked; setDirty(); });
   $("#ins-logline")?.addEventListener("click", openLoglineWorkshop);
+  $("#ins-template-sel")?.addEventListener("change", e => {
+    appState.template = e.target.value || null;
+    setDirty();
+    updateInspector();
+    if (appState.view === "beats") renderBeatBoard();
+  });
 
   if (sc) wireInspectorScene(sc);
 }

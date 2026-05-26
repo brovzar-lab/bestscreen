@@ -14,7 +14,12 @@ function renderBeatBoard() {
       sections.push(cur);
       cur = { title: l.textContent.replace(/^#+\s*/,""), lineIndex: i, scenes: [] };
     } else if (l.dataset.type === "scene") {
-      cur.scenes.push({ lineIndex: i, slug: l.textContent.replace(/^\./,"").trim(), beatColor: l.dataset.beat || "" });
+      cur.scenes.push({
+        lineIndex: i,
+        slug: l.textContent.replace(/^\./,"").trim(),
+        beatColor: l.dataset.color || "",          // visual color tag
+        beatTag:   l.dataset.beat || "",           // template-beat id (e.g. "catalyst")
+      });
     }
   });
   sections.push(cur);
@@ -47,6 +52,14 @@ function renderBeatBoard() {
     }
   }
 
+  // When a template is active, build a beat-tag selector so users can assign
+  // scenes to template beats. The selector includes "— none —" plus all beats.
+  const template = appState.template ? Templates.get(appState.template) : null;
+  const tagOptions = template
+    ? `<option value="">— no beat tag —</option>` +
+      template.beats.map(b => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join("")
+    : "";
+
   html += sections.filter(s => s.scenes.length > 0 || s.lineIndex !== -1).map((sec, idx) => `
     <div class="beat-section" data-section="${idx}" data-line="${sec.lineIndex}">
       <div class="beat-section-head">
@@ -59,11 +72,16 @@ function renderBeatBoard() {
           const stats = collectSceneStats(s.lineIndex);
           const color = s.beatColor || "gray";
           const syn = synopsisAfter(s.lineIndex);
+          const beatName = template ? (template.beats.find(b => b.id === s.beatTag)?.name) : null;
           return `<div class="beat-card beat-${color}" draggable="true" data-line="${s.lineIndex}">
-            <div class="bc-colors">${["red","amber","green","blue","violet","gray"].map(c => `<div class="bc-color" data-color="${c}" style="background:${beatColorCSS(c)}"></div>`).join("")}</div>
+            <div class="bc-card-head">
+              <div class="bc-colors">${["red","amber","green","blue","violet","gray"].map(c => `<div class="bc-color ${color===c?'selected':''}" data-color="${c}" style="background:${beatColorCSS(c)}" title="${c}"></div>`).join("")}</div>
+              <button class="bc-ai" data-line="${s.lineIndex}" title="AI: fill in this scene's synopsis based on the script + ${beatName ? "the " + beatName + " beat" : "context"}">✨</button>
+            </div>
             <div class="bc-slug">${escapeHtml(s.slug)}</div>
             <textarea class="bc-syn" data-line="${s.lineIndex}" placeholder="Beat / synopsis…">${escapeHtml(syn)}</textarea>
-            <div class="bc-foot"><span>${stats.words} words</span><span>${stats.characters.size} char</span></div>
+            ${template ? `<select class="bc-tag" data-line="${s.lineIndex}" title="Assign template beat">${tagOptions.replace(`value="${s.beatTag}"`, `value="${s.beatTag}" selected`)}</select>` : ""}
+            <div class="bc-foot"><span>${stats.words} words</span><span>${stats.characters.size} char</span>${beatName ? `<span class="bc-beat-tag">${escapeHtml(beatName)}</span>` : ""}</div>
           </div>`;
         }).join("")}
       </div>
@@ -80,9 +98,25 @@ function renderBeatBoard() {
       e.stopPropagation();
       const lineIdx = parseInt(card.dataset.line, 10);
       const line = $$("#editor > div")[lineIdx];
-      if (line) line.dataset.beat = d.dataset.color;
+      if (line) line.dataset.color = d.dataset.color;
       setDirty(); renderBeatBoard();
     }));
+    const tagSel = card.querySelector(".bc-tag");
+    if (tagSel) tagSel.addEventListener("change", e => {
+      e.stopPropagation();
+      const lineIdx = parseInt(card.dataset.line, 10);
+      const line = $$("#editor > div")[lineIdx];
+      if (line) {
+        if (tagSel.value) line.dataset.beat = tagSel.value;
+        else delete line.dataset.beat;
+      }
+      setDirty(); renderBeatBoard();
+    });
+    const aiBtn = card.querySelector(".bc-ai");
+    if (aiBtn) aiBtn.addEventListener("click", async e => {
+      e.stopPropagation();
+      await aiFillBeatSynopsis(parseInt(card.dataset.line, 10));
+    });
   });
   $$(".beat-section-cards", board).forEach(zone => {
     zone.addEventListener("dragover", e => { e.preventDefault(); zone.parentElement.classList.add("drop-target"); });
@@ -166,8 +200,11 @@ function renderCards() {
     return;
   }
   root.innerHTML = scenes.map((s,i) => `
-    <div class="idx-card" draggable="true" data-line="${s.lineIndex}">
-      <div class="ic-num">${i+1}.</div>
+    <div class="idx-card card-item" draggable="true" data-line="${s.lineIndex}">
+      <div class="ic-head">
+        <div class="ic-num">${i+1}.</div>
+        <button class="ic-ai" data-line="${s.lineIndex}" title="AI: fill synopsis from script context">✨</button>
+      </div>
       <div class="ic-slug">${escapeHtml(s.slug)}</div>
       <textarea class="ic-syn" data-line="${s.lineIndex}" placeholder="What happens?">${escapeHtml(synopsisAfter(s.lineIndex))}</textarea>
       <div class="ic-foot"><span>${s.words} w · ${s.characters.size} char</span><span>${Array.from(s.characters).slice(0,3).join(", ")}</span></div>
@@ -184,6 +221,11 @@ function renderCards() {
       renderCards();
     });
     card.addEventListener("dblclick", () => navigateToLine(parseInt(card.dataset.line,10), null));
+    const aiBtn = card.querySelector(".ic-ai");
+    if (aiBtn) aiBtn.addEventListener("click", async e => {
+      e.stopPropagation();
+      await aiFillBeatSynopsis(parseInt(card.dataset.line, 10));
+    });
   });
   $$(".ic-syn").forEach(ta => ta.addEventListener("blur", () => { setSynopsisAfter(parseInt(ta.dataset.line,10), ta.value); setDirty(); }));
 }
