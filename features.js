@@ -455,19 +455,79 @@ function updateLoglineScore() {
 async function generateCoverage() {
   const aiKey = Storage.getSettings().ai?.apiKey;
   $("#modal-coverage").classList.add("open");
-  $("#coverage-body").textContent = "Generating coverage…";
+  const body = $("#coverage-body");
+  body.classList.remove("ai-streaming");
+  body.textContent = "Generating coverage…";
   if (aiKey) {
     try {
       const tpl = AI.getCommands().find(c => c.id === "coverage");
       const fountain = serializeFountain(false);
-      const txt = await AI.complete(tpl.prompt, { TEXT: fountain.slice(0, 30000) });
-      $("#coverage-body").textContent = txt;
+      body.textContent = "";
+      body.classList.add("ai-streaming");
+      let full = "";
+      try {
+        for await (const chunk of AI.stream(tpl.prompt, { TEXT: fountain.slice(0, 30000) })) {
+          full += chunk;
+          body.textContent = full;
+        }
+      } finally {
+        body.classList.remove("ai-streaming");
+      }
+      body.innerHTML = formatCoverage(full || body.textContent);
     } catch (e) {
-      $("#coverage-body").textContent = "AI error: " + e.message + "\n\nFalling back to local coverage…\n\n" + localCoverage();
+      body.classList.remove("ai-streaming");
+      body.innerHTML = formatCoverage("AI error: " + e.message + "\n\nFalling back to local coverage…\n\n" + localCoverage());
     }
   } else {
-    $("#coverage-body").textContent = localCoverage();
+    body.innerHTML = formatCoverage(localCoverage());
   }
+}
+
+// Parse a coverage document into themed sections. Recognized headers (LOGLINE,
+// SYNOPSIS, STRENGTHS, WEAKNESSES / CONCERNS, VERDICT, MAIN CAST, SCALE,
+// DIALOGUE RATIO) become styled blocks; everything else becomes a generic
+// paragraph. Bullet lines (` • …`, `- …`, `* …`) get converted to <li>.
+function formatCoverage(text) {
+  const lines = (text || "").split("\n");
+  const SECTION_RE = /^(LOGLINE|SYNOPSIS|STRENGTHS?|WEAKNESS(?:ES)?|CONCERNS?|VERDICT|MAIN CAST|CAST|SCALE|DIALOGUE RATIO|TITLE|AUTHOR)\s*:?\s*(.*)$/i;
+  const BULLET_RE = /^\s*(?:[•*-]|\d+[.)])\s+(.+)$/;
+  const blocks = [];
+  let current = null;
+  const flush = () => { if (current) { blocks.push(current); current = null; } };
+  lines.forEach(raw => {
+    const trimmed = raw.trim();
+    const m = trimmed.match(SECTION_RE);
+    if (m) {
+      flush();
+      const cls = m[1].toUpperCase().replace(/\s+/g, "-").toLowerCase();
+      current = { kind: "section", title: m[1].toUpperCase(), cls, body: [], inline: m[2] || "" };
+      return;
+    }
+    if (!current) current = { kind: "prose", body: [], inline: "" };
+    if (trimmed === "") current.body.push({ kind: "br" });
+    else if (BULLET_RE.test(trimmed)) current.body.push({ kind: "li", text: trimmed.match(BULLET_RE)[1] });
+    else current.body.push({ kind: "p", text: trimmed });
+  });
+  flush();
+  return blocks.map(b => {
+    const cls = b.kind === "section" ? `cov-section cov-${b.cls}` : "cov-prose";
+    const head = b.kind === "section" ? `<h4 class="cov-head">${escapeHtml(b.title)}</h4>` : "";
+    const inline = b.inline ? `<p class="cov-inline">${escapeHtml(b.inline)}</p>` : "";
+    // Collapse runs of <li> into <ul>
+    const parts = [];
+    let listOpen = false;
+    b.body.forEach(item => {
+      if (item.kind === "li") {
+        if (!listOpen) { parts.push(`<ul class="cov-bullets">`); listOpen = true; }
+        parts.push(`<li>${escapeHtml(item.text)}</li>`);
+      } else {
+        if (listOpen) { parts.push("</ul>"); listOpen = false; }
+        if (item.kind === "p") parts.push(`<p>${escapeHtml(item.text)}</p>`);
+      }
+    });
+    if (listOpen) parts.push("</ul>");
+    return `<div class="${cls}">${head}${inline}${parts.join("")}</div>`;
+  }).join("");
 }
 function localCoverage() {
   const scenes = collectScenes();
@@ -524,7 +584,11 @@ function generateSides() {
   const picked = $$("#sides-list input:checked").map(c => parseInt(c.dataset.line,10));
   if (picked.length === 0) return toast("Pick at least one scene");
   const actor = $("#sides-actor").value.trim();
-  // Build a Fountain doc with only the selected scenes
+  const anonymize = $("#sides-anon").checked;
+  const actorUp = (actor || "").toUpperCase().replace(/\s*\(.*\)\s*$/, "").trim();
+  if (anonymize && !actorUp) {
+    return toast("Type an actor / character name first to anonymize other lines");
+  }
   const lines = $$("#editor > div");
   let out = `Title: ${appState.titleMeta.title || "(untitled)"} — SIDES\n`;
   if (actor) out += `For: ${actor}\n`;
@@ -535,16 +599,29 @@ function generateSides() {
       for (let j = idx+1; j < lines.length; j++) if (lines[j].dataset.type === "scene") return j;
       return lines.length;
     })();
+    // Walk the scene; when anonymizing, replace dialogue from non-focus
+    // characters with "…" and keep their character cues so the actor still
+    // knows when someone else is speaking. Action lines stay as-is for context.
+    let currentSpeaker = null;
     for (let j = idx; j < sceneEnd; j++) {
-      if (["note","section","synopsis"].includes(lines[j].dataset.type)) continue;
+      const type = lines[j].dataset.type;
+      if (["note","section","synopsis"].includes(type)) continue;
       const t = lines[j].textContent; if (!t.trim()) continue;
-      out += t + "\n";
+      if (type === "character") {
+        const speaker = t.replace(/\s*\(.*\)\s*$/, "").trim().toUpperCase();
+        currentSpeaker = speaker;
+        out += t + "\n";
+      } else if ((type === "dialogue" || type === "parenthetical") && anonymize && currentSpeaker && currentSpeaker !== actorUp) {
+        out += (type === "parenthetical" ? "(beat)" : "…") + "\n";
+      } else {
+        out += t + "\n";
+      }
     }
     out += "\n";
   });
   downloadFile((appState.filename.replace(/\.[^.]+$/,"")) + ".sides.fountain", out, "text/plain");
   $("#modal-sides").classList.remove("open");
-  toast(`Sides for ${picked.length} scene${picked.length===1?'':'s'} exported`);
+  toast(`Sides for ${picked.length} scene${picked.length===1?'':'s'} exported${anonymize ? " (anonymized)" : ""}`);
 }
 
 /* =====================================================================
@@ -788,7 +865,18 @@ function runContinuityCheck() {
     return true;
   });
 }
-function quickContinuityCount() { return runContinuityCheck().length; }
+// Cache the count for 2s — updateStatus() calls this on every keystroke,
+// and runContinuityCheck() does O(scenes × signals × characters) regex work
+// which is fine to run once a second but pointless to run 30×/second.
+let _quickContCache = { count: 0, t: 0 };
+function quickContinuityCount() {
+  const now = Date.now();
+  if (now - _quickContCache.t < 2000) return _quickContCache.count;
+  try { _quickContCache.count = runContinuityCheck().length; }
+  catch { _quickContCache.count = 0; }
+  _quickContCache.t = now;
+  return _quickContCache.count;
+}
 function openContinuity() {
   $("#modal-continuity").classList.add("open");
   const issues = runContinuityCheck();
@@ -865,7 +953,6 @@ async function runAiCommand(id) {
   if (line && selText && sel.rangeCount) {
     const r = sel.getRangeAt(0);
     if (line.contains(r.startContainer) && line.contains(r.endContainer)) {
-      // Compute string offsets relative to the line's full text
       const before = document.createRange();
       before.selectNodeContents(line);
       before.setEnd(r.startContainer, r.startOffset);
@@ -876,24 +963,46 @@ async function runAiCommand(id) {
   const targetText = selText || (line ? line.textContent : "");
   const context = line ? gatherContextAround(line, 6) : "";
   try {
-    toast(selText ? "AI rewriting selection…" : "AI thinking…", 8000);
-    const result = await AI.complete(cmd.prompt, { TEXT: targetText, CONTEXT: context });
-    if (!result) { toast("AI returned nothing"); return; }
-    if (id === "coverage") {
+    // Stream for the long-form commands (coverage/brainstorm) — they're the slowest
+    // and have a dedicated modal that comfortably holds partial output.
+    if (id === "coverage" || id === "brainstorm") {
       $("#modal-coverage").classList.add("open");
-      $("#coverage-body").textContent = result;
+      const body = $("#coverage-body");
+      body.textContent = "";
+      body.classList.add("ai-streaming");
+      let full = "";
+      try {
+        for await (const chunk of AI.stream(cmd.prompt, { TEXT: targetText, CONTEXT: context })) {
+          full += chunk;
+          body.textContent = full;
+        }
+      } finally {
+        body.classList.remove("ai-streaming");
+      }
+      if (!full) body.textContent = "AI returned nothing.";
+      else if (id === "coverage") body.innerHTML = formatCoverage(full);
+      // brainstorm leaves the raw text alone — it's a short numbered list
       return;
     }
-    if (id === "brainstorm") {
-      $("#modal-coverage").classList.add("open");
-      $("#coverage-body").textContent = "Brainstorm:\n\n" + result;
-      return;
+    // For line/selection rewrites, build a floating ghost overlay below the
+    // target line and stream into it. The user accepts/rejects when streaming
+    // completes (or via Esc to cancel).
+    const ghost = renderAiGhostOverlay(line, selText);
+    let full = "";
+    try {
+      for await (const chunk of AI.stream(cmd.prompt, { TEXT: targetText, CONTEXT: context })) {
+        full += chunk;
+        ghost.body.textContent = full;
+      }
+    } catch (e) {
+      ghost.host.remove();
+      throw e;
     }
-    if (!line) return;
-    const cleaned = result.trim();
-    const preview = (selText ? "Replace selection:\n\n" + selText + "\n\n→\n\n" : "Replace current line:\n\n") + cleaned.slice(0, 400);
-    const ok = await modalConfirm({ title: "Apply AI suggestion?", body: preview, okText: "Replace" });
-    if (!ok) return;
+    const cleaned = full.trim();
+    if (!cleaned) { ghost.host.remove(); toast("AI returned nothing"); return; }
+    const ok = await ghost.awaitDecision();
+    ghost.host.remove();
+    if (!ok || !line) return;
     if (selRange && selText) {
       const t = line.textContent;
       line.textContent = t.substring(0, selRange.startOff) + cleaned + t.substring(selRange.endOff);
@@ -902,6 +1011,50 @@ async function runAiCommand(id) {
     }
     markRevised(line); reclassifyAll(); setDirty();
   } catch (e) { toast("AI error: " + e.message, 5000); }
+}
+
+function renderAiGhostOverlay(line, selText) {
+  const host = document.createElement("div");
+  host.className = "ai-ghost";
+  host.innerHTML = `
+    <div class="ai-ghost-head">
+      <span class="ai-ghost-tag">AI ${selText ? "selection rewrite" : "line rewrite"}</span>
+      <span class="ai-ghost-status">streaming…</span>
+    </div>
+    <div class="ai-ghost-body"></div>
+    <div class="ai-ghost-actions">
+      <button class="btn ai-ghost-cancel">Cancel</button>
+      <button class="btn primary ai-ghost-accept" disabled>Accept</button>
+    </div>
+  `;
+  document.body.appendChild(host);
+  const rect = line ? line.getBoundingClientRect() : { left: 100, bottom: 200 };
+  host.style.position = "fixed";
+  host.style.left = Math.max(20, rect.left) + "px";
+  host.style.top  = (rect.bottom + 6) + "px";
+  host.style.zIndex = 95;
+
+  const body = host.querySelector(".ai-ghost-body");
+  const status = host.querySelector(".ai-ghost-status");
+  const accept = host.querySelector(".ai-ghost-accept");
+  const cancel = host.querySelector(".ai-ghost-cancel");
+
+  // Returns Promise<bool> resolving once streaming finishes AND the user has
+  // chosen accept/cancel. The caller flips status off when the stream ends.
+  let resolve;
+  const decision = new Promise(r => { resolve = r; });
+  const onAccept = () => resolve(true);
+  const onCancel = () => resolve(false);
+  accept.addEventListener("click", onAccept);
+  cancel.addEventListener("click", onCancel);
+  const onKey = (e) => { if (e.key === "Escape") { e.preventDefault(); resolve(false); } };
+  document.addEventListener("keydown", onKey);
+  decision.finally(() => document.removeEventListener("keydown", onKey));
+
+  return {
+    host, body,
+    awaitDecision: () => { status.textContent = "ready — accept or cancel"; accept.disabled = false; return decision; },
+  };
 }
 function gatherContextAround(line, n) {
   const lines = $$("#editor > div");

@@ -2127,6 +2127,104 @@ kbd {
 .ai-menu-item .badge { color: var(--muted); font-size: 11px; }
 .ai-menu .sep { height: 1px; background: var(--line); margin: 4px 0; }
 
+/* ---------- AI streaming ghost overlay (Sprint 4 / L4) ---------- */
+.ai-ghost {
+  width: 460px; max-width: calc(100vw - 40px);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: var(--shadow-2);
+  padding: 10px 12px;
+  font-family: var(--font-screen);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+  animation: ai-ghost-in 0.18s ease-out;
+}
+@keyframes ai-ghost-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ai-ghost-head {
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--font-ui); font-size: 11px;
+  color: var(--ink-2);
+  margin-bottom: 6px;
+}
+.ai-ghost-tag {
+  text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700;
+  color: var(--accent);
+}
+.ai-ghost-status::before {
+  content: "● "; color: var(--accent);
+  animation: ai-pulse 1.2s ease-in-out infinite;
+}
+.ai-ghost-body {
+  min-height: 32px; max-height: 280px; overflow-y: auto;
+  white-space: pre-wrap;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--line-2);
+  margin-bottom: 8px;
+}
+.ai-ghost-actions {
+  display: flex; justify-content: flex-end; gap: 6px;
+}
+.ai-ghost-actions .btn { font-size: 12px; padding: 4px 12px; }
+@keyframes ai-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.3; }
+}
+
+/* coverage modal: pulse the caret while streaming */
+#coverage-body.ai-streaming { white-space: pre-wrap; }
+#coverage-body.ai-streaming::after {
+  content: "▍";
+  animation: ai-pulse 0.9s steps(2) infinite;
+  color: var(--accent);
+  margin-left: 2px;
+}
+
+/* ---------- Coverage formatting (Sprint 4 / CV) ---------- */
+#coverage-body { max-height: 60vh; overflow-y: auto; }
+#coverage-body .cov-section {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border-left: 3px solid var(--line-2);
+  border-radius: 0 6px 6px 0;
+}
+#coverage-body .cov-section.cov-logline   { border-left-color: var(--accent); background: rgba(178, 34, 34, 0.04); }
+#coverage-body .cov-section.cov-verdict   { border-left-color: #4f8a3a; background: rgba(79, 138, 58, 0.06); }
+#coverage-body .cov-section.cov-strengths { border-left-color: #4f8a3a; }
+#coverage-body .cov-section.cov-weaknesses, #coverage-body .cov-section.cov-concerns { border-left-color: #dfa116; }
+#coverage-body .cov-section.cov-synopsis  { border-left-color: #3878b8; }
+#coverage-body .cov-head {
+  margin: 0 0 6px;
+  font-family: var(--font-ui); font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--ink-2);
+}
+#coverage-body .cov-inline {
+  margin: 0; font-family: var(--font-screen);
+  font-size: 13.5px; line-height: 1.5;
+}
+#coverage-body .cov-section p {
+  margin: 6px 0; font-family: var(--font-screen);
+  font-size: 13px; line-height: 1.5;
+}
+#coverage-body .cov-bullets { margin: 6px 0 0; padding-left: 20px; }
+#coverage-body .cov-bullets li {
+  margin: 3px 0;
+  font-family: var(--font-screen);
+  font-size: 13px; line-height: 1.45;
+}
+#coverage-body .cov-prose p {
+  font-family: var(--font-screen);
+  font-size: 13px; line-height: 1.5;
+  margin: 4px 0;
+}
+
 /* ---------- Soundtrack / ambient drawer ---------- */
 .amb-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
@@ -2243,6 +2341,22 @@ body[data-typewriter="true"] #editor > div.tw-active { opacity: 1; }
   max-height: 320px; overflow-y: auto;
   border: 1px solid var(--line); border-radius: 6px;
   margin: 6px 0 8px;
+}
+.sides-anon-row {
+  display: flex; align-items: center; gap: 8px;
+  margin: 8px 0 4px;
+  font-family: var(--font-ui); font-size: 12.5px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.sides-anon-row input[type="checkbox"] { flex: 0 0 auto; }
+.sides-anon-row .muted { color: var(--ink-2); font-size: 11.5px; }
+.sides-anon-row code {
+  background: var(--bg-2);
+  padding: 0 5px;
+  border-radius: 3px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
 }
 .sides-list label {
   display: flex; gap: 10px; align-items: center;

@@ -549,6 +549,7 @@
     <div id="coverage-body"></div>
     <div class="actions">
       <button class="btn" id="cov-copy">Copy</button>
+      <button class="btn" id="cov-save">Save .txt</button>
       <button class="btn" id="cov-close">Close</button>
     </div>
   </div>
@@ -571,6 +572,7 @@
     <p class="help">Pick the scenes a performer needs. Bestscreen will export just those, with character names and lines isolated.</p>
     <div id="sides-list" class="sides-list"></div>
     <div class="form-row"><label>For</label><input type="text" id="sides-actor" placeholder="Actor name (optional)" /></div>
+    <label class="sides-anon-row"><input type="checkbox" id="sides-anon" /> <span>Anonymize other characters' lines <span class="muted">(replace dialogue with <code>…</code>)</span></span></label>
     <div class="actions">
       <button class="btn" id="sides-cancel">Cancel</button>
       <button class="btn primary" id="sides-go">Generate sides</button>

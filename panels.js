@@ -510,7 +510,8 @@ function updateInspector() {
   // Wire revision dots
   $$(".ins-color-dot", $("#rev-row")).forEach(d => d.addEventListener("click", () => {
     appState.activeRevision = d.dataset.rev;
-    $("#rev-badge").style.background = REVISION_COLORS.find(r => r.id === d.dataset.rev).css;
+    const revColor = REVISION_COLORS.find(r => r.id === d.dataset.rev);
+    if (revColor) $("#rev-badge").style.background = revColor.css;
     updateInspector(); setDirty();
   }));
   $("#opt-pace")?.addEventListener("change", e => {

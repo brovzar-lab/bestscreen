@@ -538,6 +538,10 @@ function bindEditorUI() {
   // Coverage
   $("#cov-close").addEventListener("click", () => $("#modal-coverage").classList.remove("open"));
   $("#cov-copy").addEventListener("click", () => { navigator.clipboard.writeText($("#coverage-body").textContent); toast("Copied to clipboard"); });
+  $("#cov-save").addEventListener("click", () => {
+    const fname = ((appState.titleMeta.title || "untitled").replace(/[^A-Za-z0-9_-]+/g, "_")) + "_coverage.txt";
+    downloadFile(fname, $("#coverage-body").textContent, "text/plain");
+  });
 
   // Fidelity
   $("#fid-close").addEventListener("click", () => $("#modal-fidelity").classList.remove("open"));

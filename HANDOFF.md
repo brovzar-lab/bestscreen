@@ -6,12 +6,16 @@
 
 ## TL;DR
 
-Vanilla JS / CSS / HTML, no build. See `CLAUDE.md` for architecture. **Sprint 2 just shipped on `sprints`.** Just finished:
+Vanilla JS / CSS / HTML, no build. See `CLAUDE.md` for architecture. **Sprints 2 + 3 + 4 shipped on `sprints` this session.** Summary:
 
-- **Sprint 2 — M2 + L3** (this session): Per-character arc tracker (Arcs tab in Bible) and comment anchor stabilization (hybrid fingerprint + ±10 re-anchor + orphan ⚠).
-- **Prep — module split** (this session): Split `app.js` (3,745 lines) → 6 modules (`editor.js` / `panels.js` / `views.js` / `features.js` / `io.js` + slim `app.js` ~740). Pure file reorganization. Added auto-loaded `CLAUDE.md` for stable conventions.
+- **Sprint 4 — L4 + CV + SA**: AI streaming (SSE for Anthropic + OpenAI; ghost-overlay accept/cancel for line rewrites; live partial render in coverage modal). Coverage parsed into themed sections (LOGLINE/SYNOPSIS/STRENGTHS/CONCERNS/VERDICT) with a Save .txt button. Sides export gains an "Anonymize other characters' lines" toggle.
+- **Sprint 3 — L1 + L2**: Series-shared bible (storage, merge, badges, promote/demote, conflict prompt). Entity-tracking continuity engine (state vocab, per-character timeline, categorized issue list with jump-to-scene).
+- **Sprint 2 — M2 + L3**: Per-character arc tracker (Arcs tab in Bible with W/N/F/C × scene grid + gap analysis). Comment anchor stabilization (hybrid fingerprint + ±10 re-anchor + orphan ⚠).
+- **Prep — module split**: 3,745-line `app.js` → 6 modules (`editor.js` / `panels.js` / `views.js` / `features.js` / `io.js` + slim `app.js`). Auto-loaded `CLAUDE.md` for stable conventions.
 
-**Branch state:** `sprints` ahead of `main` and `origin/sprints` by Sprint 2. `main` still at `9b0a57e`. Not yet pushed or deployed (waiting on user confirmation per the no-auto-deploy rule).
+**Bug audit done.** Fixed: `REVISION_COLORS.find().css` crash on unknown rev value, `quickContinuityCount` running 30k regex tests per keystroke (now cached 2s). 21/21 smoke checks pass in Playwright.
+
+**Branch state:** `sprints` is 4 commits ahead of `main` and `origin/sprints`. `main` still at `9b0a57e`. **Not yet pushed or deployed** — waiting on user confirmation per the no-auto-deploy rule.
 
 ---
 
@@ -23,13 +27,16 @@ Project Dashboard · multi-project storage with autosave · 5 story templates ·
 
 ### Shallow / partial — to deepen
 
-- **Series Bible** — per-project bibles exist; no series-level inheritance yet. (Sprint 3 / L1)
-- **Continuity warnings** — naive substring heuristic; false positives. (Sprint 3 / L2)
-- ~~**Comment anchoring**~~ ✅ Shipped Sprint 2 / L3 — hybrid fingerprint + ±10 re-anchor + orphan ⚠.
-- ~~**Per-character arc tracker**~~ ✅ Shipped Sprint 2 / M2 — Arcs tab in Bible with W/N/F/C × scene grid + gap analysis.
-- **Track Changes** — log + drawer viewer exist; no per-author redlines or accept/reject UI.
-- **AI streaming** — fetch-based; no partial render.
+- ~~**Series Bible**~~ ✅ Shipped Sprint 3 / L1.
+- ~~**Continuity warnings**~~ ✅ Shipped Sprint 3 / L2 — entity-tracking engine with state vocab.
+- ~~**Comment anchoring**~~ ✅ Shipped Sprint 2 / L3.
+- ~~**Per-character arc tracker**~~ ✅ Shipped Sprint 2 / M2.
+- ~~**AI streaming**~~ ✅ Shipped Sprint 4 / L4 — SSE for Anthropic + OpenAI with ghost-overlay accept/cancel.
+- ~~**Coverage formatting**~~ ✅ Shipped Sprint 4 / CV — sectioned with Save .txt.
+- ~~**Sides anonymize**~~ ✅ Shipped Sprint 4 / SA.
+- **Track Changes per-author redlines** — log + drawer viewer exist; no inline colored diffs in script. (~200 LOC remaining)
 - **Track-changes viewer drawer** — could use density polish.
+- **Slideshow read mode (#29)** — original picker item, never implemented.
 
 ---
 
@@ -53,29 +60,20 @@ Project Dashboard · multi-project storage with autosave · 5 story templates ·
 - Orphaned comments show in Notes sidebar with an amber-left-border and ⚠ icon; clicking prompts to delete.
 - Legacy 2-part keys (`idx:hash`) still resolve via the final-resort full-doc text-hash search.
 
-### 🏗 Sprint 3 (next up) — Structural depth, ~4 hours
+### Sprint 5+ — leftover polish
 
-**L1 — Shared bible across series episodes (~250 lines)** — storage migration adds `seriesBibles` keyed by `seriesId`. `Bible.open(pid)`: if `project.seriesId` exists, load merged bible. Character cards get a "Series" vs "Episode" badge. "Promote to series" button on each card. Conflict resolver prompt. Files: `storage.js`, `bible.js`, `dashboard.js`.
-
-**L2 — Entity-tracking continuity engine (~400 lines, biggest investment)** — replace naive heuristic with a real state model. State vocabularies: `injured / dead / pregnant / sober / drunk / employed / married / single / arrested / free / hospitalized`. For each scene, parse state-change verbs targeting known characters. Track relationships. Walk scenes in order; flag inconsistencies. Categorized result UI with jump-to-scene. New `ContinuityEngine` module — likely a new file (~300 lines) or appended to `features.js`.
-
-### Sprint 4+ — leftover polish
-
-- **AI streaming** (~200 lines) — SSE for Anthropic; OpenAI streaming. Ghost overlay; click to accept.
-- **Per-author Track Changes redlines** (~200 lines) — inline colored diffs in the script.
-- **`@CharacterName` linking enrichment** — hover popover exists; add inline `@name` detection in dialogue/action; clicking jumps to bible.
-- **Real audio loops** — embed small base64 mp3/ogg for more natural sound. Trade-off: file size.
-- **Soundtrack URL probe accuracy** — current `<audio>` probe doesn't always fire `canplay` for cross-origin. Show "probably works" nuance.
-- **Slideshow read mode** (#29 from picker) — auto-advance scene by scene full-screen.
+- **Per-author Track Changes redlines** (~200 lines) — inline colored diffs in the script. Log already exists at `Storage.getChanges(pid)`; just need an "overlay" toggle that renders before/after diffs inline. The biggest remaining shallow feature.
+- **Slideshow read mode** (#29) — auto-advance scene-by-scene fullscreen for cinematic reading. ~120 lines. Never implemented.
+- **`@CharacterName` inline linking** — hover popover already works on cues; extend to detect `@name` syntax in action lines and link to bible.
+- **Real audio loops** — synthesis is genuinely good (multi-layered rain/fireplace/cafe/vinyl/brown). Replacing with base64-inlined real samples is debatable — trades file size for naturalism.
+- **`bible.js` split** — file is now ~860 lines after Sprint 3. Approaching the threshold where splitting into `bible-core.js` + `bible-views.js` would help. Not urgent.
 
 ### Already-implemented features that could use a polish pass
 
-- **#28 Coverage** — works with AI + local fallback. Could format as a real document with sections.
-- **#46 Watermarked PDF** — works. Save a watermark template per project.
-- **#25 Sides** — works. Add option to anonymize other characters' lines.
+- **#46 Watermarked PDF** — works. Could save a watermark template per project.
 - **#36 Cinematic mood** — page tint per mood works. Could affect Read-Aloud pitch/rate.
-- **#34 Soundtrack** — per-scene URL works. Add a small waveform preview.
-- **#38 Pace heatmap** — works in Stats. Could be a togglable overlay on the script view.
+- **#34 Soundtrack** — per-scene URL works. Could add a waveform preview.
+- **#38 Pace heatmap** — works in Stats. Could be togglable as an inline overlay on the script view.
 
 ---
 
@@ -83,6 +81,6 @@ Project Dashboard · multi-project storage with autosave · 5 story templates ·
 
 Use:
 
-> "Continue building Bestscreen (live at https://bestscreen.web.app, repo `brovzar-lab/bestscreen`). `CLAUDE.md` covers architecture and conventions; this `HANDOFF.md` covers what's next. Sprint 2 (M2 character arcs + L3 comment anchors) just shipped on the `sprints` branch and is not yet pushed/deployed — confirm before pushing. Next is Sprint 3 (L1 series-shared bible + L2 entity-tracking continuity engine)."
+> "Continue building Bestscreen (live at https://bestscreen.web.app, repo `brovzar-lab/bestscreen`). `CLAUDE.md` covers architecture and conventions; this `HANDOFF.md` covers what's next. Sprints 2, 3, and 4 all shipped on the `sprints` branch this session — 13 of the original 15-item plan plus polish are done, verified in Playwright. **The branch hasn't been pushed or deployed yet** — confirm before doing either. The biggest remaining backlog item is per-author Track Changes redlines (~200 LOC)."
 
-— Last updated 2026-05-25.
+— Last updated 2026-05-26.
