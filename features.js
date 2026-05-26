@@ -548,74 +548,292 @@ function generateSides() {
 }
 
 /* =====================================================================
- * Continuity warnings
+ * Continuity warnings — entity-tracking engine (Sprint 3 / L2)
+ *
+ * Walk scenes in order, maintain a per-character state vector, then flag
+ * cases where a character speaks/acts after being marked into a state
+ * that should preclude that (dead, far away, in jail, etc.). Resolution
+ * verbs (revived, gives birth, released, divorced) clear the state.
+ *
+ * Patterns are conservative — favoring recall over precision so the
+ * writer can quickly skim a list of "did you mean to do this?" prompts.
+ * Each issue has a category, a one-line description, and a jump-to-scene
+ * target so triage stays cheap.
  * =================================================================== */
-const CONT_TRIGGERS = {
-  injured: ["injured", "wounded", "stabbed", "shot", "bleeding"],
-  killed:  ["killed", "dead", "dies", "kills"],
-  pregnant:["pregnant"],
-  drunk:   ["drunk", "wasted", "hammered"],
-  fired:   ["fired", "laid off"],
-  married: ["married", "engaged"],
+const STATE_VOCAB = {
+  dead: {
+    label: "Death", category: "death", persistent: true,
+    signals: [
+      /\b(dies|died|dying)\b/i,
+      /\b(killed|murdered|slain)\b/i,
+      /\bis (dead|deceased|gone)\b/i,
+      /\b(shot|stabbed|beaten) to death\b/i,
+      /\b(his|her|their) (corpse|body) lies\b/i,
+      /\b(his|her|their) lifeless (body|form)\b/i,
+      /\bbleeds out\b/i,
+    ],
+    resolve: [
+      /\b(comes? back to life|resurrected|revived|reanimated|breathes? again|wakes? from the dead)\b/i,
+      /\b(it was a dream|never actually|just imagining|hallucinated)\b/i,
+    ],
+  },
+  injured: {
+    label: "Injury", category: "injury", persistent: false,
+    signals: [
+      /\b(stabbed|shot|wounded|injured)\b/i,
+      /\bbleeding (heavily|out|profusely)\b/i,
+      /\blimps? (badly|heavily)\b/i,
+    ],
+    resolve: [
+      /\b(heals?|healed|recovered|patched up|bandaged up|stitches? out)\b/i,
+    ],
+  },
+  pregnant: {
+    label: "Pregnancy", category: "pregnancy", persistent: true,
+    signals: [/\bis pregnant\b/i, /\bexpecting\b/i, /\bwith child\b/i, /\bin labor\b/i, /\b(her|their) belly swollen\b/i],
+    resolve: [/\b(gives? birth|delivered|miscarried|miscarriage|lost the baby)\b/i],
+  },
+  arrested: {
+    label: "Law", category: "law", persistent: true,
+    signals: [/\b(arrested|handcuffed|in cuffs|in custody|behind bars|in (jail|prison))\b/i],
+    resolve: [/\b(released|bail|escapes?|broke out|set free|gets? out)\b/i],
+  },
+  married: {
+    label: "Relationship", category: "relationship", persistent: true,
+    signals: [/\b(marries?|married|wed|wedding)\b/i, /\b(his|her) (wife|husband|spouse)\b/i],
+    resolve: [/\b(divorce[ds]?|separated|annulled|widowed)\b/i],
+  },
 };
-function quickContinuityCount() { return runContinuityCheck().length; }
-function runContinuityCheck() {
+const STATE_CATEGORIES = {
+  death: "Death", injury: "Injury", pregnancy: "Pregnancy",
+  law: "Law / arrest", relationship: "Relationship", substance: "Substance",
+};
+
+function castFromBibleAndScript() {
+  const set = new Set();
+  $$("#editor > div[data-type='character']").forEach(d => {
+    const n = d.textContent.replace(/\s*\(.*\)\s*$/, "").trim().toUpperCase();
+    if (n) set.add(n);
+  });
+  // Include bible characters too (covers off-screen characters discussed only in action)
+  try {
+    const pid = appState.projectId;
+    const bible = pid ? Storage.getBible(pid) : null;
+    bible?.characters?.forEach(c => c.name && set.add(c.name.toUpperCase()));
+    const project = pid ? Storage.getProject(pid) : null;
+    if (project?.seriesId) {
+      const sBible = Storage.getSeriesBible(project.seriesId);
+      sBible?.characters?.forEach(c => c.name && set.add(c.name.toUpperCase()));
+    }
+  } catch (e) { /* defensive */ }
+  return Array.from(set);
+}
+
+function continuityScenes() {
   const lines = $$("#editor > div");
-  const warnings = [];
-  // For each trigger word that mentions a character, see if there's later mention of that character
-  // without acknowledgment within 5 scenes.
-  const chars = new Set($$("#editor > div[data-type='character']").map(d =>
-    d.textContent.replace(/\s*\(.*\)\s*$/,"").trim().toUpperCase()));
-  const sceneOf = i => { for (let j = i; j >= 0; j--) if (lines[j] && lines[j].dataset.type === "scene") return j; return -1; };
-  const sceneIdx = new Map(); $$("#editor > div[data-type='scene']").forEach((s,i) => sceneIdx.set($$("#editor > div").indexOf(s), i));
-  Object.entries(CONT_TRIGGERS).forEach(([kind, words]) => {
-    lines.forEach((line, i) => {
-      const t = line.textContent.toLowerCase();
-      words.forEach(w => {
-        if (!t.includes(w)) return;
-        // Find character mentioned nearby in ALL CAPS
-        const caps = line.textContent.match(/\b[A-Z][A-Z]{2,}\b/g) || [];
-        caps.forEach(name => {
-          if (!chars.has(name)) return;
-          const ownSceneIdx = sceneOf(i);
-          if (ownSceneIdx === -1) return;
-          const sceneNum = sceneIdx.get(ownSceneIdx) || 0;
-          // Check 5 subsequent scenes for any mention of this character or kind
-          let acknowledged = false;
-          const ahead = lines.slice(i + 1).slice(0, 200);
-          ahead.forEach(l => {
-            if (l.textContent.toUpperCase().includes(name) && !l.textContent.toLowerCase().includes(w)) {
-              // Mentioned by name later — check if condition is mentioned/resolved
-              if (kind === "killed" || kind === "dead") {
-                if (l.dataset.type === "character" && l.textContent.toUpperCase().includes(name)) {
-                  warnings.push({
-                    kind, character: name, where: "scene " + (sceneNum+1),
-                    msg: `${name} is described as ${kind} in scene ${sceneNum+1}, but speaks later. Intentional?`,
-                    lineIdx: lines.indexOf(l)
-                  });
-                }
-              }
-            }
-          });
-        });
+  const sceneEls = $$("#editor > div[data-type='scene']");
+  return sceneEls.map((scene, i) => {
+    const start = lines.indexOf(scene);
+    const end = (i + 1 < sceneEls.length) ? lines.indexOf(sceneEls[i + 1]) : lines.length;
+    let text = "";
+    let cues = [];
+    for (let j = start; j < end; j++) {
+      const t = lines[j].dataset.type;
+      if (t === "action" || t === "dialogue" || t === "parenthetical") text += " " + lines[j].textContent;
+      else if (t === "character") {
+        const name = lines[j].textContent.replace(/\s*\(.*\)\s*$/, "").trim().toUpperCase();
+        if (name) cues.push(name);
+        text += " " + lines[j].textContent;
+      }
+    }
+    return { sceneNum: i + 1, slug: scene.textContent, startLine: start, endLine: end, text, cues };
+  });
+}
+
+// Find character mentions in a window of text near `pos`. Returns matched names.
+function charactersNear(text, pos, characters, window = 90) {
+  const slice = text.slice(Math.max(0, pos - window), pos + window).toUpperCase();
+  const hits = [];
+  characters.forEach(name => {
+    // Word-boundary match (allow trailing 's possessive)
+    if (new RegExp("\\b" + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?:'S)?\\b").test(slice)) {
+      hits.push(name);
+    }
+  });
+  return hits;
+}
+
+function detectStateChanges(scenes, characters) {
+  // For each character, build [{ state, scene, kind: 'enter'|'resolve' }]
+  const events = new Map(); // name → []
+  const pushEvent = (name, ev) => {
+    if (!events.has(name)) events.set(name, []);
+    events.get(name).push(ev);
+  };
+  scenes.forEach(scene => {
+    Object.entries(STATE_VOCAB).forEach(([state, def]) => {
+      def.signals.forEach(re => {
+        const reG = new RegExp(re.source, "gi");
+        let m;
+        while ((m = reG.exec(scene.text)) !== null) {
+          const hits = charactersNear(scene.text, m.index, characters);
+          hits.forEach(name => pushEvent(name, { kind: "enter", state, scene: scene.sceneNum }));
+        }
+      });
+      (def.resolve || []).forEach(re => {
+        const reG = new RegExp(re.source, "gi");
+        let m;
+        while ((m = reG.exec(scene.text)) !== null) {
+          const hits = charactersNear(scene.text, m.index, characters);
+          hits.forEach(name => pushEvent(name, { kind: "resolve", state, scene: scene.sceneNum }));
+        }
       });
     });
   });
-  // Dedupe
-  const seen = new Set(); return warnings.filter(w => {
-    const k = w.kind + ":" + w.character + ":" + w.where;
-    if (seen.has(k)) return false; seen.add(k); return true;
+  return events;
+}
+
+function characterAppearances(scenes) {
+  // Map: name → [{ sceneNum, hasCue, inAction }]
+  const out = new Map();
+  scenes.forEach(scene => {
+    const cuesUp = new Set(scene.cues);
+    const upperText = scene.text.toUpperCase();
+    cuesUp.forEach(name => {
+      if (!out.has(name)) out.set(name, []);
+      out.get(name).push({ sceneNum: scene.sceneNum, hasCue: true, inAction: false });
+    });
+  });
+  return out;
+}
+
+function runContinuityCheck() {
+  const scenes = continuityScenes();
+  if (scenes.length < 2) return [];
+  const characters = castFromBibleAndScript();
+  if (characters.length === 0) return [];
+  const events = detectStateChanges(scenes, characters);
+  const appearances = characterAppearances(scenes);
+  const issues = [];
+
+  events.forEach((evs, character) => {
+    // Walk events in order; track open states + resolved scene
+    const openState = {}; // state → { firstScene, resolvedScene? }
+    evs.forEach(ev => {
+      if (ev.kind === "enter") {
+        if (!openState[ev.state]) openState[ev.state] = { firstScene: ev.scene };
+      } else if (ev.kind === "resolve" && openState[ev.state]) {
+        openState[ev.state].resolvedScene = ev.scene;
+      }
+    });
+    Object.entries(openState).forEach(([state, info]) => {
+      const def = STATE_VOCAB[state];
+      if (!def.persistent) return; // only persistent states trigger continuity issues
+      const apps = (appearances.get(character) || []).filter(a => a.sceneNum > info.firstScene);
+      const cutoff = info.resolvedScene || Infinity;
+      const offending = apps.filter(a => a.sceneNum < cutoff);
+      if (state === "dead") {
+        offending.forEach(a => {
+          issues.push({
+            character, state, category: def.category, label: def.label,
+            firstScene: info.firstScene, jumpScene: a.sceneNum,
+            msg: `${character} is described as dead in scene ${info.firstScene}, but speaks in scene ${a.sceneNum}.`,
+          });
+        });
+      } else if (state === "pregnant" && offending.length > 0) {
+        // Flag once: pregnancy goes unresolved through last appearance
+        const last = offending[offending.length - 1];
+        if (last.sceneNum - info.firstScene >= 10) {
+          issues.push({
+            character, state, category: def.category, label: def.label,
+            firstScene: info.firstScene, jumpScene: last.sceneNum,
+            msg: `${character} is pregnant in scene ${info.firstScene}, but no birth or resolution shown through scene ${last.sceneNum}.`,
+          });
+        }
+      } else if (state === "arrested" && offending.length > 0) {
+        const a = offending[0];
+        if (a.sceneNum > info.firstScene + 1) {
+          issues.push({
+            character, state, category: def.category, label: def.label,
+            firstScene: info.firstScene, jumpScene: a.sceneNum,
+            msg: `${character} is arrested in scene ${info.firstScene}; speaks freely in scene ${a.sceneNum} — was the release shown?`,
+          });
+        }
+      } else if (state === "married") {
+        // We only flag this if a SECOND marriage event happens without a divorce in between
+        const enterEvents = evs.filter(e => e.kind === "enter" && e.state === "married").map(e => e.scene);
+        const resolveEvents = evs.filter(e => e.kind === "resolve" && e.state === "married").map(e => e.scene);
+        if (enterEvents.length >= 2) {
+          const [first, ...rest] = enterEvents;
+          rest.forEach(secondScene => {
+            const divorceBetween = resolveEvents.some(r => r > first && r < secondScene);
+            if (!divorceBetween) {
+              issues.push({
+                character, state, category: def.category, label: def.label,
+                firstScene: first, jumpScene: secondScene,
+                msg: `${character} marries in scene ${first} and again in scene ${secondScene} — no separation shown between.`,
+              });
+            }
+          });
+        }
+      }
+    });
+  });
+
+  // Dedupe identical messages
+  const seen = new Set();
+  return issues.filter(it => {
+    if (seen.has(it.msg)) return false;
+    seen.add(it.msg);
+    return true;
   });
 }
+function quickContinuityCount() { return runContinuityCheck().length; }
 function openContinuity() {
   $("#modal-continuity").classList.add("open");
-  const warnings = runContinuityCheck();
-  $("#continuity-body").innerHTML = warnings.length
-    ? warnings.map(w => `<div class="cont-item">
-        <div>${escapeHtml(w.msg)}</div>
-        <div class="cont-where">${escapeHtml(w.where)}</div>
-      </div>`).join("")
-    : `<div style="color:var(--muted);padding:20px;text-align:center">No continuity issues detected.</div>`;
+  const issues = runContinuityCheck();
+  const body = $("#continuity-body");
+  if (issues.length === 0) {
+    body.innerHTML = `<div class="cont-empty">
+      <div style="font-size:32px;margin-bottom:6px">✓</div>
+      <div>No continuity issues detected.</div>
+      <div class="cont-hint">The engine watches for: dead-then-speaks, pregnancy-with-no-resolution, arrested-then-free, double-marriage without a divorce shown.</div>
+    </div>`;
+    return;
+  }
+  // Group by category
+  const grouped = new Map();
+  issues.forEach(it => {
+    if (!grouped.has(it.category)) grouped.set(it.category, []);
+    grouped.get(it.category).push(it);
+  });
+  body.innerHTML = `
+    <div class="cont-meta">${issues.length} possible issue${issues.length === 1 ? "" : "s"} — heuristic, double-check before acting.</div>
+    ${Array.from(grouped.entries()).map(([cat, list]) => `
+      <div class="cont-group">
+        <h4 class="cont-group-head">${escapeHtml(STATE_CATEGORIES[cat] || cat)} <span class="cont-count">${list.length}</span></h4>
+        <div class="cont-list">
+          ${list.map(it => `
+            <div class="cont-item" data-jump="${it.jumpScene}">
+              <div class="cont-msg">${escapeHtml(it.msg)}</div>
+              <button class="btn cont-jump" data-jump="${it.jumpScene}">Jump to scene ${it.jumpScene}</button>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `).join("")}
+  `;
+  body.querySelectorAll(".cont-jump").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const targetScene = parseInt(btn.dataset.jump, 10);
+      $("#modal-continuity").classList.remove("open");
+      const sceneEls = $$("#editor > div[data-type='scene']");
+      const target = sceneEls[targetScene - 1];
+      if (!target) return;
+      const lineIdx = $$("#editor > div").indexOf(target);
+      navigateToLine(lineIdx, null);
+    });
+  });
 }
 
 /* =====================================================================

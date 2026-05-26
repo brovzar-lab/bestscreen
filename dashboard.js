@@ -112,11 +112,17 @@ const Dashboard = (() => {
   function renderSeriesCard(s, projects) {
     const eps = projects.filter(p => p.seriesId === s.id)
                          .sort((a,b) => (a.episode||0) - (b.episode||0));
+    const sBible = Storage.getSeriesBible ? Storage.getSeriesBible(s.id) : null;
+    const sharedCount = (sBible?.characters?.length || 0) + (sBible?.locations?.length || 0);
+    const sharedLine = sharedCount > 0
+      ? `<div class="dash-series-shared" title="Shared in this series' bible">📚 ${sBible.characters.length} character${sBible.characters.length===1?'':'s'} · ${sBible.locations.length} location${sBible.locations.length===1?'':'s'} shared</div>`
+      : "";
     return `
       <div class="dash-series" data-sid="${s.id}" style="--cover:${s.coverColor}">
         <div class="dash-series-head">
           <div class="dash-series-title">${escapeHtml(s.name)}</div>
           <div class="dash-series-sub">${TYPE_LABELS[s.type] || ""} · ${eps.length} episode${eps.length===1?'':'s'}</div>
+          ${sharedLine}
         </div>
         <div class="dash-series-eps">
           ${eps.map(e => `

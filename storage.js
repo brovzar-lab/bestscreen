@@ -20,6 +20,7 @@ const Storage = (() => {
   const K = "bestscreen.v3";
   const KEY_INDEX = K + ".index";
   const proj = (id) => K + ".p." + id;
+  const ser  = (id) => K + ".s." + id;
 
   const DEFAULT_INDEX = {
     projects: [],   // [{ id, name, type, seriesId?, episode?, coverColor, pinned, lastModified, lastOpened, tagline?, status?: 'idea'|'outline'|'drafting'|'rewriting'|'polishing'|'final' }]
@@ -160,6 +161,42 @@ const Storage = (() => {
     // Detach projects
     idx.projects.forEach(p => { if (p.seriesId === id) p.seriesId = null; });
     writeIndex(idx);
+    // Drop the shared bible too — episodes keep their local bibles
+    localStorage.removeItem(ser(id) + ".bible");
+  }
+  function getSeriesBible(seriesId) {
+    if (!seriesId) return null;
+    try {
+      const raw = localStorage.getItem(ser(seriesId) + ".bible");
+      if (!raw) return { characters: [], locations: [], rules: [], relationships: [] };
+      const obj = JSON.parse(raw);
+      return {
+        characters: obj.characters || [],
+        locations: obj.locations || [],
+        rules: obj.rules || [],
+        relationships: obj.relationships || [],
+      };
+    } catch (e) { return { characters: [], locations: [], rules: [], relationships: [] }; }
+  }
+  function setSeriesBible(seriesId, bible) {
+    if (!seriesId) return;
+    try { localStorage.setItem(ser(seriesId) + ".bible", JSON.stringify(bible)); }
+    catch (e) { console.warn("series bible write failed", e); }
+  }
+  function getSeries(id) {
+    return readIndex().series.find(s => s.id === id) || null;
+  }
+  function updateSeries(id, patch) {
+    const idx = readIndex();
+    const s = idx.series.find(x => x.id === id);
+    if (!s) return null;
+    Object.assign(s, patch);
+    writeIndex(idx);
+    return s;
+  }
+  function listProjectsBySeries(seriesId) {
+    if (!seriesId) return [];
+    return readIndex().projects.filter(p => p.seriesId === seriesId);
   }
 
   // ---------- Per-project getters/setters ----------
@@ -274,7 +311,8 @@ const Storage = (() => {
     // projects
     listProjects, getProject, createProject, updateProject, deleteProject,
     // series
-    listSeries, createSeries, deleteSeries,
+    listSeries, createSeries, deleteSeries, getSeries, updateSeries,
+    listProjectsBySeries, getSeriesBible, setSeriesBible,
     // per-project
     getDoc, setDoc, getMeta, setMeta, getBible, setBible,
     getSnaps, setSnaps, getComments, setComments,
