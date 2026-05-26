@@ -1104,6 +1104,84 @@ PROJECT:
   else if (appState.view === "cards") renderCards();
 }
 
+// Bulk-fill synopses for a set of selected scenes in a single API call.
+// Output is a JSON object keyed by line index; we parse it and write each
+// synopsis back via setSynopsisAfter(). Robust to stray text around the JSON.
+async function aiFillBeatSynopsesBulk(lineIdxs) {
+  if (!Array.isArray(lineIdxs) || lineIdxs.length === 0) {
+    toast("Select at least one scene first");
+    return;
+  }
+  if (!AI.isConfigured()) {
+    toast("No API key. Fill config.local.js or open Settings.", 4000);
+    return;
+  }
+  const lines = $$("#editor > div");
+  const template = appState.template ? Templates.get(appState.template) : null;
+  // Use sequence numbers (1..N) for the JSON keys — line indices are large
+  // and the model sometimes hallucinates similar-looking numbers. We map
+  // sequence → real lineIdx ourselves when writing back.
+  const targets = lineIdxs
+    .filter(idx => lines[idx]?.dataset.type === "scene")
+    .map((idx, i) => {
+      const l = lines[idx];
+      const slug = l.textContent.replace(/^\./, "").trim();
+      const beat = template?.beats.find(b => b.id === l.dataset.beat);
+      return { seq: i + 1, idx, slug, beat };
+    });
+  if (targets.length === 0) return;
+  const targetsBlock = targets.map(t =>
+    `${t.seq}. ${t.slug}` + (t.beat ? ` [beat: ${t.beat.name} — ${t.beat.desc || "(role TBD)"}]` : "")
+  ).join("\n");
+  const promptTemplate = `For EACH of the scenes below, write a 1-2 sentence SCENE SYNOPSIS (present tense, concrete, no quotes, no commentary, no "Here is" preamble). If a scene has a beat tag, honor that role.
+
+Output VALID JSON ONLY — a single object mapping the EXACT scene number (as a STRING, "1" through "${targets.length}") to its synopsis. The keys MUST be exactly "1", "2", … "${targets.length}" and nothing else. Example for 2 scenes:
+{"1":"Marcus and Ella collide in the diner — she sees the bruise.","2":"Marcus finally names the killer."}
+
+SCENES:
+${targetsBlock}
+
+PROJECT CONTEXT:
+{CONTEXT}`;
+  const anchor = document.querySelector('.bs-multitools [data-act="ai-bulk"]') || document.body;
+  const raw = await aiInlineFill({
+    anchor,
+    label: `AI · ${targets.length} synopses`,
+    prompt: promptTemplate,
+    vars: { CONTEXT: gatherProjectContext() },
+  });
+  if (!raw) return;
+  // Find the JSON object in the response. AI sometimes wraps it in prose
+  // or code fences — extract the outermost {...} block.
+  const match = raw.match(/\{[\s\S]*\}/);
+  let parsed = null;
+  if (match) {
+    try { parsed = JSON.parse(match[0]); } catch {}
+  }
+  if (!parsed || typeof parsed !== "object") {
+    toast("AI returned unparseable output — synopses not written");
+    return;
+  }
+  // setSynopsisAfter() inserts a new line and runs reclassifyAll, which shifts
+  // every subsequent line index. Write in REVERSE document order so earlier
+  // insertions don't invalidate later targets.
+  const writes = Object.entries(parsed)
+    .map(([k, v]) => {
+      const seq = parseInt(k, 10);
+      const target = targets.find(t => t.seq === seq);
+      if (!target || typeof v !== "string" || !v.trim()) return null;
+      return { idx: target.idx, value: v.trim() };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.idx - a.idx);
+  let count = 0;
+  writes.forEach(({ idx, value }) => { setSynopsisAfter(idx, value); count++; });
+  setDirty();
+  if (appState.view === "beats") renderBeatBoard();
+  else if (appState.view === "cards") renderCards();
+  toast(`Filled ${count} of ${targets.length} synopses`);
+}
+
 // Generate a logline candidate based on the full project context.
 async function aiGenerateLogline() {
   const promptTemplate = `Write ONE line of LOGLINE for this screenplay. It must follow the standard structure:

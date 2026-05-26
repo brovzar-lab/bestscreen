@@ -1,6 +1,46 @@
 "use strict";
 /* views.js — beat board, cards corkboard, stats dashboard (with SVG charts), story timeline. */
 
+// Selection set shared between Beat Board and Cards view. Tracks scene line
+// indices so checking a card in one view persists when switching to the
+// other. Bulk-AI fill operates on this set.
+const _selectedScenes = new Set();
+
+function _renderMultiSelectToolbar(scopeId) {
+  const n = _selectedScenes.size;
+  return `
+    <div class="bs-multitools" id="${scopeId}">
+      <span class="bs-multi-count">${n} scene${n===1?'':'s'} selected</span>
+      <button class="btn small" data-act="select-all">Select all</button>
+      <button class="btn small" data-act="clear-sel" ${n===0?'disabled':''}>Clear</button>
+      <button class="btn primary small" data-act="ai-bulk" ${n===0?'disabled':''}>✨ AI fill ${n ? '('+n+')' : 'selected'}</button>
+    </div>
+  `;
+}
+function _wireMultiSelectToolbar(scope, opts) {
+  scope.querySelector('[data-act="select-all"]')?.addEventListener("click", () => {
+    opts.allLineIdxs().forEach(i => _selectedScenes.add(i));
+    opts.rerender();
+  });
+  scope.querySelector('[data-act="clear-sel"]')?.addEventListener("click", () => {
+    _selectedScenes.clear();
+    opts.rerender();
+  });
+  scope.querySelector('[data-act="ai-bulk"]')?.addEventListener("click", () => {
+    if (typeof aiFillBeatSynopsesBulk !== "function") return;
+    aiFillBeatSynopsesBulk(Array.from(_selectedScenes));
+  });
+}
+function _updateToolbarCount(scope) {
+  if (!scope) return;
+  const n = _selectedScenes.size;
+  scope.querySelector(".bs-multi-count").textContent = `${n} scene${n===1?'':'s'} selected`;
+  const clearBtn = scope.querySelector('[data-act="clear-sel"]');
+  const aiBtn    = scope.querySelector('[data-act="ai-bulk"]');
+  if (clearBtn) clearBtn.disabled = n === 0;
+  if (aiBtn) { aiBtn.disabled = n === 0; aiBtn.textContent = `✨ AI fill ${n ? '('+n+')' : 'selected'}`; }
+}
+
 /* =====================================================================
  * Beat Board (with template ghost cards)
  * =================================================================== */
@@ -52,6 +92,10 @@ function renderBeatBoard() {
     }
   }
 
+  // Prepend the multi-select toolbar (shared with Cards view via _selectedScenes)
+  const toolbarHtml = _renderMultiSelectToolbar("bs-toolbar-beats");
+  html = toolbarHtml + html;
+
   // When a template is active, build a beat-tag selector so users can assign
   // scenes to template beats. The selector includes "— none —" plus all beats.
   const template = appState.template ? Templates.get(appState.template) : null;
@@ -73,8 +117,10 @@ function renderBeatBoard() {
           const color = s.beatColor || "gray";
           const syn = synopsisAfter(s.lineIndex);
           const beatName = template ? (template.beats.find(b => b.id === s.beatTag)?.name) : null;
-          return `<div class="beat-card beat-${color}" draggable="true" data-line="${s.lineIndex}">
+          const isSelected = _selectedScenes.has(s.lineIndex);
+          return `<div class="beat-card beat-${color}${isSelected?' bc-multi-selected':''}" draggable="true" data-line="${s.lineIndex}">
             <div class="bc-card-head">
+              <label class="bc-multi" title="Select for bulk AI"><input type="checkbox" class="bc-select" data-line="${s.lineIndex}" ${isSelected?'checked':''} /></label>
               <div class="bc-colors">${["red","amber","green","blue","violet","gray"].map(c => `<div class="bc-color ${color===c?'selected':''}" data-color="${c}" style="background:${beatColorCSS(c)}" title="${c}"></div>`).join("")}</div>
               <button class="bc-ai" data-line="${s.lineIndex}" title="AI: fill in this scene's synopsis based on the script + ${beatName ? "the " + beatName + " beat" : "context"}">✨</button>
             </div>
@@ -90,6 +136,21 @@ function renderBeatBoard() {
   board.innerHTML = html;
 
   // Wire
+  // Wire the multi-select toolbar
+  const toolbar = $("#bs-toolbar-beats", board);
+  if (toolbar) _wireMultiSelectToolbar(toolbar, {
+    allLineIdxs: () => Array.from(board.querySelectorAll(".beat-card[data-line]")).map(c => parseInt(c.dataset.line, 10)),
+    rerender: renderBeatBoard,
+  });
+  // Per-card checkboxes
+  $$(".bc-select", board).forEach(cb => cb.addEventListener("change", e => {
+    e.stopPropagation();
+    const idx = parseInt(cb.dataset.line, 10);
+    if (cb.checked) _selectedScenes.add(idx); else _selectedScenes.delete(idx);
+    cb.closest(".beat-card")?.classList.toggle("bc-multi-selected", cb.checked);
+    _updateToolbarCount(toolbar);
+  }));
+
   $$(".beat-card", board).forEach(card => {
     card.addEventListener("dragstart", e => { e.dataTransfer.setData("text/plain", card.dataset.line); card.classList.add("dragging"); });
     card.addEventListener("dragend", () => card.classList.remove("dragging"));
@@ -199,17 +260,33 @@ function renderCards() {
     root.innerHTML = `<div class="side-empty" style="grid-column:1/-1;text-align:center;padding:80px 20px;color:var(--muted)">No scenes yet — go to the Script tab and write one.</div>`;
     return;
   }
-  root.innerHTML = scenes.map((s,i) => `
-    <div class="idx-card card-item" draggable="true" data-line="${s.lineIndex}">
+  const toolbarHtml = `<div class="cards-toolbar-wrap" style="grid-column:1/-1">${_renderMultiSelectToolbar("bs-toolbar-cards")}</div>`;
+  root.innerHTML = toolbarHtml + scenes.map((s,i) => {
+    const isSelected = _selectedScenes.has(s.lineIndex);
+    return `
+    <div class="idx-card card-item${isSelected?' ic-multi-selected':''}" draggable="true" data-line="${s.lineIndex}">
       <div class="ic-head">
+        <label class="ic-multi" title="Select for bulk AI"><input type="checkbox" class="ic-select" data-line="${s.lineIndex}" ${isSelected?'checked':''} /></label>
         <div class="ic-num">${i+1}.</div>
         <button class="ic-ai" data-line="${s.lineIndex}" title="AI: fill synopsis from script context">✨</button>
       </div>
       <div class="ic-slug">${escapeHtml(s.slug)}</div>
       <textarea class="ic-syn" data-line="${s.lineIndex}" placeholder="What happens?">${escapeHtml(synopsisAfter(s.lineIndex))}</textarea>
       <div class="ic-foot"><span>${s.words} w · ${s.characters.size} char</span><span>${Array.from(s.characters).slice(0,3).join(", ")}</span></div>
-    </div>
-  `).join("");
+    </div>`;
+  }).join("");
+  const cardsToolbar = $("#bs-toolbar-cards");
+  if (cardsToolbar) _wireMultiSelectToolbar(cardsToolbar, {
+    allLineIdxs: () => Array.from(root.querySelectorAll(".idx-card[data-line]")).map(c => parseInt(c.dataset.line, 10)),
+    rerender: renderCards,
+  });
+  $$(".ic-select", root).forEach(cb => cb.addEventListener("change", e => {
+    e.stopPropagation();
+    const idx = parseInt(cb.dataset.line, 10);
+    if (cb.checked) _selectedScenes.add(idx); else _selectedScenes.delete(idx);
+    cb.closest(".idx-card")?.classList.toggle("ic-multi-selected", cb.checked);
+    _updateToolbarCount(cardsToolbar);
+  }));
   $$(".idx-card").forEach(card => {
     card.addEventListener("dragstart", e => { e.dataTransfer.setData("text/plain", card.dataset.line); card.classList.add("dragging"); });
     card.addEventListener("dragend", () => card.classList.remove("dragging"));

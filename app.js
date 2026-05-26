@@ -585,17 +585,69 @@ function bindEditorUI() {
     try {
       fountain = ext === "fdx" ? fdxToFountain(text) : text;
     } catch (err) { toast("Couldn't parse: " + err.message); return; }
+
+    // Extract title for either path
+    const m = fountain.match(/^Title:\s*(.+)$/m);
+    const title = m ? m[1].trim() : file.name.replace(/\.[^.]+$/, "");
+
+    // If there's an active project, ask whether to replace or open as a new
+    // project. Default to "Open as new" to match the dashboard import flow
+    // and avoid accidentally overwriting work.
     if (appState.projectId) {
+      const choice = await new Promise(resolve => {
+        const back = document.createElement("div");
+        back.className = "modal-backdrop open";
+        back.innerHTML = `<div class="modal">
+          <h2>Open ${escapeHtml(file.name)}?</h2>
+          <p class="help" style="font-size:13px;color:var(--ink-2);line-height:1.5">
+            Found <b>${escapeHtml(title)}</b> in this file.
+            Open it as a new project, or replace this project's script with it?
+          </p>
+          <div class="actions">
+            <button class="btn" id="__open-cancel">Cancel</button>
+            <button class="btn" id="__open-replace">Replace current</button>
+            <button class="btn primary" id="__open-new">Open as new project</button>
+          </div>
+        </div>`;
+        document.body.appendChild(back);
+        const close = (v) => { back.remove(); resolve(v); };
+        back.querySelector("#__open-cancel").onclick = () => close("cancel");
+        back.querySelector("#__open-replace").onclick = () => close("replace");
+        back.querySelector("#__open-new").onclick = () => close("new");
+        back.onclick = ev => { if (ev.target === back) close("cancel"); };
+      });
+      if (choice === "cancel") return;
+      if (choice === "new") {
+        const id = Storage.createProject({
+          name: title, type: "feature", template: null,
+          logline: "", coverColor: "#3878b8",
+        });
+        Storage.setDoc(id, fountain);
+        Storage.updateProject(id, { name: title, lastModified: Date.now() });
+        toast(`Created "${title}"`);
+        loadProject(id);
+        return;
+      }
+      // choice === "replace"
       Storage.setDoc(appState.projectId, fountain);
       loadFountain(fountain);
-      // Update project name if title parsed
       if (appState.titleMeta.title) {
         Storage.updateProject(appState.projectId, { name: appState.titleMeta.title });
         $("#doc-title-name").textContent = appState.titleMeta.title;
       }
       autosave();
-      toast(`Opened ${file.name}`);
+      toast(`Replaced with ${file.name}`);
+      return;
     }
+    // No active project — create one from the file
+    const id = Storage.createProject({
+      name: title, type: "feature", template: null,
+      logline: "", coverColor: "#3878b8",
+    });
+    Storage.setDoc(id, fountain);
+    Storage.updateProject(id, { name: title, lastModified: Date.now() });
+    toast(`Created "${title}"`);
+    loadProject(id);
   });
 
   // Modal backdrop click
