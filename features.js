@@ -1263,6 +1263,299 @@ ${JSON.stringify({ role: c.role, age: c.age, want: c.want, need: c.need, flaw: c
   toast(`Filled ${c.name}'s ${field}`);
 }
 
+// Fill the ENTIRE character profile in one go. Two modes:
+//   "auto"      — single batched call using project context only
+//   "interview" — AI generates 3 tailored questions, user answers, then a
+//                 second call uses those answers + context to fill everything.
+async function aiFillCharacterAll(charId, mode = "auto") {
+  if (!AI.isConfigured()) { toast("No API key"); return; }
+  const pid = appState.projectId;
+  if (!pid) return;
+  const project = Storage.getProject(pid);
+  const epBible = Storage.getBible(pid);
+  const sBible = project?.seriesId ? Storage.getSeriesBible(project.seriesId) : null;
+  let source = "episode";
+  let c = epBible.characters.find(x => x.id === charId);
+  if (!c && sBible) { c = sBible.characters.find(x => x.id === charId); source = "series"; }
+  if (!c) { toast("Character not found"); return; }
+
+  let extraContext = "";
+  if (mode === "interview") {
+    const answers = await runCharacterInterview(c);
+    if (!answers) return; // user cancelled
+    if (Object.keys(answers).length > 0) {
+      extraContext = "\n\nWRITER'S NOTES (treat these as authoritative — match them):\n" +
+        Object.entries(answers).map(([q, a]) => `Q: ${q}\nA: ${a}`).join("\n\n");
+    }
+  }
+
+  const prompt = `Fill out a complete character profile for ${c.name}. Output VALID JSON ONLY with these EXACT keys (omit any you can't reasonably propose):
+{
+  "role":      "3-6 word descriptor of their function in the story",
+  "age":       "number or range like '30s' or '42'",
+  "physical":  "1-2 sentences of recognizable physical presence",
+  "want":      "ONE sentence: their external conscious goal",
+  "need":      "ONE sentence: their internal lesson — different from want",
+  "flaw":      "ONE sentence: the trait/behavior that gets in their own way",
+  "backstory": "3-5 sentences of formative events",
+  "voice":     "2-3 sentences on vocabulary, rhythm, what they avoid saying",
+  "traits":    "3-5 vivid traits, comma-separated",
+  "secrets":   "1-2 sentences on a secret they carry"
+}
+
+Preserve any existing values that are clearly strong — only replace if your version is meaningfully better.
+
+EXISTING VALUES FOR ${c.name}:
+${JSON.stringify({ role: c.role, age: c.age, physical: c.physical, want: c.want, need: c.need, flaw: c.flaw, backstory: c.backstory, voice: c.voice, traits: c.traits, secrets: c.secrets }, null, 2)}
+
+PROJECT:
+{CONTEXT}${extraContext}`;
+
+  const card = document.querySelector(`.bib-char[data-cid="${charId}"]`);
+  const raw = await aiInlineFill({
+    anchor: card,
+    label: `AI · fill all (${c.name})`,
+    prompt,
+    vars: { CONTEXT: gatherProjectContext() },
+  });
+  if (!raw) return;
+  const match = raw.match(/\{[\s\S]*\}/);
+  let parsed = null;
+  if (match) { try { parsed = JSON.parse(match[0]); } catch {} }
+  if (!parsed || typeof parsed !== "object") { toast("Couldn't parse AI response"); return; }
+
+  const VALID_KEYS = ["role","age","physical","want","need","flaw","backstory","voice","traits","secrets"];
+  let count = 0;
+  VALID_KEYS.forEach(k => {
+    const v = parsed[k];
+    if (typeof v === "string" && v.trim()) { c[k] = v.trim(); count++; }
+    else if (typeof v === "number" && k === "age") { c.age = String(v); count++; }
+  });
+  if (source === "series") Storage.setSeriesBible(project.seriesId, sBible);
+  else Storage.setBible(pid, epBible);
+  if (appState.view === "bible" && typeof Bible !== "undefined" && Bible.open) Bible.open(pid);
+  toast(`Filled ${count} fields for ${c.name}`);
+}
+
+// Modal-driven interview: ask AI for 3 questions tailored to the character,
+// collect answers, return them as { [questionText]: answer }.
+async function runCharacterInterview(c) {
+  const modal = document.createElement("div");
+  modal.className = "modal-backdrop open";
+  modal.innerHTML = `<div class="modal" style="max-width:560px">
+    <h2>Interview: ${escapeHtml(c.name)}</h2>
+    <p class="help" id="iv-help" style="font-size:13px;color:var(--ink-2);line-height:1.5">Generating questions…</p>
+    <div id="iv-form"></div>
+    <div class="actions">
+      <button class="btn" id="iv-cancel">Cancel</button>
+      <button class="btn primary" id="iv-go" disabled>Use these answers →</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+
+  const questionPrompt = `Suggest 3 SHORT, specific questions that would help a screenwriter develop ${c.name} more fully. Address the writer directly (e.g. "What's the worst thing X has ever done and gotten away with?"). Skip generic questions.
+
+Output VALID JSON ONLY — an array of 3 strings. Example:
+["What does X think nobody knows about them?","When did X first lie to themselves?","Who in the script does X most fear becoming?"]
+
+PROJECT:
+{CONTEXT}`;
+  let questions = [];
+  try {
+    let raw = "";
+    for await (const chunk of AI.stream(questionPrompt, { CONTEXT: gatherProjectContext() })) raw += chunk;
+    const m = raw.match(/\[[\s\S]*\]/);
+    if (m) questions = JSON.parse(m[0]).filter(q => typeof q === "string" && q.trim());
+  } catch (e) {
+    modal.querySelector("#iv-help").textContent = "AI error: " + e.message;
+  }
+  if (questions.length === 0) {
+    modal.querySelector("#iv-help").textContent = "Couldn't generate questions. Cancel and try again, or use Automatic mode.";
+    return await new Promise(resolve => {
+      modal.querySelector("#iv-cancel").onclick = () => { modal.remove(); resolve(null); };
+    });
+  }
+  modal.querySelector("#iv-help").textContent = "Answer in whatever depth you like — leave blank to skip. Your answers seed the next AI call.";
+  modal.querySelector("#iv-form").innerHTML = questions.map((q, i) => `
+    <div class="iv-q">
+      <label>${escapeHtml(q)}</label>
+      <textarea id="iv-q${i}" rows="2"></textarea>
+    </div>
+  `).join("");
+  modal.querySelector("#iv-go").disabled = false;
+  setTimeout(() => modal.querySelector("#iv-q0")?.focus(), 30);
+  return await new Promise(resolve => {
+    modal.querySelector("#iv-cancel").onclick = () => { modal.remove(); resolve(null); };
+    modal.querySelector("#iv-go").onclick = () => {
+      const answers = {};
+      questions.forEach((q, i) => {
+        const v = modal.querySelector("#iv-q" + i).value.trim();
+        if (v) answers[q] = v;
+      });
+      modal.remove();
+      resolve(answers);
+    };
+  });
+}
+
+// Ask AI to fill in Want/Need/Flaw/Change marks for every character × scene.
+// Uses sequence numbers for scenes and character IDs (short opaque strings),
+// then maps back to (charId, lineIdx) for Bible.bulkSetArcs.
+async function aiFillArcsBulk() {
+  if (!AI.isConfigured()) { toast("No API key"); return; }
+  if (!appState.projectId) return;
+  const project = Storage.getProject(appState.projectId);
+  const epBible = Storage.getBible(appState.projectId);
+  const sBible = project?.seriesId ? Storage.getSeriesBible(project.seriesId) : null;
+  const chars = [...(sBible?.characters || []), ...(epBible.characters || [])];
+  if (chars.length === 0) { toast("Add at least one character to the Bible first"); return; }
+  const scenes = collectScenes();
+  if (scenes.length === 0) { toast("Add at least one scene to the script first"); return; }
+
+  const charBlock = chars.map(c => {
+    const bits = [c.want && "want: "+c.want, c.need && "need: "+c.need, c.flaw && "flaw: "+c.flaw].filter(Boolean);
+    return `- id "${c.id}": ${c.name}${bits.length ? " — " + bits.join("; ") : ""}`;
+  }).join("\n");
+  const sceneBlock = scenes.map((s, i) => `${i+1}. ${s.slug}`).join("\n");
+
+  const prompt = `For each character, decide which scenes demonstrate their WANT (w), NEED (n), FLAW (f), or CHANGE moment (c). Only mark a scene if there's clear textual evidence — favor precision over recall.
+
+Output VALID JSON ONLY with this shape:
+{
+  "<characterId>": {
+    "<sceneSequenceNumber>": { "w": true|false, "n": true|false, "f": true|false, "c": true|false }
+  }
+}
+Use the EXACT character ids from the list below (e.g. "${chars[0].id}") and EXACT scene sequence numbers (e.g. "1", "2", … "${scenes.length}"). Omit characters or scenes with no marks. Omit flags that are false.
+
+CHARACTERS:
+${charBlock}
+
+SCENES:
+${sceneBlock}
+
+PROJECT:
+{CONTEXT}`;
+
+  const anchor = document.querySelector(".arc-grid") || document.body;
+  const raw = await aiInlineFill({
+    anchor,
+    label: `AI · arcs (${chars.length} characters)`,
+    prompt,
+    vars: { CONTEXT: gatherProjectContext() },
+  });
+  if (!raw) return;
+  const match = raw.match(/\{[\s\S]*\}/);
+  let parsed = null;
+  if (match) { try { parsed = JSON.parse(match[0]); } catch {} }
+  if (!parsed || typeof parsed !== "object") { toast("Couldn't parse arc suggestions"); return; }
+
+  // Translate scene sequence numbers → actual lineIdx
+  const seqToLine = (seqStr) => {
+    const seq = parseInt(seqStr, 10);
+    return (seq >= 1 && seq <= scenes.length) ? scenes[seq - 1].lineIndex : null;
+  };
+  // Build the bulkSetArcs payload
+  const payload = {};
+  Object.entries(parsed).forEach(([cid, sceneMap]) => {
+    if (!chars.find(c => c.id === cid)) return;
+    const inner = {};
+    Object.entries(sceneMap || {}).forEach(([sid, flags]) => {
+      const lineIdx = seqToLine(sid);
+      if (lineIdx == null) return;
+      if (!flags || typeof flags !== "object") return;
+      const cleaned = {};
+      ["w","n","f","c"].forEach(k => { if (flags[k] === true) cleaned[k] = true; });
+      if (Object.keys(cleaned).length > 0) inner[lineIdx] = cleaned;
+    });
+    if (Object.keys(inner).length > 0) payload[cid] = inner;
+  });
+
+  const writes = Bible.bulkSetArcs(payload);
+  toast(`Added ${writes} arc mark${writes===1?'':'s'}`);
+  // Re-render the Arcs tab
+  Bible.open(appState.projectId);
+}
+
+// Ask AI to suggest character-to-character relationships based on the script.
+// Output: [{ a: "<charId>", b: "<charId>", kind: "loves"|"married"|... }]
+async function aiSuggestRelationships() {
+  if (!AI.isConfigured()) { toast("No API key"); return; }
+  if (!appState.projectId) return;
+  const project = Storage.getProject(appState.projectId);
+  const epBible = Storage.getBible(appState.projectId);
+  const sBible = project?.seriesId ? Storage.getSeriesBible(project.seriesId) : null;
+  const chars = [...(sBible?.characters || []), ...(epBible.characters || [])];
+  if (chars.length < 2) { toast("Add at least 2 characters first"); return; }
+  const existing = (epBible.relationships || []).map(r => {
+    const a = chars.find(x => x.id === r.a)?.name || r.a;
+    const b = chars.find(x => x.id === r.b)?.name || r.b;
+    return `${a} ${r.kind} ${b}`;
+  }).join("\n") || "(none yet)";
+
+  const charBlock = chars.map(c => `- id "${c.id}": ${c.name}`).join("\n");
+  const prompt = `Propose relationships between the characters below based on the script. Output VALID JSON ONLY — an array of edges:
+[
+  { "a": "<characterId>", "b": "<characterId>", "kind": "loves" | "married" | "family" | "friend" | "rival" | "hates" | "mentor" | "boss" }
+]
+
+Only suggest relationships with clear textual evidence. Don't repeat existing ones. Skip self-edges.
+
+CHARACTERS:
+${charBlock}
+
+EXISTING RELATIONSHIPS (already in the map):
+${existing}
+
+PROJECT:
+{CONTEXT}`;
+
+  const anchor = document.querySelector(".bib-rel-canvas") || document.body;
+  const raw = await aiInlineFill({
+    anchor,
+    label: "AI · relationships",
+    prompt,
+    vars: { CONTEXT: gatherProjectContext() },
+  });
+  if (!raw) return;
+  const match = raw.match(/\[[\s\S]*\]/);
+  let parsed = null;
+  if (match) { try { parsed = JSON.parse(match[0]); } catch {} }
+  if (!Array.isArray(parsed)) { toast("Couldn't parse relationship suggestions"); return; }
+
+  // Filter to valid edges
+  const valid = parsed.filter(r =>
+    r && chars.find(c => c.id === r.a) && chars.find(c => c.id === r.b) && r.a !== r.b && typeof r.kind === "string"
+  );
+  if (valid.length === 0) { toast("AI suggested 0 valid relationships"); return; }
+  const added = Bible.bulkAddRelationships(valid);
+  toast(`Added ${added} relationship${added===1?'':'s'}`);
+  Bible.open(appState.projectId);
+}
+
+// Show a tiny modal asking "Automatic or Interview?" — returns the choice.
+async function promptCharacterFillMode(charName) {
+  return await new Promise(resolve => {
+    const back = document.createElement("div");
+    back.className = "modal-backdrop open";
+    back.innerHTML = `<div class="modal">
+      <h2>Fill ${escapeHtml(charName)} with AI</h2>
+      <p class="help" style="font-size:13px;color:var(--ink-2);line-height:1.5">Choose how you want AI to fill out every field:</p>
+      <div class="actions" style="flex-wrap:wrap">
+        <button class="btn" id="cfm-cancel">Cancel</button>
+        <button class="btn" id="cfm-auto">Automatic <span class="muted" style="font-size:11px;margin-left:4px">— just go</span></button>
+        <button class="btn primary" id="cfm-interview">Interview me first <span style="font-size:11px;margin-left:4px;opacity:.85">— better results</span></button>
+      </div>
+    </div>`;
+    document.body.appendChild(back);
+    const close = v => { back.remove(); resolve(v); };
+    back.querySelector("#cfm-cancel").onclick = () => close(null);
+    back.querySelector("#cfm-auto").onclick = () => close("auto");
+    back.querySelector("#cfm-interview").onclick = () => close("interview");
+    back.onclick = e => { if (e.target === back) close(null); };
+  });
+}
+
 /* =====================================================================
  * AI menu
  * =================================================================== */

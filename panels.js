@@ -36,28 +36,53 @@ function prettyType(t) {
             parenthetical:"Parenthetical", transition:"Transition", centered:"Centered",
             note:"Note", section:"Section", synopsis:"Synopsis" })[t] || "Action";
 }
+// Per-element layout constants — reused by both linesToPages() and
+// applyPageBreaks() so the page-break math always matches the page count.
+const PAGE_W = { scene:60, action:60, character:32, dialogue:35, parenthetical:25, transition:60, centered:60 };
+const PAGE_SPACING = { scene:2, action:1, character:0.5, dialogue:0, parenthetical:0, transition:1.5, centered:1 };
+const LINES_PER_PAGE = 54;
+
 function linesToPages() {
-  /* Calibrated to industry standard ~55 lines/page at 12pt single-spaced.
-     Counts physical lines per element using realistic wrap widths and per-
-     element vertical-spacing overhead. */
   let total = 0;
-  // Characters per line for each element type at standard margins
-  const W = { scene:60, action:60, character:32, dialogue:35, parenthetical:25, transition:60, centered:60 };
-  // Extra vertical lines (blanks above/below) per element
-  const SPACING = { scene:2, action:1, character:0.5, dialogue:0, parenthetical:0, transition:1.5, centered:1 };
   $$("#editor > div").forEach(d => {
     const type = d.dataset.type;
     if (["note","section","synopsis"].includes(type)) return;
     const t = (d.textContent || "").trim();
-    if (!t) return; // blank lines don't add to page count
-    const w = W[type] || 60;
+    if (!t) return;
+    const w = PAGE_W[type] || 60;
     const wrapped = Math.max(1, Math.ceil(t.length / w));
-    total += wrapped + (SPACING[type] || 0);
+    total += wrapped + (PAGE_SPACING[type] || 0);
   });
-  // Industry: 54-55 lines per page including margins
-  const pages = total / 54;
-  // Anything with content rounds up to at least 1 page
+  const pages = total / LINES_PER_PAGE;
   return total > 0 ? Math.max(pages, 0.5) : 0;
+}
+
+// Mark lines that end a page with data-page-end="<N>". The CSS uses that
+// attribute to render a "PAGE N — PAGE N+1" divider below the line.
+function applyPageBreaks() {
+  const editor = document.getElementById("editor");
+  if (!editor) return;
+  const all = $$("#editor > div");
+  // Clear any prior markers first so toggling off cleans up cleanly.
+  all.forEach(d => d.removeAttribute("data-page-end"));
+  if (!appState.showPageBreaks) return;
+  let used = 0;
+  let nextThreshold = LINES_PER_PAGE;
+  let pageNum = 1;
+  all.forEach(d => {
+    const type = d.dataset.type;
+    if (["note","section","synopsis"].includes(type)) return;
+    const t = (d.textContent || "").trim();
+    if (!t) return;
+    const w = PAGE_W[type] || 60;
+    const wrapped = Math.max(1, Math.ceil(t.length / w));
+    used += wrapped + (PAGE_SPACING[type] || 0);
+    while (used >= nextThreshold) {
+      d.setAttribute("data-page-end", String(pageNum));
+      pageNum++;
+      nextThreshold += LINES_PER_PAGE;
+    }
+  });
 }
 
 /* =====================================================================
@@ -497,6 +522,7 @@ function updateInspector() {
     <div class="ins-section">
       <h4>Overlays</h4>
       <label style="display:flex;gap:6px;font-size:12px;margin:4px 0"><input type="checkbox" id="opt-pace" ${appState.paceMode?"checked":""}/> Pace heatmap on script</label>
+      <label style="display:flex;gap:6px;font-size:12px;margin:4px 0"><input type="checkbox" id="opt-pagebreaks" ${appState.showPageBreaks?"checked":""}/> Show page breaks in editor</label>
       <label style="display:flex;gap:6px;font-size:12px;margin:4px 0"><input type="checkbox" id="opt-typewriter" ${appState.typewriter?"checked":""}/> Typewriter mode</label>
       <label style="display:flex;gap:6px;font-size:12px;margin:4px 0"><input type="checkbox" id="opt-smart-typo" ${appState.smartTypo?"checked":""}/> Smart typography</label>
       <label style="display:flex;gap:6px;font-size:12px;margin:4px 0"><input type="checkbox" id="opt-scene-num" ${appState.showSceneNumbersInPdf?"checked":""}/> Scene numbers in PDF</label>
@@ -520,6 +546,11 @@ function updateInspector() {
   $("#opt-pace")?.addEventListener("change", e => {
     appState.paceMode = e.target.checked;
     document.body.dataset.pace = appState.paceMode ? "true" : "";
+  });
+  $("#opt-pagebreaks")?.addEventListener("change", e => {
+    appState.showPageBreaks = e.target.checked;
+    document.body.dataset.pagebreaks = appState.showPageBreaks ? "true" : "";
+    applyPageBreaks();
   });
   $("#opt-typewriter")?.addEventListener("change", e => { setTypewriter(e.target.checked); });
   $("#opt-smart-typo")?.addEventListener("change", e => { appState.smartTypo = e.target.checked; setDirty(); });

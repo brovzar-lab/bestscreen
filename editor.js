@@ -51,6 +51,7 @@ function reclassifyAll() {
   }
   applySceneSentiment();
   applyPaceColors();
+  applyPageBreaks();
   applyMoodToPage();
   applyCommentMarkers();
   updateStatus();

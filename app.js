@@ -83,6 +83,7 @@ let appState = {
   activeRevision: "white",
   smartTypo: true,
   showSceneNumbersInPdf: true,
+  showPageBreaks: false,
   typewriter: false,
   sprint: null,
   template: null,
@@ -168,13 +169,15 @@ function loadProject(id, opts={}) {
   appState.theme = meta.theme || "";
   appState.smartTypo = meta.smartTypo !== false;
   appState.showSceneNumbersInPdf = meta.showSceneNumbersInPdf !== false;
+  appState.showPageBreaks = !!meta.showPageBreaks;
+  document.body.dataset.pagebreaks = appState.showPageBreaks ? "true" : "";
   appState.filename = (project?.name || "untitled") + ".fountain";
 
   // Daily counters
   loadTodayCount();
 
   // Bind editor-shell events once
-  if (!appState._bound) { bindEditorUI(); appState._bound = true; }
+  if (!appState._bound) { bindEditorUI(); bindSidebarResize(); appState._bound = true; }
 
   loadFountain(doc || sampleStarter(project?.type));
 
@@ -242,6 +245,7 @@ function autosave() {
       theme: appState.theme,
       smartTypo: appState.smartTypo,
       showSceneNumbersInPdf: appState.showSceneNumbersInPdf,
+      showPageBreaks: appState.showPageBreaks,
     });
     Storage.updateProject(appState.projectId, { lastModified: Date.now(), name: appState.titleMeta.title || Storage.getProject(appState.projectId)?.name });
     setTimeout(() => { $("#save-state").classList.remove("saving"); setSaved(); }, 80);
@@ -654,6 +658,50 @@ function bindEditorUI() {
   $$(".modal-backdrop").forEach(m => m.addEventListener("click", e => { if (e.target === m) m.classList.remove("open"); }));
 
   window.addEventListener("beforeunload", () => autosave());
+}
+
+function bindSidebarResize() {
+  const sidebar = $("#sidebar");
+  const app = document.querySelector(".app");
+  if (!sidebar || !app) return;
+  // Apply saved width on first load
+  const saved = parseInt(Storage.getSettings().sidebarWidth, 10);
+  if (saved && saved >= 180 && saved <= 600) {
+    app.style.setProperty("--sidebar-w", saved + "px");
+  }
+  let handle = sidebar.querySelector(".sidebar-resize");
+  if (!handle) {
+    handle = document.createElement("div");
+    handle.className = "sidebar-resize";
+    handle.title = "Drag to resize the scene list";
+    sidebar.appendChild(handle);
+  }
+  let dragging = false, startX = 0, startW = 0;
+  handle.addEventListener("pointerdown", e => {
+    dragging = true; startX = e.clientX;
+    startW = sidebar.getBoundingClientRect().width;
+    handle.classList.add("dragging");
+    app.classList.add("resizing");
+    handle.setPointerCapture(e.pointerId);
+    document.body.style.cursor = "col-resize";
+    e.preventDefault();
+  });
+  handle.addEventListener("pointermove", e => {
+    if (!dragging) return;
+    const w = Math.max(180, Math.min(600, startW + (e.clientX - startX)));
+    app.style.setProperty("--sidebar-w", w + "px");
+  });
+  const finish = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove("dragging");
+    app.classList.remove("resizing");
+    document.body.style.cursor = "";
+    const w = Math.round(sidebar.getBoundingClientRect().width);
+    Storage.setSettings({ sidebarWidth: w });
+  };
+  handle.addEventListener("pointerup", finish);
+  handle.addEventListener("pointercancel", finish);
 }
 
 function bindGlobalShortcuts() {

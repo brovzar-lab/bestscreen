@@ -241,7 +241,10 @@ const Bible = (() => {
             <input class="bib-role" data-field="role" placeholder="role / function" value="${escapeHtml(c.role)}" />
             <div class="bib-char-meta">${badge}${promoteBtn}</div>
           </div>
-          <button class="bib-del" data-act="delete">✕</button>
+          <div class="bib-char-actions">
+            <button class="bib-ai-all" data-act="ai-all" title="Fill this entire character with AI (auto or interactive)">✨ Fill all</button>
+            <button class="bib-del" data-act="delete">✕</button>
+          </div>
         </div>
         <div class="bib-grid">
           <label>Age <span class="lab-row"><input data-field="age" value="${escapeHtml(c.age)}" /><button class="bib-ai" data-ai-field="age" title="AI: infer age from script">✨</button></span></label>
@@ -333,6 +336,16 @@ const Bible = (() => {
           await aiFillCharacterField(cid, btn.dataset.aiField, btn);
         });
       });
+      // Whole-character AI fill — opens an Auto / Interview chooser
+      card.querySelector("[data-act=ai-all]")?.addEventListener("click", async e => {
+        e.preventDefault();
+        e.stopPropagation();
+        const found = findCharacter(cid);
+        if (!found || typeof aiFillCharacterAll !== "function") return;
+        const mode = await promptCharacterFillMode(found.char.name);
+        if (!mode) return;
+        await aiFillCharacterAll(cid, mode);
+      });
     });
     document.getElementById("bib-import-cast")?.addEventListener("click", () => {
       const cast = (typeof App !== "undefined") ? App.getCastFromScript() : [];
@@ -356,7 +369,10 @@ const Bible = (() => {
           <div class="bib-rel-hint">Drag a node to reposition · double-click to release back to auto-layout</div>
         </div>
         <div class="bib-rel-side">
-          <h4>Add relationship</h4>
+          <h4 style="display:flex;justify-content:space-between;align-items:center">
+            <span>Add relationship</span>
+            <button class="btn small bib-ai-bulk" id="rel-ai-suggest" title="Let AI propose relationships based on the script">✨ AI suggest</button>
+          </h4>
           <div class="rel-add">
             <select id="rel-a">${chars.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}</select>
             <select id="rel-kind">
@@ -517,6 +533,10 @@ const Bible = (() => {
     });
 
     // Wire
+    document.getElementById("rel-ai-suggest")?.addEventListener("click", async e => {
+      e.preventDefault();
+      if (typeof aiSuggestRelationships === "function") await aiSuggestRelationships();
+    });
     document.getElementById("rel-add")?.addEventListener("click", () => {
       const a = document.getElementById("rel-a").value;
       const b = document.getElementById("rel-b").value;
@@ -754,6 +774,7 @@ const Bible = (() => {
           <span class="arc-legend-key">
             <span class="arc-cell on" aria-hidden="true"></span> marked
             <span class="arc-cell" aria-hidden="true"></span> empty
+            <button class="btn small bib-ai-bulk" id="arcs-ai-suggest" title="Let AI propose arc beats based on the script">✨ AI suggest arcs</button>
           </span>
         </div>
         <div class="arc-grid">
@@ -800,6 +821,10 @@ const Bible = (() => {
   }
 
   function wireArcs() {
+    document.getElementById("arcs-ai-suggest")?.addEventListener("click", async e => {
+      e.preventDefault();
+      if (typeof aiFillArcsBulk === "function") await aiFillArcsBulk();
+    });
     document.querySelectorAll(".arc-cell[data-cid]").forEach(btn => {
       btn.addEventListener("click", () => {
         const cid = btn.dataset.cid;
@@ -882,5 +907,55 @@ const Bible = (() => {
     return null;
   }
 
-  return { open, render, bind, syncCharactersFromScript, getCharacterByName };
+  // Bulk-write arc marks from an AI suggestion (or any external source).
+  // Shape: { [characterId]: { [sceneLineIdx]: { w?, n?, f?, c? } } }
+  // Existing marks are preserved unless a value is explicitly false.
+  function bulkSetArcs(map) {
+    if (!map || typeof map !== "object") return 0;
+    let writes = 0;
+    Object.entries(map).forEach(([cid, sceneMap]) => {
+      const found = findCharacter(cid);
+      if (!found || !sceneMap) return;
+      const live = found.char;
+      live.arc = (live.arc || []).filter(a => a && typeof a === "object" && typeof a.sceneId === "number");
+      Object.entries(sceneMap).forEach(([sid, flags]) => {
+        const sidN = parseInt(sid, 10);
+        if (Number.isNaN(sidN) || !flags || typeof flags !== "object") return;
+        let e = live.arc.find(a => a.sceneId === sidN);
+        if (!e) { e = { sceneId: sidN, w: false, n: false, f: false, c: false }; live.arc.push(e); }
+        ["w","n","f","c"].forEach(k => { if (flags[k]) e[k] = true; });
+        writes++;
+      });
+      if (live.arc.length === 0) delete live.arc;
+      saveStore(found.source);
+    });
+    return writes;
+  }
+
+  // Bulk-write relationships from an AI suggestion or import. Skips duplicates
+  // (same a, b, kind). All relationships are stored on the episode bible.
+  function bulkAddRelationships(list) {
+    if (!Array.isArray(list)) return 0;
+    bible.relationships = bible.relationships || [];
+    let added = 0;
+    list.forEach(r => {
+      if (!r || !r.a || !r.b || !r.kind || r.a === r.b) return;
+      const dup = bible.relationships.find(x => x.a === r.a && x.b === r.b && x.kind === r.kind);
+      if (dup) return;
+      bible.relationships.push({ id: Storage.uid(), a: r.a, b: r.b, kind: r.kind });
+      added++;
+    });
+    if (added > 0) save();
+    return added;
+  }
+
+  // Expose internal lookups so features.js can drive AI flows
+  function allCharactersExported() { return allCharacters(); }
+  function getSeriesId() { return seriesId; }
+
+  return {
+    open, render, bind, syncCharactersFromScript, getCharacterByName,
+    bulkSetArcs, bulkAddRelationships,
+    allCharacters: allCharactersExported, getSeriesId,
+  };
 })();
