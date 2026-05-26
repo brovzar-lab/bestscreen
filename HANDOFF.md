@@ -6,98 +6,87 @@
 
 ## TL;DR
 
-Vanilla JS / CSS / HTML, no build. See `CLAUDE.md` for architecture. **Sprints 2 + 3 + 4 + 5 shipped on `sprints` this session.** Summary:
+**Bestscreen is shipped and live.** Seven sprints landed and got deployed to https://bestscreen.web.app this session. CLAUDE.md was updated to reflect everything.
 
-- **Sprint 5 — AI everywhere + config bootstrap + beat-template bug fix**:
-  - `.env.example` + `config.example.js` for hardcoded API keys (gitignored `config.local.js` is the actual loader).
-  - New `gatherProjectContext()` provides every AI call with title / logline / theme / template / bible (episode + series) / scene list / full Fountain script.
-  - ✨ sparkle buttons on: every beat card (synopsis); every scene index-card (synopsis); every bible character field (age / physical / want / need / flaw / backstory / voice / traits / secrets); logline workshop ("AI" button next to the input). Each uses the same `aiInlineFill()` ghost-overlay with streaming + accept/cancel.
-  - **Beat-template bug fix**: `data-beat` was being clobbered with COLOR values when users clicked color dots on scene cards — so beat-tag fidelity never matched a template beat. Split into `data-color` (visual) and `data-beat` (template-beat id). Added a per-card template-beat selector dropdown so users can actually assign scenes to template beats.
-  - **Inspector**: template choice is now an editable dropdown (was read-only).
+Branch state:
+- `main` is at `44f14e2`, pushed to GitHub and deployed.
+- `sprints` was merged into `main` and is now equal to it.
 
+Recent commits (most recent first):
 
-- **Sprint 4 — L4 + CV + SA**: AI streaming (SSE for Anthropic + OpenAI; ghost-overlay accept/cancel for line rewrites; live partial render in coverage modal). Coverage parsed into themed sections (LOGLINE/SYNOPSIS/STRENGTHS/CONCERNS/VERDICT) with a Save .txt button. Sides export gains an "Anonymize other characters' lines" toggle.
-- **Sprint 3 — L1 + L2**: Series-shared bible (storage, merge, badges, promote/demote, conflict prompt). Entity-tracking continuity engine (state vocab, per-character timeline, categorized issue list with jump-to-scene).
-- **Sprint 2 — M2 + L3**: Per-character arc tracker (Arcs tab in Bible with W/N/F/C × scene grid + gap analysis). Comment anchor stabilization (hybrid fingerprint + ±10 re-anchor + orphan ⚠).
-- **Prep — module split**: 3,745-line `app.js` → 6 modules (`editor.js` / `panels.js` / `views.js` / `features.js` / `io.js` + slim `app.js`). Auto-loaded `CLAUDE.md` for stable conventions.
-
-**Bug audit done.** Fixed: `REVISION_COLORS.find().css` crash on unknown rev value, `quickContinuityCount` running 30k regex tests per keystroke (now cached 2s). 21/21 smoke checks pass in Playwright.
-
-**Branch state:** `sprints` is 5 commits ahead of `main` and `origin/sprints`. `main` still at `9b0a57e`. **Not yet pushed or deployed** — waiting on user confirmation per the no-auto-deploy rule.
-
-### Local-dev API key setup (one-time)
-
-```bash
-cp .env.example .env                  # fill in ANTHROPIC_API_KEY etc.
-cp config.example.js config.local.js  # paste the same keys
+```
+44f14e2  Update CLAUDE.md with Sprints 2-7 architecture
+6fa3eb1  Merge branch 'sprints'
+c375dd3  Sprint 7: whole-character AI, AI arcs + rels, resizable sidebar, page breaks
+5cc43c0  Sprint 6: multi-select + bulk AI + smarter editor import
+1e79ad0  Sprint 5: AI everywhere + config bootstrap + beat-template bug fix
+3ed5d03  Sprint 4: AI streaming (L4) + coverage formatting (CV) + sides anonymize (SA)
+0ecce2d  Sprint 3: series-shared bible (L1) + entity-tracking continuity engine (L2)
+9f2b51e  Sprint 2: character-arc tracker (M2) + stabilize comment anchors (L3)
+a728544  Prep: split app.js into modules; add CLAUDE.md
 ```
 
-Both files are gitignored. `index.html` loads `config.local.js` (404 in production is expected — `onerror="this.remove()"` keeps it from breaking anything). The AI module reads keys with this precedence: `window.BS_CONFIG.ai.apiKey` → Settings UI (localStorage). So filling `config.local.js` skips the Settings prompt forever in dev.
+---
+
+## What's currently live
+
+Everything from the original 15-item plan plus a lot more:
+
+**Shipped this session (Sprints 2–7):**
+- Per-character arc tracker (Bible → Arcs tab) with gap analysis
+- Comment anchor stabilization (hybrid `idx:thisHash:ctxHash` fingerprint + ±10 re-anchor + orphan ⚠)
+- Series-shared bible (promote/demote between episode and series; merged view with badges)
+- Entity-tracking continuity engine (death / arrest / pregnancy / marriage state model + categorized issues with jump-to-scene)
+- AI streaming (SSE for Anthropic + OpenAI; ghost-overlay accept/cancel pattern)
+- Coverage formatting (themed sections + Save .txt)
+- Sides export anonymize toggle
+- ✨ buttons on every beat / scene card / bible character field / logline workshop — each carries full project context via `gatherProjectContext()`
+- Beat-template bug fix (`data-color` vs `data-beat` split + template-beat dropdown per scene card)
+- Editable template chooser in the Inspector
+- Multi-select + bulk AI on Beat Board / Cards view (one batched API call for N synopses)
+- Smarter `⌘O` import (3-way prompt: Cancel / Replace current / Open as new project)
+- Whole-character AI fill — **Automatic** OR **Interview** mode (AI generates 3 tailored questions, user answers, second call uses answers to fill all 10 fields)
+- AI suggest arcs (W/N/F/C across all characters × scenes)
+- AI suggest relationships (typed edges between characters; dedupes against existing)
+- Resizable scene sidebar (drag handle, persisted width, single-line slugs)
+- Page-break visualization in editor (toggle in inspector overlays; dashed divider + "END OF PAGE N" label)
 
 ---
 
-## What's Currently Built (live)
+## What's NOT shipped (open items)
 
-### Solid
-
-Project Dashboard · multi-project storage with autosave · 5 story templates · Beat Board with ghost cards · Cards corkboard · Bible view (Characters / Relationships / Locations / Rules) with force-directed graph (drag-to-pin) · Story Timeline with smart date parsing · Stats (8 KPI cards + plot-thread ribbon + pace bars + sentiment arc + presence matrix + cast bars + location bars + beat-template fidelity) · Inspector with goal/threads/mood/beat/color/tags/date/soundtrack/characters/props/revision · Revision color rainbow (9 industry colors) · Logline workshop with 6-criterion scoring · Snapshots with snapshot-to-snapshot diff · Inline comments (⌘; to post) · Sprint mode (fullscreen + word goal + timer + WPM) · Scrap bin · Read-aloud table read (Web Speech API, per-character voice) · Find/Replace · Smart typography · Dual dialogue (⌘D toggle; Fountain `^` roundtrip-safe) · Character hover popover (works on cues AND ALL-CAPS mentions) · Sides export · Coverage generator (AI when key set, local heuristic otherwise) · Continuity warnings (heuristic) · Public share link · Watermarked PDF + versioned PDF log · Track Changes log · 3 themes (Manuscript / Midnight / Court) · Command palette (⌘K) · Open / Save .fountain + .fdx · Voice dictation with command parsing · Ambient sound (Web Audio synthesis: rain / fireplace / cafe / vinyl / brown) · Soundtrack URL validator · Stat tooltips · AI assist (BYOK).
-
-### Shallow / partial — to deepen
-
-- ~~**Series Bible**~~ ✅ Shipped Sprint 3 / L1.
-- ~~**Continuity warnings**~~ ✅ Shipped Sprint 3 / L2 — entity-tracking engine with state vocab.
-- ~~**Comment anchoring**~~ ✅ Shipped Sprint 2 / L3.
-- ~~**Per-character arc tracker**~~ ✅ Shipped Sprint 2 / M2.
-- ~~**AI streaming**~~ ✅ Shipped Sprint 4 / L4 — SSE for Anthropic + OpenAI with ghost-overlay accept/cancel.
-- ~~**Coverage formatting**~~ ✅ Shipped Sprint 4 / CV — sectioned with Save .txt.
-- ~~**Sides anonymize**~~ ✅ Shipped Sprint 4 / SA.
-- **Track Changes per-author redlines** — log + drawer viewer exist; no inline colored diffs in script. (~200 LOC remaining)
+- **API key on the deployed site** — currently BYOK via Settings UI. We discussed two options at the end of the session:
+  - **Option A**: hardcode the key into a `config.live.js` (NOT gitignored), accept that it's visible in deployed JS, mitigate with a monthly spend cap + key rotation.
+  - **Option B (recommended)**: build a tiny Firebase Functions proxy that holds the secret server-side; AI module switches from `fetch("api.anthropic.com")` to `fetch("/api/anthropic")`. ~30 lines of Node. Free tier covers personal use.
+  - **No decision made.** Next session should ask which one to build.
+- **Per-author Track Changes redlines** — log + drawer viewer exist; no inline colored diffs in the script. ~200 LOC remaining.
+- **Slideshow read mode** (#29 from original picker) — auto-advance scene-by-scene fullscreen. Never implemented.
 - **Track-changes viewer drawer** — could use density polish.
-- **Slideshow read mode (#29)** — original picker item, never implemented.
+
+### Polish ideas (low priority)
+
+- `bible.js` is ~900 lines now — could split into `bible-core.js` + `bible-views.js` if it keeps growing.
+- `#46` PDF watermark template per project.
+- `#36` Cinematic mood affecting Read-Aloud pitch/rate.
+- `#34` Soundtrack waveform preview.
+- `#38` Pace heatmap as a togglable inline overlay on the script view.
+- Real audio loops (base64-inlined) — synthesis is already good; tradeoff is bundle size.
 
 ---
 
-## Sprint Plan
+## Local-dev API key setup (one-time, if not already done)
 
-### ✅ Sprint 2 — Rewriting power tools (shipped this session)
+```bash
+cp .env.example .env                  # fill in ANTHROPIC_API_KEY
+cp config.example.js config.local.js  # paste the same key into the apiKey field
+```
 
-**M2 — Per-character arc tracker** *(bible.js + styles.css)*
-- New "Arcs" tab in Bible view, between Relationships and Locations.
-- Per-character grid: 4 sub-rows (W/N/F/C), columns = scenes. Click any cell to toggle.
-- Storage: `bible.characters[].arc = [{ sceneId, w, n, f, c }]`. Old-shape entries (pre-Sprint-2) are silently filtered on first toggle.
-- Per-row count badge (e.g. `3/8 marked`).
-- **Gap analysis** below the grid surfaces: never-marked, late entry (first mark ≥ scene 6), drops-out (no marks in last 5 scenes), large internal gaps (≥ 5 consecutive scenes unmarked).
-- New `window.App.getScenesFromScript()` in `app.js` lets the bible see the script's scene list.
-
-**L3 — Comment anchor stabilization** *(panels.js + styles.css)*
-- Hybrid fingerprint: `idx:thisHash:ctxHash` where `thisHash` is the line's own text hash and `ctxHash` is `shortHash(prevText + "|||" + nextText)`.
-- `getLineByKey()` accepts a partial match on EITHER hash — so editing the commented line OR a neighbor no longer orphans the comment.
-- ±10-line search recovers from line moves (verified: insert 2 lines above → comment finds itself at the new index).
-- New `reanchorComments()` runs inside `applyCommentMarkers()` (AFTER markers are stripped — otherwise the 💬 emoji bleeds into the hash, latent bug fixed).
-- Orphaned comments show in Notes sidebar with an amber-left-border and ⚠ icon; clicking prompts to delete.
-- Legacy 2-part keys (`idx:hash`) still resolve via the final-resort full-doc text-hash search.
-
-### Sprint 5+ — leftover polish
-
-- **Per-author Track Changes redlines** (~200 lines) — inline colored diffs in the script. Log already exists at `Storage.getChanges(pid)`; just need an "overlay" toggle that renders before/after diffs inline. The biggest remaining shallow feature.
-- **Slideshow read mode** (#29) — auto-advance scene-by-scene fullscreen for cinematic reading. ~120 lines. Never implemented.
-- **`@CharacterName` inline linking** — hover popover already works on cues; extend to detect `@name` syntax in action lines and link to bible.
-- **Real audio loops** — synthesis is genuinely good (multi-layered rain/fireplace/cafe/vinyl/brown). Replacing with base64-inlined real samples is debatable — trades file size for naturalism.
-- **`bible.js` split** — file is now ~860 lines after Sprint 3. Approaching the threshold where splitting into `bible-core.js` + `bible-views.js` would help. Not urgent.
-
-### Already-implemented features that could use a polish pass
-
-- **#46 Watermarked PDF** — works. Could save a watermark template per project.
-- **#36 Cinematic mood** — page tint per mood works. Could affect Read-Aloud pitch/rate.
-- **#34 Soundtrack** — per-scene URL works. Could add a waveform preview.
-- **#38 Pace heatmap** — works in Stats. Could be togglable as an inline overlay on the script view.
+Both are gitignored. `index.html` loads `config.local.js` with `onerror="this.remove()"` so the 404 in production is harmless. The AI module reads keys with precedence `window.BS_CONFIG.ai.apiKey` → Settings UI. So once you've filled `config.local.js`, the Settings prompt never appears in dev.
 
 ---
 
-## Resuming a Fresh Session
+## Resuming a fresh session
 
-Use:
-
-> "Continue building Bestscreen (live at https://bestscreen.web.app, repo `brovzar-lab/bestscreen`). `CLAUDE.md` covers architecture and conventions; this `HANDOFF.md` covers what's next. Sprints 2, 3, and 4 all shipped on the `sprints` branch this session — 13 of the original 15-item plan plus polish are done, verified in Playwright. **The branch hasn't been pushed or deployed yet** — confirm before doing either. The biggest remaining backlog item is per-author Track Changes redlines (~200 LOC)."
+> "Continue Bestscreen. CLAUDE.md has the full architecture and conventions. HANDOFF.md has the live state. We just shipped Sprints 2–7 to https://bestscreen.web.app. The open decision is whether to build a Firebase Functions proxy for the Anthropic API key (Option B) or hardcode it with a spend cap (Option A) — ask me before starting work. Pending features: Track Changes inline redlines (~200 LOC), slideshow read mode, polish passes."
 
 — Last updated 2026-05-26.
