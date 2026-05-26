@@ -659,7 +659,9 @@
 <div class="toasts" id="toasts"></div>
 
 <!-- Scripts (load order matters: storage → templates → modules → app) -->
-<!-- Optional local config (gitignored). 404 in production is expected; users fall back to the Settings UI. -->
+<!-- Production config (tracked, deployed). Loads first. -->
+<script src="config.live.js" onerror="this.remove()"></script>
+<!-- Optional dev override (gitignored). Loaded after config.live.js, so it wins locally. -->
 <script src="config.local.js" onerror="this.remove()"></script>
 <script src="storage.js"></script>
 <script src="templates.js"></script>

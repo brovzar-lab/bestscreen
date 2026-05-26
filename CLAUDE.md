@@ -50,6 +50,7 @@ firebase hosting:channel:deploy <name> --expires 30d     # → preview channel
 | `dev-server.js` | ~104 | Zero-dependency Node http server. |
 | `.env.example` | small | Cheat-sheet documenting the keys; copy to `.env` and fill in. |
 | `config.example.js` | small | Loadable JS template; copy to `config.local.js` (gitignored), fill in `apiKey`, page loads it as `window.BS_CONFIG`. |
+| `config.live.js` | small | **Tracked + deployed.** Holds the production Anthropic API key. Loaded first; `config.local.js` overrides it when present (dev). |
 | `firebase.json` | small | Hosting config — `site: "bestscreen"`. Excludes dev-only files. |
 | `.firebaserc` | tiny | `"default": "wr-ai-ters-room"`. |
 | `sample.fountain` | tiny | Demo screenplay. |
@@ -173,22 +174,34 @@ For bulk operations (e.g. fill N synopses in one call): use sequence numbers `1.
 
 ---
 
-## Local config (`.env` / `config.local.js`)
+## Local config (`.env` / `config.live.js` / `config.local.js`)
 
-Bestscreen has no build step, so a true `.env` can't be read by the browser. We use a pair:
+Bestscreen has no build step, so a true `.env` can't be read by the browser. Three files cover the lifecycle:
 
 - `.env.example` — documentation cheat sheet, listing the keys the user should set.
-- `config.example.js` — loadable JS template; user copies to `config.local.js` and edits.
-- `config.local.js` — gitignored, sets `window.BS_CONFIG` at runtime.
+- `config.example.js` — loadable JS template; users copy to `config.local.js` and edit.
+- **`config.live.js`** — **tracked + deployed.** Holds the production Anthropic API key that ships with bestscreen.web.app. Loaded FIRST by `index.html`. Sets `window.BS_CONFIG` for any visitor.
+- **`config.local.js`** — gitignored. Loaded AFTER `config.live.js`, so when present it overrides the live key for local development.
+
+Loading order in `index.html`:
+
+```html
+<script src="config.live.js" onerror="this.remove()"></script>
+<script src="config.local.js" onerror="this.remove()"></script>
+```
 
 `AI.resolveAI()` reads keys with this precedence:
 
-1. `window.BS_CONFIG.ai` (from `config.local.js`)
-2. Settings UI (per-browser localStorage, BYOK)
+1. `window.BS_CONFIG.ai` (set by whichever config file loaded last)
+2. Settings UI (per-browser localStorage, BYOK fallback for users without our key)
 
-So local dev fills in `config.local.js` once and stops seeing the Settings prompt forever; production deploys (which don't ship `config.local.js`) fall back to BYOK as before.
+**Security model for `config.live.js`:** the deployed key IS public — anyone who visits the live URL can read it via DevTools. Mitigations are out-of-band:
 
-Firebase keys are placeholders in `config.example.js` — currently unused at runtime (we use Hosting only; `firebase deploy` handles auth via `firebase login`).
+- Set a hard monthly spend cap on the key in the Anthropic Console.
+- Rotate the key periodically and update `config.live.js` + redeploy.
+- If abuse appears, rotate immediately.
+
+Firebase keys in `config.example.js` are placeholders — currently unused at runtime (we use Hosting only; `firebase deploy` handles auth via `firebase login`).
 
 ---
 
