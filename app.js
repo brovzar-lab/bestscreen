@@ -394,6 +394,30 @@ function bindEditorUI() {
     reclassifyAll(); setDirty();
   });
 
+  editor.addEventListener("contextmenu", (e) => {
+    const line = e.target.closest("#editor > div");
+    if (!line) return;
+    e.preventDefault();
+    const existing = document.querySelector(".sz-ctxmenu");
+    if (existing) existing.remove();
+    const menu = document.createElement("div");
+    menu.className = "sz-ctxmenu";
+    menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;background:var(--paper-2);border:1px solid var(--line);border-radius:6px;padding:4px 0;z-index:9999;font-size:12px;min-width:160px;box-shadow:var(--shadow-2)`;
+    menu.innerHTML = `<button class="sz-ctxmenu-item" style="display:block;width:100%;text-align:left;padding:6px 12px;background:transparent;border:none;color:var(--ink);cursor:pointer;font-size:12px">🔍 Scene Zoom</button>`;
+    document.body.appendChild(menu);
+    const close = () => { menu.remove(); document.removeEventListener("click", close); document.removeEventListener("keydown", escListener, true); };
+    const escListener = (ev) => { if (ev.key === "Escape") { ev.stopPropagation(); close(); } };
+    setTimeout(() => {
+      document.addEventListener("click", close);
+      document.addEventListener("keydown", escListener, true);
+    }, 0);
+    menu.querySelector(".sz-ctxmenu-item").addEventListener("click", () => {
+      const idx = Array.from(editor.children).indexOf(line);
+      if (idx >= 0 && window.SceneZoom) window.SceneZoom.open(idx);
+      close();
+    });
+  });
+
   // Drag to bin
   $("#btn-bin").addEventListener("dragover", e => { e.preventDefault(); $("#btn-bin").classList.add("active"); });
   $("#btn-bin").addEventListener("dragleave", () => $("#btn-bin").classList.remove("active"));
