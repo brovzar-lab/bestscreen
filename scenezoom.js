@@ -239,10 +239,238 @@ BEAT CARD (15 fields):
   function render() {
     if (!_currentSceneId) return;
     _renderSceneCol("original");
-    const bmocEl = document.getElementById("sz-bmoc-body");
+    _renderBmocCol();
     const chatEl = document.getElementById("sz-chat-body");
-    if (bmocEl) bmocEl.innerHTML = `<div class="bmoc-empty">Run BMOC analysis to see the Beat Card and failure-mode scan.</div>`;
     if (chatEl) chatEl.innerHTML = `<div class="sz-chat-empty">Run analysis first to start a conversation.</div>`;
+  }
+
+  function _aiReady() {
+    if (typeof AI === "undefined") return false;
+    if (typeof AI.isConfigured === "function") return AI.isConfigured();
+    const local = (typeof window !== "undefined" && window.BS_CONFIG && window.BS_CONFIG.ai) || {};
+    const stored = (typeof Storage !== "undefined" && Storage.getSettings) ? (Storage.getSettings().ai || {}) : {};
+    return !!(local.apiKey || stored.apiKey);
+  }
+
+  const BMOC_ANALYZE_PROMPT = `${BMOC_REFERENCE}
+
+You are running BMOC ANALYZE on a single scene from a screenplay.
+
+PROJECT CONTEXT (for tone/character/world awareness):
+{CONTEXT}
+
+SCENE (analyze this and only this):
+{SCENE}
+
+Return ONLY valid JSON. No prose before or after. Use this exact shape:
+{
+  "beatQuestion": "Will X do Y without Z?",
+  "hero": "Name (beat protagonist — not necessarily series protagonist)",
+  "antagonist": "Name or force",
+  "setting": "Where + constraint",
+  "bmocPattern": ["yes" | "no", "yes" | "no", "yes" | "no", "yes" | "no"],
+  "patternLabel": "No-No-No-Yes — against all odds",
+  "tickingClock": "Description, or \\"[MISSING]\\" / \\"[WEAK: decorative]\\" if absent/weak",
+  "flags": [
+    { "mode": "passive-antagonist|no-power-shift|mushy-beat-q|info-not-choice|no-tactic-change|stakes-flat|missing-ticking-clock|weak-antagonist|surprise-not-character", "severity": "high"|"med"|"low", "summary": "One sentence — what fired and why it kills the scene.", "fix": "Concrete prescription. Not vague — name the change." }
+  ],
+  "beatCard": {
+    "beatId": "", "storyline": "", "hero": "", "antagonist": "", "setting": "",
+    "beatQuestion": "", "heroWant": "", "heroWound": "", "antagonistWantLeverage": "",
+    "stakes": "", "tickingClock": "", "goodNewsBadNews": "",
+    "bmocTurns": { "B": "", "M": "", "O": "", "C": "" },
+    "surpriseReversal": "", "winnerLoser": "", "transitionHook": ""
+  },
+  "rewritePriority": "If you change one thing, change THIS first because…"
+}
+
+Mark missing or weak elements in the Beat Card with [MISSING] or [WEAK: reason]. Be direct.`;
+
+  function _sceneLinesToFountainText(scenelines) {
+    return scenelines.map(l => {
+      if (l.type === "scene") return l.text.toUpperCase();
+      if (l.type === "character") return l.text.toUpperCase();
+      if (l.type === "transition") return l.text.toUpperCase() + ":";
+      if (l.type === "parenthetical") return l.text.startsWith("(") ? l.text : "(" + l.text + ")";
+      return l.text;
+    }).join("\n");
+  }
+
+  function _stripJsonFences(s) {
+    return (s || "").replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+  }
+
+  async function _runAnalyze() {
+    if (!_currentSceneId) return;
+    if (!_aiReady()) {
+      _renderBmocCol({ kind: "no-key" });
+      return;
+    }
+    const rec = _getSceneRecord(_currentSceneId, true);
+    const anchorIdx = _reanchorSceneId(_currentSceneId);
+    if (anchorIdx < 0) {
+      if (typeof toast === "function") toast("Couldn't re-locate this scene");
+      return;
+    }
+    const sceneText = _sceneLinesToFountainText(_getSceneLines(anchorIdx));
+    const ctx = (typeof gatherProjectContext === "function") ? gatherProjectContext({ scriptChars: 24000 }) : "";
+
+    _renderBmocCol({ kind: "streaming", text: "" });
+    let raw = "";
+    try {
+      for await (const chunk of AI.stream(BMOC_ANALYZE_PROMPT, { CONTEXT: ctx, SCENE: sceneText })) {
+        raw += chunk;
+        _renderBmocCol({ kind: "streaming", text: raw });
+      }
+    } catch (e) {
+      console.error("BMOC analyze stream failed", e);
+      _renderBmocCol({ kind: "error", message: String(e?.message || e) });
+      return;
+    }
+    const cleaned = _stripJsonFences(raw);
+    let parsed = null;
+    try { parsed = JSON.parse(cleaned); } catch (_) { /* fall through */ }
+    if (!parsed) {
+      rec.analysis = { ranAt: Date.now(), rawModelOutput: raw, parseFailed: true };
+      _saveBlob();
+      _renderBmocCol({ kind: "parse-fail", raw });
+      return;
+    }
+    rec.analysis = {
+      ranAt: Date.now(),
+      beatQuestion: parsed.beatQuestion || "",
+      hero: parsed.hero || "",
+      antagonist: parsed.antagonist || "",
+      setting: parsed.setting || "",
+      bmocPattern: Array.isArray(parsed.bmocPattern) ? parsed.bmocPattern.slice(0, 4) : ["no","no","no","no"],
+      patternLabel: parsed.patternLabel || "",
+      tickingClock: parsed.tickingClock || "",
+      flags: Array.isArray(parsed.flags) ? parsed.flags : [],
+      beatCard: parsed.beatCard || {},
+      rewritePriority: parsed.rewritePriority || "",
+      rawModelOutput: raw,
+    };
+    _saveBlob();
+    _renderBmocCol({ kind: "loaded" });
+    _seedDiagnosisChatMessage();
+  }
+
+  function _seedDiagnosisChatMessage() { /* filled in Task 13 */ }
+
+  function _esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, c => (
+      {"&":"&amp;", "<":"&lt;", ">":"&gt;", "\"":"&quot;", "'":"&#39;"}[c]
+    ));
+  }
+
+  function _setRerunVisibility(show) {
+    const btn = document.getElementById("sz-rerun");
+    if (btn) btn.hidden = !show;
+  }
+
+  function _renderBmocCol(state) {
+    const body = document.getElementById("sz-bmoc-body");
+    if (!body) return;
+    if (!_currentSceneId) { body.innerHTML = ""; return; }
+    const rec = _getSceneRecord(_currentSceneId);
+
+    if (!state) {
+      if (!rec?.analysis) state = { kind: "empty" };
+      else if (rec.analysis.parseFailed) state = { kind: "parse-fail", raw: rec.analysis.rawModelOutput };
+      else state = { kind: "loaded" };
+    }
+
+    if (state.kind === "no-key") {
+      body.innerHTML = `<div class="bmoc-empty">No AI key configured. Open Settings (or fill <code>config.local.js</code> in dev) to enable Scene Zoom.</div>`;
+      _setRerunVisibility(false);
+      return;
+    }
+
+    if (state.kind === "empty") {
+      body.innerHTML = `
+        <div class="bmoc-empty"><p>Run BMOC analysis to get a Beat Card, failure-mode scan, and ranked fixes.</p></div>
+        <div class="bmoc-actions"><button class="sz-btn sz-btn-primary" id="sz-run-analyze">Run BMOC analysis</button></div>`;
+      document.getElementById("sz-run-analyze")?.addEventListener("click", _runAnalyze);
+      _setRerunVisibility(false);
+      return;
+    }
+
+    if (state.kind === "streaming") {
+      body.innerHTML = `
+        <div class="bmoc-empty">Analyzing…</div>
+        <pre style="font-size:11px;color:var(--muted);white-space:pre-wrap;max-height:200px;overflow:auto;background:var(--bg);padding:6px;border-radius:4px">${_esc(state.text || "")}</pre>`;
+      _setRerunVisibility(false);
+      return;
+    }
+
+    if (state.kind === "error") {
+      body.innerHTML = `<div class="bmoc-empty">Analysis failed: ${_esc(state.message)}</div>
+        <div class="bmoc-actions"><button class="sz-btn" id="sz-run-analyze">Try again</button></div>`;
+      document.getElementById("sz-run-analyze")?.addEventListener("click", _runAnalyze);
+      return;
+    }
+
+    if (state.kind === "parse-fail") {
+      body.innerHTML = `
+        <div class="bmoc-empty">Couldn't parse the response as structured JSON. Raw output:</div>
+        <pre style="font-size:11px;white-space:pre-wrap;background:var(--bg);padding:8px;border-radius:4px;max-height:280px;overflow:auto">${_esc(state.raw)}</pre>
+        <div class="bmoc-actions"><button class="sz-btn" id="sz-run-analyze">Re-run</button></div>`;
+      document.getElementById("sz-run-analyze")?.addEventListener("click", _runAnalyze);
+      _setRerunVisibility(true);
+      return;
+    }
+
+    const a = rec.analysis;
+    const pipsHtml = (a.bmocPattern || []).map((v, i) =>
+      `<span class="bmoc-pip ${v === "yes" ? "yes" : "no"}">${"BMOC"[i]}</span>`
+    ).join("");
+    const flagsHtml = (a.flags || []).map(f =>
+      `<div class="bmoc-flag"><span class="icon">⚠</span><div><b>${_esc(f.summary || f.mode || "")}</b><br><span style="color:var(--muted)">Fix:</span> ${_esc(f.fix || "")}</div></div>`
+    ).join("");
+
+    body.innerHTML = `
+      <div class="bmoc-section">
+        <div class="bmoc-label">Beat Question</div>
+        <div class="bmoc-value">${_esc(a.beatQuestion || "[MISSING]")}</div>
+      </div>
+      <div class="bmoc-section">
+        <div class="bmoc-label">Hero · Antagonist</div>
+        <div class="bmoc-value">${_esc(a.hero || "?")} &nbsp;·&nbsp; ${_esc(a.antagonist || "?")}</div>
+      </div>
+      <div class="bmoc-section">
+        <div class="bmoc-label">BMOC Pattern</div>
+        <div class="bmoc-pattern">${pipsHtml}<span class="bmoc-pattern-label">${_esc(a.patternLabel || "")}</span></div>
+      </div>
+      <div class="bmoc-section">
+        <div class="bmoc-label">Ticking Clock</div>
+        <div class="bmoc-value">${_esc(a.tickingClock || "[MISSING]")}</div>
+      </div>
+      <div class="bmoc-section">
+        <div class="bmoc-label">Failure-mode scan (${(a.flags || []).length})</div>
+        <div class="bmoc-flags">${flagsHtml || "<div style='color:var(--muted);font-size:11.5px'>No flags fired.</div>"}</div>
+      </div>
+      <div class="bmoc-section">
+        <div class="bmoc-label">Rewrite Priority</div>
+        <div class="bmoc-value">${_esc(a.rewritePriority || "")}</div>
+      </div>
+      <div class="bmoc-actions">
+        <button class="sz-btn sz-btn-primary" id="sz-run-rewrite">Generate rewrite</button>
+        <button class="sz-btn" id="sz-show-beatcard">Show Beat Card (15 fields)</button>
+      </div>
+    `;
+    _setRerunVisibility(true);
+    document.getElementById("sz-run-rewrite")?.addEventListener("click", () => _runRewrite());
+    document.getElementById("sz-show-beatcard")?.addEventListener("click", () => _showBeatCardModal(a.beatCard));
+  }
+
+  function _runRewrite() { console.log("Rewrite — implemented in Task 14"); }
+  function _showBeatCardModal(card) {
+    const body = JSON.stringify(card || {}, null, 2);
+    if (typeof bsConfirm === "function") {
+      bsConfirm({ title: "Beat Card", body: `<pre style='max-height:60vh;overflow:auto;font-size:11.5px;white-space:pre-wrap'>${_esc(body)}</pre>`, okText: "Close", cancelText: "" });
+    } else {
+      alert(body);
+    }
   }
 
   function _typeToClass(type) {
@@ -352,6 +580,8 @@ BEAT CARD (15 fields):
         _renderSceneCol(btn.dataset.tab);
       });
     });
+
+    document.getElementById("sz-rerun")?.addEventListener("click", _runAnalyze);
   }
 
   return { open, close, render, bind };
