@@ -240,8 +240,7 @@ BEAT CARD (15 fields):
     if (!_currentSceneId) return;
     _renderSceneCol("original");
     _renderBmocCol();
-    const chatEl = document.getElementById("sz-chat-body");
-    if (chatEl) chatEl.innerHTML = `<div class="sz-chat-empty">Run analysis first to start a conversation.</div>`;
+    _renderChatCol();
   }
 
   function _aiReady() {
@@ -355,7 +354,18 @@ Mark missing or weak elements in the Beat Card with [MISSING] or [WEAK: reason].
     _seedDiagnosisChatMessage();
   }
 
-  function _seedDiagnosisChatMessage() { /* filled in Task 13 */ }
+  function _seedDiagnosisChatMessage() {
+    if (!_currentSceneId) return;
+    const rec = _getSceneRecord(_currentSceneId);
+    if (!rec?.analysis) return;
+    if ((rec.chat || []).some(m => m.kind === "diagnosis-seed")) return;
+    const a = rec.analysis;
+    const summary = `Diagnosis:\n• Beat question — ${a.beatQuestion}\n• Pattern — ${(a.bmocPattern || []).join("-")} (${a.patternLabel || ""})\n• Flags fired — ${(a.flags || []).map(f => f.mode).join(", ") || "none"}\n• Rewrite priority — ${a.rewritePriority || "(none specified)"}\n\nAsk follow-ups or click ✨ Rewrite from any of your messages to generate a candidate.`;
+    rec.chat = rec.chat || [];
+    rec.chat.unshift({ id: _genId(), role: "ai", text: summary, ts: Date.now(), kind: "diagnosis-seed" });
+    _saveBlob();
+    _renderChatCol();
+  }
 
   function _esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, c => (
@@ -542,6 +552,139 @@ Mark missing or weak elements in the Beat Card with [MISSING] or [WEAK: reason].
     if (discard) discard.disabled = !rec.candidate;
   }
 
+  function _genId() { return "m_" + Math.random().toString(36).slice(2, 10); }
+
+  const BMOC_DISCUSS_PROMPT = `${BMOC_REFERENCE}
+
+You are continuing a focused conversation about ONE scene. Stay in BMOC terms.
+Be direct, specific, and constructive — not generic writing advice. Reference
+the Beat Card and the current scene text concretely.
+
+PROJECT CONTEXT:
+{CONTEXT}
+
+SCENE:
+{SCENE}
+
+CURRENT BMOC DIAGNOSIS:
+{DIAGNOSIS}
+
+CHAT HISTORY (most recent last):
+{HISTORY}
+
+USER:
+{MESSAGE}
+
+Respond in plain prose. No JSON. Stay tight — 2-5 sentences unless the user asked for length.`;
+
+  function _formatDiagnosisForPrompt(analysis) {
+    if (!analysis) return "(no analysis run)";
+    const flags = (analysis.flags || []).map(f => `- ${f.mode}: ${f.summary} | Fix: ${f.fix}`).join("\n");
+    return `Beat Question: ${analysis.beatQuestion}
+Hero: ${analysis.hero} | Antagonist: ${analysis.antagonist}
+Setting: ${analysis.setting}
+BMOC Pattern: ${(analysis.bmocPattern || []).join("-")} (${analysis.patternLabel || ""})
+Ticking Clock: ${analysis.tickingClock}
+Flags:
+${flags}
+Rewrite Priority: ${analysis.rewritePriority}`;
+  }
+
+  function _formatChatHistoryForPrompt(chat) {
+    return (chat || []).map(m => `${m.role === "user" ? "USER" : "AI"}: ${m.text}`).join("\n");
+  }
+
+  function _renderChatCol() {
+    const body = document.getElementById("sz-chat-body");
+    if (!body || !_currentSceneId) return;
+    const rec = _getSceneRecord(_currentSceneId);
+    const input = document.getElementById("sz-chat-input");
+    const sendBtn = document.getElementById("sz-chat-send");
+    const headEl = document.getElementById("sz-chat-head");
+    const clearBtn = document.getElementById("sz-chat-clear");
+
+    if (!rec?.analysis) {
+      body.innerHTML = `<div class="sz-chat-empty">Run analysis first to start a conversation.</div>`;
+      if (input) { input.placeholder = "Run analysis first…"; input.disabled = true; }
+      if (sendBtn) sendBtn.disabled = true;
+      if (headEl) headEl.textContent = "Discuss";
+      if (clearBtn) clearBtn.hidden = true;
+      return;
+    }
+
+    if (input) { input.disabled = false; input.placeholder = "Ask, or steer the rewrite…"; }
+    if (sendBtn) sendBtn.disabled = false;
+
+    const msgs = rec.chat || [];
+    if (headEl) headEl.textContent = `Discuss · ${msgs.length} msgs`;
+    if (clearBtn) clearBtn.hidden = msgs.length === 0;
+
+    body.innerHTML = msgs.map(m => {
+      const author = m.role === "user" ? "You" : "AI · BMOC";
+      const rewriteBtn = (m.role === "user")
+        ? `<button class="sz-btn sz-btn-ghost sz-chat-rewrite-btn" data-msgid="${_esc(m.id)}">✨ Rewrite from this</button>`
+        : "";
+      return `<div class="sz-chat-msg ${m.role === "user" ? "user" : "ai"}">
+        <div class="sz-chat-author"><span>${author}</span>${rewriteBtn}</div>
+        <div>${_esc(m.text).replace(/\n/g, "<br>")}</div>
+      </div>`;
+    }).join("");
+
+    body.querySelectorAll(".sz-chat-rewrite-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const msg = msgs.find(m => m.id === btn.dataset.msgid);
+        _runRewrite(msg?.text || "");
+      });
+    });
+
+    body.scrollTop = body.scrollHeight;
+  }
+
+  function _clearChat() {
+    if (!_currentSceneId) return;
+    const rec = _getSceneRecord(_currentSceneId);
+    if (!rec) return;
+    rec.chat = [];
+    _saveBlob();
+    _renderChatCol();
+  }
+
+  async function _sendChat(text) {
+    if (!_currentSceneId) return;
+    if (!_aiReady()) {
+      if (typeof toast === "function") toast("Configure AI in Settings first");
+      return;
+    }
+    const rec = _getSceneRecord(_currentSceneId, true);
+    rec.chat = rec.chat || [];
+    rec.chat.push({ id: _genId(), role: "user", text, ts: Date.now() });
+    const aiMsg = { id: _genId(), role: "ai", text: "", ts: Date.now() };
+    rec.chat.push(aiMsg);
+    _saveBlob();
+    _renderChatCol();
+
+    const anchorIdx = _reanchorSceneId(_currentSceneId);
+    const sceneText = (anchorIdx >= 0) ? _sceneLinesToFountainText(_getSceneLines(anchorIdx)) : "";
+    const ctx = (typeof gatherProjectContext === "function") ? gatherProjectContext({ scriptChars: 18000 }) : "";
+
+    try {
+      for await (const chunk of AI.stream(BMOC_DISCUSS_PROMPT, {
+        CONTEXT: ctx,
+        SCENE: sceneText,
+        DIAGNOSIS: _formatDiagnosisForPrompt(rec.analysis),
+        HISTORY: _formatChatHistoryForPrompt(rec.chat.slice(0, -1)),
+        MESSAGE: text,
+      })) {
+        aiMsg.text += chunk;
+        _renderChatCol();
+      }
+    } catch (e) {
+      aiMsg.text = "(error: " + (e?.message || e) + ")";
+      _renderChatCol();
+    }
+    _saveBlob();
+  }
+
   // Stubs — replaced in Task 14 (parser) and Task 15 (Myers diff).
   function _parseFountainLines(text) {
     return (text || "").split("\n").map(line => ({ type: "action", text: line }));
@@ -582,6 +725,20 @@ Mark missing or weak elements in the Beat Card with [MISSING] or [WEAK: reason].
     });
 
     document.getElementById("sz-rerun")?.addEventListener("click", _runAnalyze);
+
+    const chatInput = document.getElementById("sz-chat-input");
+    const chatSend = document.getElementById("sz-chat-send");
+    const sendNow = async () => {
+      const text = (chatInput?.value || "").trim();
+      if (!text || chatInput?.disabled) return;
+      chatInput.value = "";
+      await _sendChat(text);
+    };
+    chatSend?.addEventListener("click", sendNow);
+    chatInput?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendNow(); }
+    });
+    document.getElementById("sz-chat-clear")?.addEventListener("click", _clearChat);
   }
 
   return { open, close, render, bind };
