@@ -791,7 +791,66 @@ Rewrite Priority: ${analysis.rewritePriority}`;
     return out;
   }
   function _diffLines(a, b) {
-    return [...a.map(l => ({ ...l, kind: "same" })), ...b.map(l => ({ ...l, kind: "add" }))];
+    const n = a.length, m = b.length;
+    if (n === 0 && m === 0) return [];
+    if (n === 0) return b.map(l => ({ ...l, kind: "add" }));
+    if (m === 0) return a.map(l => ({ ...l, kind: "del" }));
+
+    const key = (l) => `${l.type}|${l.text}`;
+    const max = n + m;
+    const offset = max;
+    const v = new Array(2 * max + 1).fill(0);
+    const trace = [];
+
+    for (let d = 0; d <= max; d++) {
+      trace.push(v.slice());
+      for (let k = -d; k <= d; k += 2) {
+        let x;
+        if (k === -d || (k !== d && v[offset + k - 1] < v[offset + k + 1])) {
+          x = v[offset + k + 1];
+        } else {
+          x = v[offset + k - 1] + 1;
+        }
+        let y = x - k;
+        while (x < n && y < m && key(a[x]) === key(b[y])) { x++; y++; }
+        v[offset + k] = x;
+        if (x >= n && y >= m) {
+          const ops = [];
+          let cx = n, cy = m;
+          for (let dd = d; dd > 0; dd--) {
+            const vPrev = trace[dd];
+            const k2 = cx - cy;
+            let prevK;
+            if (k2 === -dd || (k2 !== dd && vPrev[offset + k2 - 1] < vPrev[offset + k2 + 1])) {
+              prevK = k2 + 1;
+            } else {
+              prevK = k2 - 1;
+            }
+            const prevX = vPrev[offset + prevK];
+            const prevY = prevX - prevK;
+            while (cx > prevX && cy > prevY) {
+              ops.push({ ...a[cx - 1], kind: "same" });
+              cx--; cy--;
+            }
+            if (cx === prevX) {
+              ops.push({ ...b[cy - 1], kind: "add" });
+              cy--;
+            } else {
+              ops.push({ ...a[cx - 1], kind: "del" });
+              cx--;
+            }
+          }
+          while (cx > 0 && cy > 0) {
+            ops.push({ ...a[cx - 1], kind: "same" });
+            cx--; cy--;
+          }
+          while (cx > 0) { ops.push({ ...a[cx - 1], kind: "del" }); cx--; }
+          while (cy > 0) { ops.push({ ...b[cy - 1], kind: "add" }); cy--; }
+          return ops.reverse();
+        }
+      }
+    }
+    return [];
   }
   function _agoString(ts) {
     const s = Math.max(1, Math.floor((Date.now() - ts) / 1000));
