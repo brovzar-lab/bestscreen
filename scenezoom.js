@@ -7,6 +7,72 @@
  * ============================================================================= */
 
 const SceneZoom = (() => {
+  // Peter Russell's BMOC methodology (mirrors docs/frameworks/bmoc.md).
+  // Inlined here because Bestscreen has no build step — the AI prompts need
+  // this text at runtime in the browser.
+  const BMOC_REFERENCE = `Peter Russell's BMOC methodology for scene-level beat engineering.
+
+WHAT IS A BEAT: a dramatic mini-conflict with 4 elements — Hero (wants something now),
+Antagonist (actively blocks), Active clash, Winner/loser by end. No clear shift = not a beat.
+
+BEAT QUESTION: implicit binary Yes/No the audience tracks. Best ones double as character
+revelation ("Will she get the files without betraying someone?").
+
+5 SUSPENSE TOOLS:
+- Surprise (from character strategy, not random)
+- Reversal (power shift; conflict mutates)
+- Ticking clock (social/psychological preferred over literal timers)
+- Good news / bad news alternation (≥3 oscillations inside the beat)
+- Raising stakes (more cost, fewer exits, moral line approaching)
+
+BMOC = four crescendos. Each answers the SAME beat question Yes or No:
+- B = Beginning (~25%): conflict engages
+- M = Middle (~50%): contest deepens
+- O = Obstacle (~75%): worst complication, "all is lost"
+- C = Climax: final answer, outcome, price paid
+
+BMOC points are CHOICES, not information. Audience must SEE the shift (a line lands, a door
+closes, a confession drops, a price is named).
+
+ANSWER PATTERNS (and emotional feel):
+- Yes-Yes-No-Yes  → Classic comeback
+- No-No-Yes-Yes   → Earned breakthrough
+- Yes-No-No-No    → Collapse / tragedy
+- No-Yes-No-Yes   → Scrappy chaos
+- Yes-Yes-No-No   → Trap closes
+- No-No-No-Yes    → Against all odds
+- Yes-No-Yes-No   → Pyrrhic / ambiguous
+
+10 FAILURE MODES TO SCAN FOR:
+1. Mushy beat question (can't phrase as Yes/No)
+2. Passive antagonist (absorbs, doesn't strategize)
+3. No power shift (advantage doesn't change hands)
+4. Missing or decorative ticking clock
+5. Stakes don't escalate
+6. BMOC points deliver INFORMATION instead of forcing CHOICES
+7. Split beat used as a cheat (withholding without aftermath payoff)
+8. Antagonist too weak (no leverage, no credible threat)
+9. No tactic changes in dialogue (charm/deflection/accusation/moral claim/threat/humiliation/feigned vulnerability/sudden honesty)
+10. Surprise comes from random events, not character
+
+BEAT CARD (15 fields):
+1. Beat ID / Storyline / Episode position
+2. Hero (beat protagonist, NOT automatically the series protagonist)
+3. Antagonist
+4. Setting + constraint
+5. Beat Question (binary)
+6. Hero Want (external, concrete)
+7. Hero Need/Wound being pressured (internal)
+8. Antagonist Want + leverage
+9. Stakes
+10. Ticking clock(s)
+11. Good News / Bad News plan (≥3 oscillations)
+12. BMOC turns (B/M/O/C — each: event + Yes/No + tactic)
+13. Surprise/Reversal
+14. Winner/Loser end state
+15. Transition hook
+`;
+
   let _cache = null;
   let _cacheProjectId = null;
   let _currentSceneId = null;
