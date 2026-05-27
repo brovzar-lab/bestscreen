@@ -1957,7 +1957,7 @@ kbd {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 6px;
 }
-.bc-ai, .ic-ai, .bib-ai {
+.bc-ai, .ic-ai, .bib-ai, .bc-zoom, .ic-zoom {
   background: transparent;
   border: 1px solid var(--line-2);
   color: var(--accent);
@@ -1969,7 +1969,8 @@ kbd {
   transition: background 0.12s, transform 0.08s, border-color 0.12s;
   flex: 0 0 auto;
 }
-.bc-ai:hover, .ic-ai:hover, .bib-ai:hover {
+.bc-zoom, .ic-zoom { color: var(--ink); }
+.bc-ai:hover, .ic-ai:hover, .bib-ai:hover, .bc-zoom:hover, .ic-zoom:hover {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
