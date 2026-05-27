@@ -136,6 +136,21 @@ const SceneZoom = (() => {
     return -1;
   }
 
+  function _show() {
+    const el = document.getElementById("modal-scenezoom");
+    if (el) el.classList.add("open");
+  }
+  function _hide() {
+    const el = document.getElementById("modal-scenezoom");
+    if (el) el.classList.remove("open");
+    _currentSceneId = null;
+  }
+  function _setSlug(sceneId) {
+    const rec = _getSceneRecord(sceneId);
+    const el = document.getElementById("sz-slug");
+    if (el) el.textContent = rec?.slug || "—";
+  }
+
   function open(anchorLineIdx) {
     const headingIdx = _walkToHeading(anchorLineIdx);
     if (headingIdx < 0) {
@@ -149,16 +164,39 @@ const SceneZoom = (() => {
     rec.slug = fp.slug;
     _saveBlob();
     _currentSceneId = sceneId;
-    console.log("SceneZoom: opened sceneId", sceneId, "at headingIdx", headingIdx);
+    _setSlug(sceneId);
+    render();
+    _show();
   }
-  function close() {
-    const el = document.getElementById("modal-scenezoom");
-    if (el) el.classList.remove("open");
-    _currentSceneId = null;
+  function close() { _hide(); }
+
+  function render() {
+    if (!_currentSceneId) return;
+    const sceneEl = document.getElementById("sz-scene-body");
+    const bmocEl = document.getElementById("sz-bmoc-body");
+    const chatEl = document.getElementById("sz-chat-body");
+    if (sceneEl) sceneEl.innerHTML = "";
+    if (bmocEl) bmocEl.innerHTML = `<div class="bmoc-empty">Run BMOC analysis to see the Beat Card and failure-mode scan.</div>`;
+    if (chatEl) chatEl.innerHTML = `<div class="sz-chat-empty">Run analysis first to start a conversation.</div>`;
   }
-  function render() { /* filled in Task 6+ */ }
+
   function bind() {
     window.addEventListener("hashchange", _invalidateCache);
+
+    const closeBtn = document.getElementById("sz-close");
+    closeBtn?.addEventListener("click", _hide);
+
+    const backdrop = document.getElementById("modal-scenezoom");
+    backdrop?.addEventListener("click", (e) => {
+      if (e.target === backdrop) _hide();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && backdrop?.classList.contains("open")) {
+        e.stopPropagation();
+        _hide();
+      }
+    }, true);
   }
 
   return { open, close, render, bind };

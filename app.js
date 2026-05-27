@@ -105,6 +105,7 @@ function boot() {
   Audio.setVolume(0.18);
   bindGlobalShortcuts();
   bindDashboardModals();
+  if (typeof SceneZoom !== "undefined") SceneZoom.bind();
 
   // Route
   const hash = location.hash;
