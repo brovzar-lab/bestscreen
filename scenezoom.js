@@ -551,6 +551,75 @@ the same length unless the diagnosis demands otherwise.`;
     _renderSceneCol("diff");
     if (typeof toast === "function") toast("Rewrite candidate ready — see Diff tab");
   }
+  function _candidateToDomLines(fountainText) {
+    const lines = _parseFountainLines(fountainText);
+    return lines.map(l => {
+      const div = document.createElement("div");
+      div.setAttribute("data-type", l.type);
+      div.textContent = l.text;
+      return div;
+    });
+  }
+
+  async function _swapCandidate() {
+    if (!_currentSceneId) return;
+    const rec = _getSceneRecord(_currentSceneId);
+    if (!rec?.candidate) return;
+    const anchorIdx = _reanchorSceneId(_currentSceneId);
+    if (anchorIdx < 0) {
+      if (typeof toast === "function") toast("Couldn't re-locate this scene");
+      return;
+    }
+
+    if (typeof bsConfirm === "function") {
+      const ok = await bsConfirm({
+        title: "Swap candidate into script?",
+        body: "A snapshot of the current document will be saved automatically so you can revert.",
+        okText: "Swap",
+        cancelText: "Cancel",
+      });
+      if (!ok) return;
+    }
+
+    if (typeof takeSnapshot === "function") {
+      try { takeSnapshot(`Pre-Scene-Zoom: ${rec.slug} (${new Date().toLocaleString()})`); } catch (_) {}
+    }
+
+    const editor = document.getElementById("editor");
+    if (!editor) return;
+    const endIdx = _findNextHeadingIdx(anchorIdx);
+    const newNodes = _candidateToDomLines(rec.candidate.fountainText);
+
+    const removeCount = endIdx - anchorIdx;
+    const liveChildren = Array.from(editor.children);
+    const beforeNode = liveChildren[endIdx] || null;
+    for (let i = anchorIdx; i < anchorIdx + removeCount; i++) {
+      editor.removeChild(liveChildren[i]);
+    }
+    newNodes.forEach(n => {
+      if (beforeNode && beforeNode.parentNode === editor) editor.insertBefore(n, beforeNode);
+      else editor.appendChild(n);
+    });
+
+    if (typeof reclassifyAll === "function") reclassifyAll();
+    if (typeof setDirty === "function") setDirty();
+
+    rec.candidate = null;
+    _saveBlob();
+    _renderSceneCol("original");
+    _renderBmocCol();
+    if (typeof toast === "function") toast("Candidate swapped into script. Snapshot saved.");
+  }
+
+  function _discardCandidate() {
+    if (!_currentSceneId) return;
+    const rec = _getSceneRecord(_currentSceneId);
+    if (!rec) return;
+    rec.candidate = null;
+    _saveBlob();
+    _renderSceneCol("original");
+  }
+
   function _showBeatCardModal(card) {
     const body = JSON.stringify(card || {}, null, 2);
     if (typeof bsConfirm === "function") {
@@ -899,6 +968,9 @@ Rewrite Priority: ${analysis.rewritePriority}`;
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendNow(); }
     });
     document.getElementById("sz-chat-clear")?.addEventListener("click", _clearChat);
+
+    document.getElementById("sz-swap")?.addEventListener("click", _swapCandidate);
+    document.getElementById("sz-discard")?.addEventListener("click", _discardCandidate);
   }
 
   return { open, close, render, bind };
