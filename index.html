@@ -658,6 +658,55 @@
 <!-- Toasts -->
 <div class="toasts" id="toasts"></div>
 
+<!-- Scene Zoom workspace -->
+<div class="modal-backdrop" id="modal-scenezoom">
+  <div class="modal sz-modal">
+    <div class="sz-titlebar">
+      <div class="sz-titlebar-text">
+        <span class="sz-title">Scene Zoom</span>
+        <span class="sz-sep">·</span>
+        <span class="sz-slug" id="sz-slug">—</span>
+      </div>
+      <button class="sz-close" id="sz-close" aria-label="Close">✕</button>
+    </div>
+    <div class="sz-grid">
+      <div class="sz-col" id="sz-col-scene">
+        <div class="sz-col-head">
+          <div class="sz-tabs" id="sz-tabs">
+            <button class="sz-tab active" data-tab="original">Original</button>
+            <button class="sz-tab" data-tab="diff" disabled>Diff</button>
+            <button class="sz-tab" data-tab="candidate" disabled>Candidate</button>
+          </div>
+          <span class="sz-tab-meta" id="sz-tab-meta"></span>
+        </div>
+        <div class="sz-body sz-screenplay" id="sz-scene-body"></div>
+        <div class="sz-col-actions" id="sz-scene-actions">
+          <button class="sz-btn sz-btn-primary" id="sz-swap" disabled>Swap candidate into script</button>
+          <button class="sz-btn sz-btn-ghost" id="sz-discard" disabled>Discard candidate</button>
+        </div>
+      </div>
+      <div class="sz-col" id="sz-col-bmoc">
+        <div class="sz-col-head">
+          <span>BMOC Analysis</span>
+          <button class="sz-btn sz-btn-ghost sz-mini" id="sz-rerun" hidden>Re-run</button>
+        </div>
+        <div class="sz-body" id="sz-bmoc-body"></div>
+      </div>
+      <div class="sz-col" id="sz-col-chat">
+        <div class="sz-col-head">
+          <span id="sz-chat-head">Discuss</span>
+          <button class="sz-btn sz-btn-ghost sz-mini" id="sz-chat-clear" hidden>Clear</button>
+        </div>
+        <div class="sz-body sz-chat-list" id="sz-chat-body"></div>
+        <div class="sz-chat-input">
+          <input type="text" id="sz-chat-input" placeholder="Run analysis first…" disabled />
+          <button class="sz-btn sz-btn-primary" id="sz-chat-send" disabled>Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Scripts (load order matters: storage → templates → modules → app) -->
 <!-- Production config (tracked, deployed). Loads first. -->
 <script src="config.live.js" onerror="this.remove()"></script>
