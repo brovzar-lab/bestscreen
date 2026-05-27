@@ -172,12 +172,94 @@ const SceneZoom = (() => {
 
   function render() {
     if (!_currentSceneId) return;
-    const sceneEl = document.getElementById("sz-scene-body");
+    _renderSceneCol("original");
     const bmocEl = document.getElementById("sz-bmoc-body");
     const chatEl = document.getElementById("sz-chat-body");
-    if (sceneEl) sceneEl.innerHTML = "";
     if (bmocEl) bmocEl.innerHTML = `<div class="bmoc-empty">Run BMOC analysis to see the Beat Card and failure-mode scan.</div>`;
     if (chatEl) chatEl.innerHTML = `<div class="sz-chat-empty">Run analysis first to start a conversation.</div>`;
+  }
+
+  function _typeToClass(type) {
+    const t = type === "parenthetical" ? "paren" : (type || "action");
+    return "sl sl-" + t;
+  }
+
+  function _renderSceneLines(targetEl, scenelines, diffOps) {
+    targetEl.innerHTML = "";
+    if (diffOps && Array.isArray(diffOps)) {
+      diffOps.forEach(op => {
+        const div = document.createElement("div");
+        div.className = _typeToClass(op.type) +
+          (op.kind === "add" ? " diff-add" : op.kind === "del" ? " diff-del" : "");
+        div.textContent = op.text;
+        targetEl.appendChild(div);
+      });
+      return;
+    }
+    (scenelines || []).forEach(l => {
+      const div = document.createElement("div");
+      div.className = _typeToClass(l.type);
+      div.textContent = l.text;
+      targetEl.appendChild(div);
+    });
+  }
+
+  function _renderSceneCol(tab = "original") {
+    if (!_currentSceneId) return;
+    const rec = _getSceneRecord(_currentSceneId);
+    if (!rec) return;
+    const body = document.getElementById("sz-scene-body");
+    if (!body) return;
+
+    const anchorIdx = _reanchorSceneId(_currentSceneId);
+    if (anchorIdx < 0) {
+      body.innerHTML = `<div class="bmoc-empty">Couldn't re-locate this scene in the current script (slug may have changed).</div>`;
+      return;
+    }
+    const original = _getSceneLines(anchorIdx);
+
+    document.querySelectorAll("#sz-tabs .sz-tab").forEach(t => {
+      const k = t.dataset.tab;
+      t.classList.toggle("active", k === tab);
+      if (k === "diff" || k === "candidate") {
+        t.disabled = !rec.candidate;
+      }
+    });
+
+    const meta = document.getElementById("sz-tab-meta");
+
+    if (tab === "original" || !rec.candidate) {
+      _renderSceneLines(body, original);
+      if (meta) meta.textContent = "";
+    } else if (tab === "candidate") {
+      const candidateLines = _parseFountainLines(rec.candidate.fountainText);
+      _renderSceneLines(body, candidateLines);
+      if (meta) meta.textContent = "Candidate · " + _agoString(rec.candidate.createdAt);
+    } else if (tab === "diff") {
+      const candidateLines = _parseFountainLines(rec.candidate.fountainText);
+      const ops = _diffLines(original, candidateLines);
+      _renderSceneLines(body, null, ops);
+      if (meta) meta.textContent = "Diff vs current original · " + _agoString(rec.candidate.createdAt);
+    }
+
+    const swap = document.getElementById("sz-swap");
+    const discard = document.getElementById("sz-discard");
+    if (swap) swap.disabled = !rec.candidate;
+    if (discard) discard.disabled = !rec.candidate;
+  }
+
+  // Stubs — replaced in Task 14 (parser) and Task 15 (Myers diff).
+  function _parseFountainLines(text) {
+    return (text || "").split("\n").map(line => ({ type: "action", text: line }));
+  }
+  function _diffLines(a, b) {
+    return [...a.map(l => ({ ...l, kind: "same" })), ...b.map(l => ({ ...l, kind: "add" }))];
+  }
+  function _agoString(ts) {
+    const s = Math.max(1, Math.floor((Date.now() - ts) / 1000));
+    if (s < 60) return s + "s ago";
+    if (s < 3600) return Math.floor(s / 60) + "m ago";
+    return Math.floor(s / 3600) + "h ago";
   }
 
   function bind() {
@@ -197,6 +279,13 @@ const SceneZoom = (() => {
         _hide();
       }
     }, true);
+
+    document.querySelectorAll("#sz-tabs .sz-tab").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (btn.disabled) return;
+        _renderSceneCol(btn.dataset.tab);
+      });
+    });
   }
 
   return { open, close, render, bind };
