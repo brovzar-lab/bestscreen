@@ -473,7 +473,84 @@ Mark missing or weak elements in the Beat Card with [MISSING] or [WEAK: reason].
     document.getElementById("sz-show-beatcard")?.addEventListener("click", () => _showBeatCardModal(a.beatCard));
   }
 
-  function _runRewrite() { console.log("Rewrite — implemented in Task 14"); }
+  const BMOC_BUILD_PROMPT = `${BMOC_REFERENCE}
+
+You are running BMOC BUILD on a single scene. Use the diagnosis to engineer a
+stronger version of the scene. Hit B/M/O/C as concrete observable turns. Make
+each BMOC point a CHOICE (not information). Layer in: at least one ticking
+clock (prefer social/psychological), ≥3 good-news/bad-news oscillations,
+≥2 stake escalations, one surprise or reversal driven by character.
+
+PROJECT CONTEXT:
+{CONTEXT}
+
+ORIGINAL SCENE:
+{SCENE}
+
+DIAGNOSIS:
+{DIAGNOSIS}
+
+OPTIONAL USER STEERING:
+{STEERING}
+
+Output the rewritten scene in standard Fountain format ONLY. No commentary
+before or after. Scene heading in CAPS, characters in CAPS on their own
+line, parentheticals in (parens), action as prose. Keep the scene roughly
+the same length unless the diagnosis demands otherwise.`;
+
+  function _stripFountainFences(s) {
+    return (s || "").replace(/^```(?:fountain)?\s*/i, "").replace(/```\s*$/i, "").trim();
+  }
+
+  async function _runRewrite(steeringMessage = "") {
+    if (!_currentSceneId) return;
+    if (!_aiReady()) {
+      if (typeof toast === "function") toast("Configure AI in Settings first");
+      return;
+    }
+    const rec = _getSceneRecord(_currentSceneId, true);
+    if (!rec.analysis) {
+      if (typeof toast === "function") toast("Run BMOC analysis first");
+      return;
+    }
+    const anchorIdx = _reanchorSceneId(_currentSceneId);
+    if (anchorIdx < 0) {
+      if (typeof toast === "function") toast("Couldn't re-locate this scene");
+      return;
+    }
+
+    if (rec.candidate && typeof takeSnapshot === "function") {
+      try { takeSnapshot(`Pre-rewrite candidate: ${rec.slug} (${new Date().toLocaleString()})`); } catch (_) {}
+    }
+
+    rec.candidate = { createdAt: Date.now(), sourceMessage: steeringMessage || null, fountainText: "" };
+    _saveBlob();
+
+    const sceneText = _sceneLinesToFountainText(_getSceneLines(anchorIdx));
+    const ctx = (typeof gatherProjectContext === "function") ? gatherProjectContext({ scriptChars: 18000 }) : "";
+
+    let raw = "";
+    try {
+      for await (const chunk of AI.stream(BMOC_BUILD_PROMPT, {
+        CONTEXT: ctx,
+        SCENE: sceneText,
+        DIAGNOSIS: _formatDiagnosisForPrompt(rec.analysis),
+        STEERING: steeringMessage || "(none)",
+      })) {
+        raw += chunk;
+        rec.candidate.fountainText = _stripFountainFences(raw);
+        _renderSceneCol("candidate");
+      }
+    } catch (e) {
+      console.error("BMOC rewrite stream failed", e);
+      if (typeof toast === "function") toast("Rewrite failed: " + (e?.message || e));
+      return;
+    }
+    rec.candidate.fountainText = _stripFountainFences(raw);
+    _saveBlob();
+    _renderSceneCol("diff");
+    if (typeof toast === "function") toast("Rewrite candidate ready — see Diff tab");
+  }
   function _showBeatCardModal(card) {
     const body = JSON.stringify(card || {}, null, 2);
     if (typeof bsConfirm === "function") {
@@ -685,9 +762,33 @@ Rewrite Priority: ${analysis.rewritePriority}`;
     _saveBlob();
   }
 
-  // Stubs — replaced in Task 14 (parser) and Task 15 (Myers diff).
   function _parseFountainLines(text) {
-    return (text || "").split("\n").map(line => ({ type: "action", text: line }));
+    if (!text) return [];
+    const lines = text.split("\n");
+    const out = [];
+    const SCENE_RE = /^(INT\.|EXT\.|INT\/EXT\.|I\/E\.|EST\.|INT |EXT )/i;
+    const TRANS_RE = /^[A-Z\s]+:\s*$/;
+    for (let i = 0; i < lines.length; i++) {
+      const raw = lines[i];
+      const t = raw.trim();
+      if (t === "") { out.push({ type: "action", text: "" }); continue; }
+      if (SCENE_RE.test(t)) { out.push({ type: "scene", text: t }); continue; }
+      if (/^\(.+\)$/.test(t)) { out.push({ type: "parenthetical", text: t }); continue; }
+      if (TRANS_RE.test(t)) { out.push({ type: "transition", text: t.replace(/:\s*$/, "") }); continue; }
+      const isAllCaps = t === t.toUpperCase() && /[A-Z]/.test(t) && t.length < 50;
+      const nextNonEmpty = lines.slice(i + 1).find(l => l.trim() !== "");
+      if (isAllCaps && nextNonEmpty && !SCENE_RE.test(nextNonEmpty.trim())) {
+        out.push({ type: "character", text: t });
+        continue;
+      }
+      const prev = out[out.length - 1];
+      if (prev && (prev.type === "character" || prev.type === "parenthetical" || prev.type === "dialogue")) {
+        out.push({ type: "dialogue", text: t });
+      } else {
+        out.push({ type: "action", text: t });
+      }
+    }
+    return out;
   }
   function _diffLines(a, b) {
     return [...a.map(l => ({ ...l, kind: "same" })), ...b.map(l => ({ ...l, kind: "add" }))];
