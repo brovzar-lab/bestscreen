@@ -186,6 +186,24 @@ const Proof = (() => {
     return false;
   }
 
+  const SKIP_TYPES = new Set(["scene", "character", "transition", "parenthetical", "note", "section", "synopsis"]);
+
+  const WORD_RE = /[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'-]*/g;
+
+  function tokenize(line) {
+    if (!line) return [];
+    const type = line.dataset.type;
+    if (SKIP_TYPES.has(type)) return [];
+    const text = line.textContent || "";
+    const out = [];
+    let m;
+    WORD_RE.lastIndex = 0;
+    while ((m = WORD_RE.exec(text)) !== null) {
+      out.push({ word: m[0], start: m.index, end: m.index + m[0].length });
+    }
+    return out;
+  }
+
   function setLanguage(lang) { language = lang; }
   function scheduleLivePass() {}
   function suggestionsFor(_word) { return []; }
@@ -195,6 +213,7 @@ const Proof = (() => {
   return {
     bind, loadDictForProject, setLanguage,
     scheduleLivePass, suggestionsFor, addToDict, ignoreForSession, isKnown,
+    tokenize,
     // introspection for tests:
     _state() { return { language, loaded, customSize: customDict.size, dictSize: dict?.size || 0 }; },
   };
