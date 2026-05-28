@@ -91,6 +91,10 @@ let appState = {
   premise: "",
   theme: "",
   paceMode: false,
+  // Production mode: scene numbers locked at the moment of locking.
+  // Inserted scenes get letter suffixes (12A, 12B). Stored per-line in
+  // data-scene-num on scene heading divs.
+  prodLocked: false,
   // Daily streak baseline (for "today" counter when project opens)
   todayBaseline: 0,
   todayKey: "",
@@ -171,7 +175,9 @@ function loadProject(id, opts={}) {
   appState.smartTypo = meta.smartTypo !== false;
   appState.showSceneNumbersInPdf = meta.showSceneNumbersInPdf !== false;
   appState.showPageBreaks = !!meta.showPageBreaks;
+  appState.prodLocked = !!meta.prodLocked;
   document.body.dataset.pagebreaks = appState.showPageBreaks ? "true" : "";
+  document.body.dataset.prodLocked = appState.prodLocked ? "true" : "";
   appState.filename = (project?.name || "untitled") + ".fountain";
 
   // Daily counters
@@ -220,6 +226,7 @@ function cycleTheme() {
 
 function setDirty() {
   appState.isDirty = true;
+  if (!appState.dirtyAt) appState.dirtyAt = Date.now();
   $("#save-state")?.classList.add("dirty");
   $("#save-state .lbl")?.replaceChildren(document.createTextNode("unsaved"));
   clearTimeout(appState.saveTimer);
@@ -227,9 +234,25 @@ function setDirty() {
 }
 function setSaved() {
   appState.isDirty = false;
+  appState.dirtyAt = null;
+  appState.savedAt = Date.now();
   $("#save-state")?.classList.remove("dirty");
   $("#save-state .lbl")?.replaceChildren(document.createTextNode("saved"));
 }
+
+// Heartbeat: every 5s, if dirty, show "unsaved · 12s ago" on the chip so the
+// writer sees stale-state clearly. If just saved, briefly show "saved · 3s".
+setInterval(() => {
+  const lbl = $("#save-state .lbl"); if (!lbl) return;
+  if (appState.isDirty && appState.dirtyAt) {
+    const secs = Math.floor((Date.now() - appState.dirtyAt) / 1000);
+    if (secs >= 3) lbl.textContent = "unsaved · " + (secs < 60 ? `${secs}s` : `${Math.floor(secs/60)}m`);
+  } else if (appState.savedAt) {
+    const secs = Math.floor((Date.now() - appState.savedAt) / 1000);
+    if (secs < 30) lbl.textContent = "saved · " + (secs < 1 ? "now" : `${secs}s`);
+    else lbl.textContent = "saved";
+  }
+}, 2500);
 function autosave() {
   if (!appState.projectId) return;
   try {
@@ -240,6 +263,7 @@ function autosave() {
       ...Storage.getMeta(appState.projectId),
       titleMeta: appState.titleMeta,
       activeRevision: appState.activeRevision,
+      prodLocked: appState.prodLocked,
       template: appState.template,
       logline: appState.logline,
       premise: appState.premise,

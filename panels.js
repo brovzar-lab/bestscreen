@@ -9,7 +9,12 @@ function currentWordCount() {
 }
 function updateStatus() {
   const line = currentLine();
-  $("#stat-type").textContent = line ? prettyType(line.dataset.type) : "Action";
+  const stType = $("#stat-type");
+  const type = line ? (line.dataset.type || "action") : "action";
+  if (stType) {
+    stType.textContent = prettyType(type);
+    stType.dataset.type = type;
+  }
   const words = currentWordCount();
   const pages = Math.max(0, Math.ceil(linesToPages()));
   const scenes = $$("#editor > div[data-type='scene']").length;
@@ -124,13 +129,16 @@ function renderScenesSidebar(body) {
     el.addEventListener("click", () => navigateToLine(parseInt(el.dataset.line,10), el));
     el.addEventListener("dragstart", e => { e.dataTransfer.setData("text/plain", el.dataset.line); el.classList.add("dragging"); });
     el.addEventListener("dragend", () => el.classList.remove("dragging"));
-    el.addEventListener("dragover", e => { e.preventDefault(); el.classList.add("active"); });
-    el.addEventListener("dragleave", () => el.classList.remove("active"));
+    el.addEventListener("dragover", e => { e.preventDefault(); el.classList.add("drag-over"); });
+    el.addEventListener("dragleave", () => el.classList.remove("drag-over"));
     el.addEventListener("drop", e => {
-      e.preventDefault(); el.classList.remove("active");
+      e.preventDefault(); el.classList.remove("drag-over");
       const from = parseInt(e.dataTransfer.getData("text/plain"),10);
       const to = parseInt(el.dataset.line,10);
-      moveScene(from, to);
+      if (from !== to) {
+        moveScene(from, to);
+        toast("Scene moved · ⌘Z to undo isn't supported yet — drag back to revert");
+      }
     });
   });
 }
@@ -597,8 +605,9 @@ function updateInspector() {
         <dt>Logline</dt><dd style="white-space:normal">${escapeHtml(appState.logline) || "<i style='color:var(--muted)'>none</i>"}</dd>
         <dt>Theme</dt><dd>${escapeHtml(appState.theme) || "—"}</dd>
       </div>
-      <div style="display:flex;gap:6px;margin-top:8px">
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
         <button class="btn small" id="ins-logline">Open logline workshop</button>
+        <button class="btn small" id="ins-titlepage">Title page…</button>
       </div>
     </div>
     <div class="ins-section">
@@ -608,6 +617,10 @@ function updateInspector() {
       <label style="display:flex;gap:6px;font-size:12px;margin:4px 0"><input type="checkbox" id="opt-typewriter" ${appState.typewriter?"checked":""}/> Typewriter mode</label>
       <label style="display:flex;gap:6px;font-size:12px;margin:4px 0"><input type="checkbox" id="opt-smart-typo" ${appState.smartTypo?"checked":""}/> Smart typography</label>
       <label style="display:flex;gap:6px;font-size:12px;margin:4px 0"><input type="checkbox" id="opt-scene-num" ${appState.showSceneNumbersInPdf?"checked":""}/> Scene numbers in PDF</label>
+      <label style="display:flex;gap:6px;font-size:12px;margin:4px 0;align-items:flex-start" title="Production mode: locks current scene numbers so inserted scenes become 12A, 12B, etc. Industry-standard for shooting scripts.">
+        <input type="checkbox" id="opt-prod-locked" ${appState.prodLocked?"checked":""}/>
+        <span>Lock scene numbers (production)<br><span style="color:var(--muted);font-size:11px">New scenes get 12A · 12B suffixes</span></span>
+      </label>
     </div>
     <div class="ins-section">
       <h4>Breakdown — all scenes</h4>
@@ -637,7 +650,12 @@ function updateInspector() {
   $("#opt-typewriter")?.addEventListener("change", e => { setTypewriter(e.target.checked); });
   $("#opt-smart-typo")?.addEventListener("change", e => { appState.smartTypo = e.target.checked; setDirty(); });
   $("#opt-scene-num")?.addEventListener("change", e => { appState.showSceneNumbersInPdf = e.target.checked; setDirty(); });
+  $("#opt-prod-locked")?.addEventListener("change", e => {
+    if (e.target.checked) lockSceneNumbers(); else unlockSceneNumbers();
+    reclassifyAll();
+  });
   $("#ins-logline")?.addEventListener("click", openLoglineWorkshop);
+  $("#ins-titlepage")?.addEventListener("click", openTitlePage);
   $("#ins-template-sel")?.addEventListener("change", e => {
     appState.template = e.target.value || null;
     setDirty();

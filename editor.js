@@ -59,10 +59,60 @@ function reclassifyAll() {
   applyMoodToPage();
   applyCommentMarkers();
   applyAutoContd();
+  applyProdSceneNumbers();
   updateStatus();
   updateSidebar();
   updateInspector();
   bumpDailyStreak();
+}
+
+/* Production-mode scene numbering. When locked, each scene heading carries a
+   stable data-scene-num. Scenes inserted between locked numbers get letter
+   suffixes (12A, 12B, ...). On lock, every scene gets numbered 1..N. On
+   unlock, all data-scene-num are cleared. */
+function lockSceneNumbers() {
+  const scenes = $$("#editor > div[data-type='scene']");
+  scenes.forEach((d, i) => { d.dataset.sceneNum = String(i + 1); });
+  appState.prodLocked = true;
+  document.body.dataset.prodLocked = "true";
+  setDirty();
+  toast(scenes.length ? `Locked ${scenes.length} scene numbers — inserted scenes will get letter suffixes` : "Production lock on — no scenes yet");
+}
+function unlockSceneNumbers() {
+  $$("#editor > div[data-type='scene']").forEach(d => delete d.dataset.sceneNum);
+  appState.prodLocked = false;
+  document.body.dataset.prodLocked = "";
+  setDirty();
+  toast("Production lock off — scenes renumber sequentially");
+}
+function applyProdSceneNumbers() {
+  if (!appState.prodLocked) return;
+  const scenes = $$("#editor > div[data-type='scene']");
+  // For each scene without a locked number, generate one by appending a
+  // letter suffix to the most recent preceding numbered scene.
+  let lastLockedBase = "0";
+  let suffixIndex = 0;
+  for (const d of scenes) {
+    if (d.dataset.sceneNum) {
+      lastLockedBase = d.dataset.sceneNum;
+      suffixIndex = 0;
+      // If this number itself has a suffix like "12A", track for further letters.
+      const m = d.dataset.sceneNum.match(/^(\d+)([A-Z]*)$/);
+      if (m && m[2]) {
+        suffixIndex = m[2].charCodeAt(m[2].length - 1) - 64; // A→1
+      }
+    } else {
+      suffixIndex++;
+      const baseNum = lastLockedBase.match(/^(\d+)/)?.[1] || "0";
+      d.dataset.sceneNum = baseNum + numToLetters(suffixIndex);
+    }
+  }
+}
+function numToLetters(n) {
+  // 1→A, 2→B, ..., 26→Z, 27→AA, 28→AB
+  let out = "";
+  while (n > 0) { n--; out = String.fromCharCode(65 + (n % 26)) + out; n = Math.floor(n / 26); }
+  return out;
 }
 
 /* Auto (CONT'D) — if the same character speaks twice in a row across only

@@ -353,6 +353,11 @@ input, select, textarea { font: inherit; color: inherit; }
   border-left-color: var(--accent);
   background: var(--accent-soft);
 }
+.scene-item.dragging { opacity: 0.5; }
+.scene-item.drag-over {
+  background: var(--accent-soft);
+  box-shadow: inset 0 2px 0 var(--accent);
+}
 .scene-item .si-color {
   width: 8px; height: 8px; border-radius: 50%;
   background: transparent;
@@ -568,6 +573,28 @@ input, select, textarea { font: inherit; color: inherit; }
 #editor > div[data-type="character"] {
   text-transform: uppercase; margin: 1em 0 0;
   margin-left: 2.2in; padding-right: 1in;
+}
+/* Production-lock scene number badge — visible in the editor so the writer
+   sees which scenes are stable (e.g. "12A") and which are still floating.
+   Suffixes (12A, 12B, ...) are auto-assigned to inserted scenes. */
+body[data-prod-locked="true"] #editor > div[data-type="scene"][data-scene-num] {
+  position: relative;
+}
+body[data-prod-locked="true"] #editor > div[data-type="scene"][data-scene-num]::before {
+  content: attr(data-scene-num);
+  position: absolute;
+  left: -56px;
+  top: 0;
+  font-size: 10.5px;
+  color: var(--muted);
+  font-weight: 700;
+  font-family: var(--font-ui);
+  letter-spacing: 0.04em;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  padding: 1px 6px;
+  border-radius: 8px;
+  white-space: nowrap;
 }
 
 /* Auto (CONT'D) — same character cue follows itself across action.
@@ -958,8 +985,25 @@ input, select, textarea { font: inherit; color: inherit; }
   border-radius: 10px;
   font-size: 10.5px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  min-width: 84px;
+  text-align: center;
+  transition: background 120ms ease-out;
 }
+/* Color-code the current-element pill so the writer's peripheral vision tells
+   them what type they're in without parsing the word. Industry convention:
+   scene/transition warm, character/dialogue cool, action neutral. */
+.status .pill[data-type="scene"]         { background: #b07a16; }
+.status .pill[data-type="action"]        { background: #5e554a; }
+.status .pill[data-type="character"]     { background: #2b6cb0; }
+.status .pill[data-type="dialogue"]      { background: #3878b8; }
+.status .pill[data-type="parenthetical"] { background: #7a55b8; }
+.status .pill[data-type="transition"]    { background: #b22222; }
+.status .pill[data-type="centered"]      { background: #5e554a; }
+.status .pill[data-type="note"]          { background: #82786a; }
+.status .pill[data-type="section"]       { background: #3a8e3f; }
+.status .pill[data-type="synopsis"]      { background: #3a8e3f; }
 .status .stat-item { display: inline-flex; gap: 5px; align-items: center; color: var(--ink-2); }
 .status .stat-item .ic { width: 12px; height: 12px; }
 .status .spacer { flex: 1; }
@@ -1465,7 +1509,46 @@ kbd {
   }
   .print-scene-numbers #editor { counter-reset: scenes 0; }
 
-  /* MORE / CONT'D handled by JS in print prelude */
+  /* Production lock: show the LOCKED number on each scene heading instead
+     of the auto-increment counter. Inserted scenes carry letter suffixes
+     (e.g. 12A) — the same number is used at left and right margins. */
+  .print-scene-numbers body[data-prod-locked="true"] #editor > div[data-type="scene"][data-scene-num]::before,
+  body[data-prod-locked="true"] .print-scene-numbers #editor > div[data-type="scene"][data-scene-num]::before {
+    content: attr(data-scene-num) "." !important;
+    counter-increment: none !important;
+  }
+  .print-scene-numbers body[data-prod-locked="true"] #editor > div[data-type="scene"][data-scene-num]::after,
+  body[data-prod-locked="true"] .print-scene-numbers #editor > div[data-type="scene"][data-scene-num]::after {
+    content: attr(data-scene-num) "." !important;
+    counter-increment: none !important;
+  }
+
+  /* MORE / CONT'D injected by injectMoreContd() in io.js before window.print().
+     The injected nodes carry data-print-injected="true". */
+  #editor > div[data-print-injected="true"] { page-break-inside: avoid; }
+
+  /* Revision asterisks — industry standard right-margin mark for changed
+     lines in colored-revision drafts. The asterisk uses the revision color
+     so a UPM can scan a stack for "what's BLUE this week". */
+  #editor > div[data-rev]:not([data-rev="white"]) {
+    position: relative;
+  }
+  #editor > div[data-rev]:not([data-rev="white"])::after {
+    content: "*";
+    position: absolute;
+    right: -.65in;
+    top: 0;
+    font-weight: 700;
+    color: #000;
+  }
+  #editor > div[data-rev="blue"]:not([data-rev="white"])::after      { color: #2b6cb0; }
+  #editor > div[data-rev="pink"]:not([data-rev="white"])::after      { color: #d93b8c; }
+  #editor > div[data-rev="yellow"]:not([data-rev="white"])::after    { color: #c9a017; }
+  #editor > div[data-rev="green"]:not([data-rev="white"])::after     { color: #3a8e3f; }
+  #editor > div[data-rev="goldenrod"]:not([data-rev="white"])::after { color: #b8851a; }
+  #editor > div[data-rev="buff"]:not([data-rev="white"])::after      { color: #c39256; }
+  #editor > div[data-rev="salmon"]:not([data-rev="white"])::after    { color: #e07856; }
+  #editor > div[data-rev="cherry"]:not([data-rev="white"])::after    { color: #b22222; }
 
   /* Watermark for share/PDF (positioned by JS) */
   .pdf-watermark {
