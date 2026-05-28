@@ -96,8 +96,8 @@ A coherent "make Bestscreen feel like Writer's Duet / Final Draft for input" pas
 Live, screenplay-aware spell checker for EN + ES. Phase 1 covers the live layer only; Phases 2 (rule-based deep checks) and 3 (AI deep pass) are still to come.
 
 **Bundled wordlists** at load time:
-- `dict-en.js` — ~120k common English words from `an-array-of-english-words` (MIT), sampled to length ≤ 8 chars
-- `dict-es.js` — ~165k Spanish words from `an-array-of-spanish-words` (MIT), sampled to length ≤ 8 chars
+- `dict-en.js` — ~270k common English words from `an-array-of-english-words` (MIT), sampled to length ≤ 15 chars
+- `dict-es.js` — ~635k Spanish words from `an-array-of-spanish-words` (MIT), sampled to length ≤ 15 chars
 
 Both LZ-base64 compressed assets; lazy-decoded on first project open via inline `lz-string` decompressFromBase64.
 
@@ -113,7 +113,6 @@ Both LZ-base64 compressed assets; lazy-decoded on first project open via inline 
 **Known Phase 1 limitations** (Phase 2 candidates):
 - Suggestion ranking is alphabetical among ties — typing "thier" suggests "shier" before "their" because of length-tied alphabetical sort. Needs frequency-based ranking via top-1000 common-word boost.
 - Single-letter words ("a", "I") get flagged because the build script filters dict entries < 2 chars. Needs a small whitelist or unfiltered short-words pass.
-- Longer common words (e.g. "consistency", "preserved") get flagged because the wordlist is sampled to ≤ 8 chars. Phase 2 should drop the length cap or add a frequency-top-N supplement.
 - Spanish suggestion ranking: "perro" does not surface in top-5 for the query "perr" — edit-distance ties are broken alphabetically, so "pero" (4 chars, distance 1) ranks above "perro" (5 chars, distance 1). Needs frequency boost for common words.
 - No grammar checking yet (Phase 2). No AI deep pass yet (Phase 3).
 
