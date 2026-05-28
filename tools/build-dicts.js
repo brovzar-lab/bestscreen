@@ -47,13 +47,13 @@ function writeAsset(filename, words, varName, sourceCredit) {
 }
 
 const enCleaned = clean(enWords);
-const enSample = enCleaned.filter(w => w.length <= 8);
+const enSample = enCleaned.filter(w => w.length <= 15);
 writeAsset("dict-en.js", enSample, "DICT_EN_RAW",
-  "Source: dwyl/an-array-of-english-words (MIT). Sampled to length <= 8.");
+  "Source: dwyl/an-array-of-english-words (MIT). Sampled to length <= 15.");
 
 const esCleaned = clean(esWords);
-const esSample = esCleaned.filter(w => w.length <= 8);
+const esSample = esCleaned.filter(w => w.length <= 15);
 writeAsset("dict-es.js", esSample, "DICT_ES_RAW",
-  "Source: words/an-array-of-spanish-words (MIT). Sampled to length <= 8 (package has 636k morphological forms; full set compresses to 3.3 MB).");
+  "Source: words/an-array-of-spanish-words (MIT). Sampled to length <= 15.");
 
 console.log("Done.");
