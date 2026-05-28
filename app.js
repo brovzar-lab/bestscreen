@@ -790,6 +790,29 @@ function bindGlobalShortcuts() {
     if (meta && e.key === "o") { e.preventDefault(); openFromFile(); return; }
     if (meta && e.key === "l") { e.preventDefault(); openLoglineWorkshop(); return; }
     if (meta && e.key === "\\") { e.preventDefault(); const app = $("#app"); if (app) { app.dataset.sidebar = app.dataset.sidebar === "hidden" ? "" : "hidden"; } return; }
+    if (meta && e.key === ".") {
+      if (typeof Proof === "undefined") return;
+      const sel = window.getSelection();
+      if (!sel || !sel.anchorNode) return;
+      let node = sel.anchorNode;
+      if (node.nodeType === 3) node = node.parentNode;
+      const mark = node && node.closest && node.closest(".proof-mark.proof-unknown");
+      if (!mark) return;
+      e.preventDefault();
+      const sugg = Proof.suggestionsFor(mark.dataset.word);
+      if (sugg.length > 0) {
+        const txt = document.createTextNode(sugg[0]);
+        mark.parentNode.replaceChild(txt, mark);
+        const line = txt.parentElement && txt.parentElement.closest("#editor > div");
+        if (line) {
+          line.normalize();
+          if (typeof markRevised === "function") markRevised(line);
+          if (typeof setDirty === "function") setDirty();
+          if (typeof reclassifyAll === "function") reclassifyAll();
+        }
+      }
+      return;
+    }
     if (e.key === "?" && !meta && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") {
       e.preventDefault(); $("#modal-help")?.classList.add("open"); return;
     }
