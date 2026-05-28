@@ -6,15 +6,20 @@
 
 ## TL;DR
 
-**Scene Zoom is implemented on `feature/scene-zoom` and ready for visual verification.** Sprints 1–7 plus Option-A API key are live at https://bestscreen.web.app. Scene Zoom adds a per-scene BMOC workspace (analyze + chat + AI rewrite + diff + swap-into-script) with persistent state.
+**Scene Zoom + a writer-ergonomics pass are both on `feature/scene-zoom`.** Scene Zoom is still pending visual verification before merge. The ergonomics pass (smart Tab, CAPS+Enter, auto-CONT'D, smart paste, scene autocomplete, ⌘J/⌘B, production scene numbers, MORE/CONT'D in print, revision asterisks, status pill color, save heartbeat) is **Playwright-verified and committed** in 3 logical commits + a gitignore chore. Sprints 1–7 plus Option-A API key are live at https://bestscreen.web.app.
 
 Branch state:
 - `main` — live, at `668a7e5` (Option-A API key shipped). Pushed.
-- `feature/scene-zoom` — Scene Zoom complete, 17 commits ahead of main. NOT yet merged.
+- `feature/scene-zoom` — Scene Zoom complete + writer ergonomics pass complete, 21 commits ahead of main. NOT yet merged.
 
 Recent commits on `feature/scene-zoom` (most recent first):
 
 ```
+d4a9f2d  Production mode + print pagination + revision marks + status polish
+cf8514f  AI: ⌘J dialogue rewrite menu + ⌘B Bible jump + cast right-click rename
+2d47e34  Editor: smart Tab + CAPS+Enter promote + auto-CONT'D + smart paste + scene autocomplete
+de40fc2  chore: gitignore stray PNGs in repo root
+9b8e52b  HANDOFF: document Scene Zoom feature, mark Option-A shipped
 8f0ae09  Scene Zoom: per-card entry buttons in Beat Board + Cards view
 fef3ae0  Scene Zoom: right-click context-menu entry in editor
 625730d  Scene Zoom: swap candidate into script + auto-snapshot + discard
@@ -53,6 +58,35 @@ A per-scene focused workspace driven by Peter Russell's BMOC (Beginning / Middle
 **Source-of-truth for BMOC:** `docs/frameworks/bmoc.md` (full methodology); `scenezoom.js` inlines a ~60-line runtime subset (no build step).
 
 **Spec + plan:** `docs/superpowers/specs/2026-05-26-scene-zoom-design.md` and `docs/superpowers/plans/2026-05-26-scene-zoom.md`.
+
+---
+
+## Writer ergonomics pass — what shipped on `feature/scene-zoom`
+
+A coherent "make Bestscreen feel like Writer's Duet / Final Draft for input" pass. Playwright-verified end-to-end on 2026-05-28.
+
+**Input ergonomics (`2d47e34`):**
+- **Smart Tab** — context-aware jump replaces the 6-way carousel. `action → character → parenthetical → dialogue → parenthetical → …`, Shift+Tab reverses. Writer's hand never needs 4 presses.
+- **CAPS+Enter promote** — type a name in ALL CAPS on a blank/unforced action line and hit Enter → auto-promotes to character cue + new dialogue line.
+- **Auto (CONT'D)** — same speaker twice in a row across action gets render-time `(CONT'D)` via `data-contd`. Typed value and Fountain serialization stay clean.
+- **Smart paste** — multi-line Fountain-shaped clipboard parses into proper element divs instead of one action paragraph. Single-line paste falls through to legacy.
+- **Scene autocomplete** — split into Location (before dash) and Time-of-Day (after dash). Accepting a location appends ` - ` so the writer flows straight into TOD picker. Most-recent locations rank first.
+
+**AI + Bible nav (`cf8514f`):**
+- **⌘J** — AI dialogue rewrite menu (5 presets: Tighten · Make punchier · More subtext · Match Bible voice · Three alternatives). Carries full project context + the speaker's Bible Voice field, streams via `aiInlineFill`.
+- **⌘B** — jump to the Bible card for the character at cursor.
+- **Cast sidebar right-click** — Open in Bible · Rename throughout… · Jump to first cue. Rename rewrites every cue + every ALL-CAPS body mention + the Bible record (episode + series) in one shot.
+- New `Bible.renameCharacter(oldName, newName)` API.
+
+**Production + print + polish (`d4a9f2d`):**
+- **Lock scene numbers (production)** in Inspector → Overlays. Locks every heading at 1..N. Inserted scenes between locked numbers get letter suffixes (12A, 12B, ...). Badge in editor margin + PDF use the same number. Round-trips via `bs:sceneNum=` Fountain meta.
+- **(MORE) / CONT'D in print** — pre-print `injectMoreContd()` inserts industry-standard markers at every dialogue-spanning page break, stripped after `window.print()`.
+- **Revision asterisks** in print — right-margin `*` color-matched to WGA revision color (blue/pink/yellow/green/goldenrod/buff/salmon/cherry).
+- **Status pill color-coded** by current element type (warm for scene/transition, cool for character/dialogue, neutral for action).
+- **Save heartbeat** — chip shows "unsaved · 12s" while dirty, briefly "saved · 3s" after autosave.
+- **Scene sidebar drag-over class fix** (`drag-over` instead of `active`) so drop highlight no longer collides with "current scene".
+- **Title page…** button added to Inspector → Story.
+- Help table + status hint updated to advertise the new shortcuts.
 
 ---
 
@@ -143,6 +177,6 @@ Both are gitignored. `index.html` loads `config.local.js` with `onerror="this.re
 
 ## Resuming a fresh session
 
-> "Continue Bestscreen on `feature/scene-zoom`. Scene Zoom is fully implemented (17 commits ahead of main). Spec + plan + BMOC reference live in `docs/`. Open task: visual verification with Playwright per the checklist in HANDOFF.md, then merge to main + deploy. Pending after Scene Zoom: Track Changes inline redlines, slideshow read mode, polish."
+> "Continue Bestscreen on `feature/scene-zoom`. Scene Zoom + writer ergonomics pass are both implemented (21 commits ahead of main). Spec + plan + BMOC reference live in `docs/`. Ergonomics pass is Playwright-verified. Open task: visual verification of Scene Zoom per the checklist in HANDOFF.md, then merge to main + deploy. Pending after merge: Track Changes inline redlines, slideshow read mode, polish."
 
-— Last updated 2026-05-26.
+— Last updated 2026-05-28.
