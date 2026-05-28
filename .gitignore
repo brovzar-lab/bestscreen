@@ -8,6 +8,11 @@ firebase-debug.log
 .playwright-mcp/
 .superpowers/
 
+# Loose verification / Playwright screenshots — kept locally for reference,
+# never committed. If you want to ship a screenshot, put it in docs/.
+*.png
+!docs/**/*.png
+
 # Local config — secrets live here, never commit
 .env
 config.local.js
