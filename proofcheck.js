@@ -110,8 +110,17 @@ const Proof = (() => {
   let debounceTimer = null;
   const DEBOUNCE_MS = 400;
 
-  // Placeholder — real implementations follow in later tasks
-  function bind() {}
+  function bind() {
+    const editor = document.getElementById("editor");
+    if (!editor) return;
+    editor.addEventListener("click", (e) => {
+      const mark = e.target.closest(".proof-mark.proof-unknown");
+      if (mark) {
+        e.stopPropagation();
+        showPopover(mark);
+      }
+    });
+  }
 
   function loadDictForProject(pid) {
     projectId = pid;
@@ -346,15 +355,108 @@ const Proof = (() => {
     );
   }
 
-  function addToDict(_word) {}
-  function ignoreForSession(_word) {}
+  let activePopover = null;
+
+  function showPopover(markSpan) {
+    closePopover();
+    const word = markSpan.dataset.word;
+    if (!word) return;
+    const suggestions = suggestionsFor(word);
+    const rect = markSpan.getBoundingClientRect();
+
+    const pop = document.createElement("div");
+    pop.className = "proof-popover";
+    pop.style.left = rect.left + "px";
+    pop.style.top = (rect.bottom + 4) + "px";
+
+    const header = document.createElement("div");
+    header.className = "pp-header";
+    header.textContent = word;
+    pop.appendChild(header);
+
+    if (suggestions.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "pp-empty";
+      empty.textContent = "No suggestions";
+      pop.appendChild(empty);
+    } else {
+      suggestions.forEach(s => {
+        const row = document.createElement("button");
+        row.className = "pp-row";
+        row.textContent = s;
+        row.addEventListener("click", () => { acceptSuggestion(markSpan, s); closePopover(); });
+        pop.appendChild(row);
+      });
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "pp-actions";
+    const addBtn = document.createElement("button");
+    addBtn.className = "pp-btn";
+    addBtn.textContent = "+ Add to dict";
+    addBtn.addEventListener("click", () => { _addToDict(word); closePopover(); refreshMarkAround(markSpan); });
+    actions.appendChild(addBtn);
+    const ignoreBtn = document.createElement("button");
+    ignoreBtn.className = "pp-btn";
+    ignoreBtn.textContent = "Ignore once";
+    ignoreBtn.addEventListener("click", () => { _ignoreForSession(word); closePopover(); refreshMarkAround(markSpan); });
+    actions.appendChild(ignoreBtn);
+    pop.appendChild(actions);
+
+    document.body.appendChild(pop);
+    activePopover = pop;
+
+    const onDown = (ev) => {
+      if (!pop.contains(ev.target) && ev.target !== markSpan) {
+        closePopover();
+        document.removeEventListener("mousedown", onDown, true);
+      }
+    };
+    setTimeout(() => document.addEventListener("mousedown", onDown, true), 0);
+  }
+
+  function closePopover() {
+    if (activePopover) { activePopover.remove(); activePopover = null; }
+  }
+
+  function acceptSuggestion(markSpan, suggestion) {
+    const line = markSpan.closest("#editor > div");
+    if (!line) return;
+    markSpan.textContent = suggestion;
+    if (typeof markRevised === "function") markRevised(line);
+    if (typeof setDirty === "function") setDirty();
+    const txt = document.createTextNode(suggestion);
+    markSpan.parentNode.replaceChild(txt, markSpan);
+    line.normalize();
+    if (typeof reclassifyAll === "function") reclassifyAll();
+  }
+
+  function refreshMarkAround(markSpan) {
+    const line = markSpan && markSpan.closest("#editor > div");
+    if (line) underlineLine(line);
+  }
+
+  function _addToDict(word) {
+    customDict.add(word);
+    customDict.add(word.toUpperCase());
+    if (projectId) {
+      Storage.setProofDict(projectId, { words: Array.from(customDict), ignored: [] });
+    }
+  }
+
+  function _ignoreForSession(word) {
+    sessionIgnore.add(word);
+    sessionIgnore.add(word.toUpperCase());
+  }
 
   return {
     bind, loadDictForProject, setLanguage,
-    scheduleLivePass, suggestionsFor, addToDict, ignoreForSession, isKnown,
-    tokenize,
-    // introspection for tests:
+    scheduleLivePass, suggestionsFor,
+    addToDict: _addToDict,
+    ignoreForSession: _ignoreForSession,
+    isKnown, tokenize,
     _state() { return { language, loaded, customSize: customDict.size, dictSize: dict?.size || 0 }; },
+    _showPopoverFor(span) { showPopover(span); },
   };
 })();
 

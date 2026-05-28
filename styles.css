@@ -589,6 +589,66 @@ input, select, textarea { font: inherit; color: inherit; }
 body[data-theme="court"] .proof-mark.proof-unknown {
   text-decoration-color: #b46214;
 }
+.proof-popover {
+  position: fixed;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow-2);
+  z-index: 220;
+  min-width: 180px;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  padding: 4px;
+  user-select: none;
+}
+.proof-popover .pp-header {
+  padding: 4px 8px 6px;
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+}
+.proof-popover .pp-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--ink);
+}
+.proof-popover .pp-row:hover { background: var(--hl); }
+.proof-popover .pp-empty {
+  padding: 6px 10px;
+  color: var(--muted);
+  font-style: italic;
+}
+.proof-popover .pp-actions {
+  display: flex;
+  gap: 4px;
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+  padding-top: 4px;
+}
+.proof-popover .pp-btn {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 5px 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+.proof-popover .pp-btn:hover { background: var(--hl); color: var(--ink); }
 #editor > div[data-type="character"] {
   text-transform: uppercase; margin: 1em 0 0;
   margin-left: 2.2in; padding-right: 1in;

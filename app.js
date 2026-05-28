@@ -110,6 +110,7 @@ function boot() {
   bindGlobalShortcuts();
   bindDashboardModals();
   if (typeof SceneZoom !== "undefined") SceneZoom.bind();
+  if (typeof Proof !== "undefined") Proof.bind();
 
   // Route
   const hash = location.hash;
@@ -162,6 +163,7 @@ window.addEventListener("hashchange", () => {
 function loadProject(id, opts={}) {
   Dashboard.hide();
   appState.projectId = id;
+  if (typeof Proof !== "undefined") Proof.loadDictForProject(id);
   const project = Storage.getProject(id);
   const doc = Storage.getDoc(id) || "";
   const meta = Storage.getMeta(id) || {};
