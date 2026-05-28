@@ -6,11 +6,12 @@
 
 ## TL;DR
 
-**Scene Zoom + a writer-ergonomics pass are both on `feature/scene-zoom`.** Scene Zoom is still pending visual verification before merge. The ergonomics pass (smart Tab, CAPS+Enter, auto-CONT'D, smart paste, scene autocomplete, ⌘J/⌘B, production scene numbers, MORE/CONT'D in print, revision asterisks, status pill color, save heartbeat) is **Playwright-verified and committed** in 3 logical commits + a gitignore chore. Sprints 1–7 plus Option-A API key are live at https://bestscreen.web.app.
+**Scene Zoom + writer-ergonomics pass are on `feature/scene-zoom`; Proofcheck Phase 1 (live EN/ES spell checker) is on `feature/proofcheck` (off `feature/scene-zoom`).** Scene Zoom is still pending visual verification before merge. The ergonomics pass (smart Tab, CAPS+Enter, auto-CONT'D, smart paste, scene autocomplete, ⌘J/⌘B, production scene numbers, MORE/CONT'D in print, revision asterisks, status pill color, save heartbeat) is **Playwright-verified and committed**. Proofcheck Phase 1 is **Playwright-verified and committed** — orange dotted underlines, Damerau-Levenshtein popover, ⌘. quick-accept, EN⇄ES chip, Fountain round-trip. Sprints 1–7 plus Option-A API key are live at https://bestscreen.web.app.
 
 Branch state:
 - `main` — live, at `668a7e5` (Option-A API key shipped). Pushed.
 - `feature/scene-zoom` — Scene Zoom complete + writer ergonomics pass complete, 21 commits ahead of main. NOT yet merged.
+- `feature/proofcheck` — Proofcheck Phase 1 complete, built on top of `feature/scene-zoom`. NOT yet merged.
 
 Recent commits on `feature/scene-zoom` (most recent first):
 
@@ -87,6 +88,38 @@ A coherent "make Bestscreen feel like Writer's Duet / Final Draft for input" pas
 - **Scene sidebar drag-over class fix** (`drag-over` instead of `active`) so drop highlight no longer collides with "current scene".
 - **Title page…** button added to Inspector → Story.
 - Help table + status hint updated to advertise the new shortcuts.
+
+---
+
+## Proofcheck Phase 1 — what shipped on `feature/proofcheck`
+
+Live, screenplay-aware spell checker for EN + ES. Phase 1 covers the live layer only; Phases 2 (rule-based deep checks) and 3 (AI deep pass) are still to come.
+
+**Bundled wordlists** at load time:
+- `dict-en.js` — ~120k common English words from `an-array-of-english-words` (MIT), sampled to length ≤ 8 chars
+- `dict-es.js` — ~165k Spanish words from `an-array-of-spanish-words` (MIT), sampled to length ≤ 8 chars
+
+Both LZ-base64 compressed assets; lazy-decoded on first project open via inline `lz-string` decompressFromBase64.
+
+**Per-project custom dictionary** auto-seeds from character cues + Bible characters + ALL-CAPS scene-heading proper nouns (skipping INT/EXT/DAY/etc). Round-trips via Fountain `bs:lang=` and `bs:dict=` title-page meta.
+
+**Surfaces:**
+- Orange dotted underline on unknown tokens (live, debounced 400ms, viewport-limited)
+- Click or right-click any flagged word → popover with top-5 Damerau-Levenshtein suggestions + Add to dict + Ignore once
+- ⌘. accepts the top suggestion when caret is on a flagged word
+- Titlebar EN ⇄ ES chip switches dict + persists `meta.language` (cool-blue for EN, warm-green for ES)
+- Scene headings, character cues, transitions, parentheticals are NEVER checked (they're identifiers, not prose)
+
+**Known Phase 1 limitations** (Phase 2 candidates):
+- Suggestion ranking is alphabetical among ties — typing "thier" suggests "shier" before "their" because of length-tied alphabetical sort. Needs frequency-based ranking via top-1000 common-word boost.
+- Single-letter words ("a", "I") get flagged because the build script filters dict entries < 2 chars. Needs a small whitelist or unfiltered short-words pass.
+- Longer common words (e.g. "consistency", "preserved") get flagged because the wordlist is sampled to ≤ 8 chars. Phase 2 should drop the length cap or add a frequency-top-N supplement.
+- Spanish suggestion ranking: "perro" does not surface in top-5 for the query "perr" — edit-distance ties are broken alphabetically, so "pero" (4 chars, distance 1) ranks above "perro" (5 chars, distance 1). Needs frequency boost for common words.
+- No grammar checking yet (Phase 2). No AI deep pass yet (Phase 3).
+
+**Branch:** `feature/proofcheck` (off `feature/scene-zoom`). Not yet merged.
+
+**Spec + plan:** `docs/superpowers/specs/2026-05-28-proofcheck-design.md`, `docs/superpowers/plans/2026-05-28-proofcheck-phase1.md`.
 
 ---
 
@@ -179,4 +212,4 @@ Both are gitignored. `index.html` loads `config.local.js` with `onerror="this.re
 
 > "Continue Bestscreen on `feature/scene-zoom`. Scene Zoom + writer ergonomics pass are both implemented (21 commits ahead of main). Spec + plan + BMOC reference live in `docs/`. Ergonomics pass is Playwright-verified. Open task: visual verification of Scene Zoom per the checklist in HANDOFF.md, then merge to main + deploy. Pending after merge: Track Changes inline redlines, slideshow read mode, polish."
 
-— Last updated 2026-05-28.
+— Last updated 2026-05-28 (Proofcheck Phase 1 documented).
