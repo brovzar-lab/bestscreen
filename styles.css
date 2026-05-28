@@ -570,6 +570,25 @@ input, select, textarea { font: inherit; color: inherit; }
   letter-spacing: 0.01em;
 }
 #editor > div[data-type="action"] { margin: 0 0 1em; }
+
+/* ====== Proofcheck — Phase 1 live underline ====== */
+
+.proof-mark.proof-unknown {
+  text-decoration: underline dotted #c97f1a;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1.5px;
+  cursor: pointer;
+}
+.proof-mark.proof-unknown:hover {
+  background: rgba(201, 127, 26, 0.10);
+  border-radius: 2px;
+}
+@media (prefers-color-scheme: dark), body[data-theme="midnight"] {
+  .proof-mark.proof-unknown { text-decoration-color: #dba557; }
+}
+body[data-theme="court"] .proof-mark.proof-unknown {
+  text-decoration-color: #b46214;
+}
 #editor > div[data-type="character"] {
   text-transform: uppercase; margin: 1em 0 0;
   margin-left: 2.2in; padding-right: 1in;

@@ -205,7 +205,88 @@ const Proof = (() => {
   }
 
   function setLanguage(lang) { language = lang; }
-  function scheduleLivePass() {}
+
+  function scheduleLivePass() {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(runLivePass, DEBOUNCE_MS);
+  }
+
+  function runLivePass() {
+    if (!dict) return;
+    const editor = document.getElementById("editor");
+    if (!editor) return;
+    const VIEWPORT_PAD = 200;
+    const viewTop = -VIEWPORT_PAD;
+    const viewBot = window.innerHeight + VIEWPORT_PAD;
+    const lines = editor.querySelectorAll("div");
+    for (const line of lines) {
+      const r = line.getBoundingClientRect();
+      if (r.bottom < viewTop || r.top > viewBot) continue;
+      underlineLine(line);
+    }
+  }
+
+  function underlineLine(line) {
+    const tokens = tokenize(line);
+
+    line.querySelectorAll(".proof-mark").forEach(m => {
+      const txt = document.createTextNode(m.textContent);
+      m.parentNode.replaceChild(txt, m);
+    });
+    line.normalize();
+
+    if (tokens.length === 0) return;
+    const unknown = tokens.filter(t => !isKnown(t.word));
+    if (unknown.length === 0) return;
+
+    const text = line.textContent;
+    if (!text) return;
+    const sel = window.getSelection();
+    let caretLine = null, caretOffset = 0;
+    if (sel.rangeCount && line.contains(sel.anchorNode)) {
+      caretLine = line;
+      const range = document.createRange();
+      range.selectNodeContents(line);
+      range.setEnd(sel.anchorNode, sel.anchorOffset);
+      caretOffset = range.toString().length;
+    }
+
+    const frag = document.createDocumentFragment();
+    let cursor = 0;
+    for (const tok of unknown) {
+      if (tok.start > cursor) frag.appendChild(document.createTextNode(text.slice(cursor, tok.start)));
+      const span = document.createElement("span");
+      span.className = "proof-mark proof-unknown";
+      span.dataset.word = tok.word;
+      span.textContent = tok.word;
+      frag.appendChild(span);
+      cursor = tok.end;
+    }
+    if (cursor < text.length) frag.appendChild(document.createTextNode(text.slice(cursor)));
+
+    while (line.firstChild) line.removeChild(line.firstChild);
+    line.appendChild(frag);
+
+    if (caretLine === line) {
+      const restoreRange = document.createRange();
+      let walked = 0, target = null, targetOff = 0;
+      const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT, null);
+      let node;
+      while ((node = walker.nextNode())) {
+        const len = node.textContent.length;
+        if (walked + len >= caretOffset) {
+          target = node; targetOff = caretOffset - walked; break;
+        }
+        walked += len;
+      }
+      if (target) {
+        restoreRange.setStart(target, Math.min(targetOff, target.textContent.length));
+        restoreRange.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(restoreRange);
+      }
+    }
+  }
 
   function damerauLevenshtein(a, b, max) {
     // Optimal-string-alignment distance with early-exit when min row > max.
