@@ -332,17 +332,20 @@ function writeAsset(filename, words, varName, sourceCredit) {
   console.log(`Wrote ${filename} — ${words.length} words, ${compressed.length.toLocaleString()} bytes compressed.`);
 }
 
-// EN — dwyl/an-array-of-english-words MIT, ~275k. Sample down to ~120k common
-// by keeping the shorter half (proxy for frequency — common words are short).
+// EN — dwyl/an-array-of-english-words MIT (~275k). Sample to length <= 8
+// (proxy for common-word frequency). Lands around 115k.
 const enCleaned = clean(enWords);
-const enSample = enCleaned.filter(w => w.length <= 8); // ~120k
+const enSample = enCleaned.filter(w => w.length <= 8);
 writeAsset("dict-en.js", enSample, "DICT_EN_RAW",
   "Source: dwyl/an-array-of-english-words (MIT). Sampled to length <= 8.");
 
-// ES — words/an-array-of-spanish-words MIT, ~80k. Keep all.
+// ES — words/an-array-of-spanish-words MIT (~636k morphological forms, all
+// conjugations). Sample to length <= 8 same as EN — 'all entries' is 3.3 MB
+// even compressed. Lands around 165k.
 const esCleaned = clean(esWords);
-writeAsset("dict-es.js", esCleaned, "DICT_ES_RAW",
-  "Source: words/an-array-of-spanish-words (MIT). All entries.");
+const esSample = esCleaned.filter(w => w.length <= 8);
+writeAsset("dict-es.js", esSample, "DICT_ES_RAW",
+  "Source: words/an-array-of-spanish-words (MIT). Sampled to length <= 8.");
 
 console.log("Done.");
 ```
