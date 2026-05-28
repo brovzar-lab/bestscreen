@@ -251,7 +251,13 @@ const Proof = (() => {
       const d = damerauLevenshtein(target, candidate, maxDist);
       if (d <= maxDist) results.push({ word: candidate, dist: d });
     }
-    results.sort((a, b) => a.dist - b.dist || a.word.length - b.word.length);
+    // Prefer candidates whose length matches the typed word — most typos are
+    // off by one or zero chars, so a 3-char target probably meant a 3-char word.
+    results.sort((a, b) =>
+      a.dist - b.dist
+      || Math.abs(a.word.length - target.length) - Math.abs(b.word.length - target.length)
+      || a.word.length - b.word.length
+    );
     // Preserve original case roughly — if input was Title-cased, capitalize result.
     const isUpper = word[0] === word[0].toUpperCase();
     return results.slice(0, 5).map(r =>
