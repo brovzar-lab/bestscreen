@@ -325,6 +325,37 @@ function onEditorKeydown(e) {
     toggleDualDialogueAt(line);
     return;
   }
+  if (isModKey(e) && (e.key === "j" || e.key === "J") && !e.shiftKey) {
+    // ⌘J — AI rewrite menu for the current dialogue line.
+    e.preventDefault();
+    if (line) aiRewriteDialogueAt(line);
+    return;
+  }
+  if (isModKey(e) && (e.key === "b" || e.key === "B") && !e.shiftKey) {
+    // ⌘B — jump to the Bible card for the character at cursor. Walks back to
+    // find the nearest character cue when inside dialogue/parenthetical.
+    e.preventDefault();
+    let name = null;
+    let probe = line;
+    while (probe) {
+      if (probe.dataset.type === "character") {
+        name = (probe.textContent || "").replace(/\s*\(.*\)\s*$/, "").trim().toUpperCase();
+        break;
+      }
+      if (probe.dataset.type === "scene" || probe.dataset.type === "transition" || probe.dataset.type === "action") break;
+      probe = probe.previousElementSibling;
+    }
+    if (!name) return toast("Place cursor in a dialogue block to open Bible");
+    setView("bible");
+    setTimeout(() => {
+      const cards = $$(".bib-char");
+      const target = cards.find(c => c.querySelector(".bib-name")?.value?.toUpperCase() === name);
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      target?.classList.add("nav-target");
+      setTimeout(() => target?.classList.remove("nav-target"), 1200);
+    }, 200);
+    return;
+  }
 }
 
 /* Smart paste — if the clipboard text has multiple lines and Fountain-shaped

@@ -140,17 +140,99 @@ function renderCastSidebar(body) {
   if (cast.length === 0) { body.innerHTML = `<div class="side-empty">No characters yet.</div>`; return; }
   const max = Math.max(1, ...cast.map(c => c.words));
   body.innerHTML = cast.map(c => `
-    <div class="cast-item" data-name="${escapeHtml(c.name)}">
+    <div class="cast-item" data-name="${escapeHtml(c.name)}" title="Click to jump · right-click for rename / bible">
       <div class="ci-name">${escapeHtml(c.name)}</div>
       <div class="ci-meta">${c.cues} cues · ${c.words} words · ${c.scenes} scenes</div>
       <div class="ci-bar"><div class="ci-fill" style="width:${(c.words/max*100).toFixed(0)}%"></div></div>
     </div>`).join("");
-  $$(".cast-item", body).forEach(el => el.addEventListener("click", () => {
-    const name = el.dataset.name;
-    const first = $$("#editor > div[data-type='character']").find(d =>
-      d.textContent.replace(/\s*\(.*\)\s*$/,"").trim().toUpperCase() === name);
-    if (first) navigateToLine($$("#editor > div").indexOf(first), null);
-  }));
+  $$(".cast-item", body).forEach(el => {
+    el.addEventListener("click", () => {
+      const name = el.dataset.name;
+      const first = $$("#editor > div[data-type='character']").find(d =>
+        d.textContent.replace(/\s*\(.*\)\s*$/,"").trim().toUpperCase() === name);
+      if (first) navigateToLine($$("#editor > div").indexOf(first), null);
+    });
+    el.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      showCastContextMenu(e.clientX, e.clientY, el.dataset.name);
+    });
+  });
+}
+
+/* Right-click on a cast row → rename throughout script (cues + action
+   mentions + Bible) or jump to Bible card. */
+function showCastContextMenu(x, y, name) {
+  const existing = document.querySelector(".sz-ctxmenu"); if (existing) existing.remove();
+  const menu = document.createElement("div");
+  menu.className = "sz-ctxmenu";
+  menu.style.cssText = `position:fixed;left:${x}px;top:${y}px;background:var(--paper);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow-2);padding:4px;z-index:200;min-width:200px;font-size:12.5px`;
+  const items = [
+    { label: "Open in Bible", run: () => {
+        setView("bible");
+        setTimeout(() => {
+          const cards = $$(".bib-char");
+          const target = cards.find(c => c.querySelector(".bib-name")?.value?.toUpperCase() === name);
+          target?.scrollIntoView({ behavior: "smooth", block: "center" });
+          target?.classList.add("nav-target");
+          setTimeout(() => target?.classList.remove("nav-target"), 1200);
+        }, 200);
+      }},
+    { label: "Rename throughout…", run: () => renameCharacterFlow(name) },
+    { label: "Jump to first cue", run: () => {
+        const first = $$("#editor > div[data-type='character']").find(d =>
+          d.textContent.replace(/\s*\(.*\)\s*$/,"").trim().toUpperCase() === name);
+        if (first) navigateToLine($$("#editor > div").indexOf(first), null);
+      }},
+  ];
+  menu.innerHTML = items.map((it,i) => `<div class="sz-mi" data-i="${i}" style="padding:6px 10px;border-radius:5px;cursor:pointer">${escapeHtml(it.label)}</div>`).join("");
+  document.body.appendChild(menu);
+  $$(".sz-mi", menu).forEach(el => {
+    el.addEventListener("mouseenter", () => el.style.background = "var(--hl)");
+    el.addEventListener("mouseleave", () => el.style.background = "transparent");
+    el.addEventListener("click", () => { items[parseInt(el.dataset.i,10)].run(); menu.remove(); });
+  });
+  const closer = (ev) => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener("click", closer); } };
+  setTimeout(() => document.addEventListener("click", closer), 0);
+}
+
+async function renameCharacterFlow(oldName) {
+  const fresh = await (window.bsPrompt ? window.bsPrompt({
+    title: "Rename character",
+    label: `Rename "${oldName}" everywhere`,
+    placeholder: "NEW NAME",
+    defaultValue: oldName,
+    okText: "Rename",
+  }) : Promise.resolve(prompt(`Rename ${oldName} to:`, oldName)));
+  if (!fresh) return;
+  const newName = fresh.trim().toUpperCase();
+  if (!newName || newName === oldName) return;
+  let cueCount = 0, mentionCount = 0;
+  $$("#editor > div").forEach(d => {
+    const t = d.textContent || "";
+    if (d.dataset.type === "character") {
+      // Compare against the bare name (strip any trailing parens like (V.O.) or (CONT'D))
+      const bare = t.replace(/\s*\(.*\)\s*$/, "").trim().toUpperCase();
+      if (bare === oldName) {
+        const suffix = t.match(/\s*\(.*\)\s*$/);
+        d.textContent = newName + (suffix ? suffix[0] : "");
+        cueCount++;
+        markRevised(d);
+      }
+    } else if (d.dataset.type === "action" || d.dataset.type === "dialogue" || d.dataset.type === "parenthetical") {
+      // Replace whole-word ALL-CAPS mentions in body text. Use word boundaries.
+      const re = new RegExp("\\b" + oldName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "g");
+      if (re.test(t)) {
+        d.textContent = t.replace(re, newName);
+        mentionCount += (t.match(re) || []).length;
+        markRevised(d);
+      }
+    }
+  });
+  // Bible character entry — Bible.renameCharacter writes through to the
+  // live store (episode + series if applicable).
+  if (window.Bible?.renameCharacter) Bible.renameCharacter(oldName, newName);
+  reclassifyAll(); setDirty(); updateSidebar();
+  toast(`Renamed ${oldName} → ${newName} · ${cueCount} cue${cueCount===1?"":"s"}${mentionCount?`, ${mentionCount} mention${mentionCount===1?"":"s"}`:""}`);
 }
 function renderCommentsSidebar(body) {
   const comments = Storage.getComments(appState.projectId);

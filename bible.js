@@ -953,9 +953,32 @@ const Bible = (() => {
   function allCharactersExported() { return allCharacters(); }
   function getSeriesId() { return seriesId; }
 
+  // Rename a character across the live bible store (episode + series). Used
+  // by the Cast sidebar's right-click rename flow so the script and Bible
+  // stay aligned without each side having to know about the other's storage.
+  function renameCharacter(oldName, newName) {
+    const ON = (oldName || "").trim().toUpperCase();
+    const NN = (newName || "").trim().toUpperCase();
+    if (!ON || !NN || ON === NN) return false;
+    let touched = 0;
+    (bible.characters || []).forEach(c => {
+      if ((c.name || "").toUpperCase() === ON) { c.name = NN; touched++; }
+    });
+    if (touched) save();
+    if (seriesBible) {
+      let stouched = 0;
+      (seriesBible.characters || []).forEach(c => {
+        if ((c.name || "").toUpperCase() === ON) { c.name = NN; stouched++; }
+      });
+      if (stouched) saveSeries();
+    }
+    return touched > 0;
+  }
+
   return {
     open, render, bind, syncCharactersFromScript, getCharacterByName,
     bulkSetArcs, bulkAddRelationships,
     allCharacters: allCharactersExported, getSeriesId,
+    renameCharacter,
   };
 })();
