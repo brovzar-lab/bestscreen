@@ -206,7 +206,62 @@ const Proof = (() => {
 
   function setLanguage(lang) { language = lang; }
   function scheduleLivePass() {}
-  function suggestionsFor(_word) { return []; }
+
+  function damerauLevenshtein(a, b, max) {
+    // Optimal-string-alignment distance with early-exit when min row > max.
+    if (Math.abs(a.length - b.length) > max) return max + 1;
+    const al = a.length, bl = b.length;
+    if (!al) return bl;
+    if (!bl) return al;
+    let prevPrev = new Array(bl + 1);
+    let prev = new Array(bl + 1);
+    let cur = new Array(bl + 1);
+    for (let j = 0; j <= bl; j++) prev[j] = j;
+    for (let i = 1; i <= al; i++) {
+      cur[0] = i;
+      let rowMin = cur[0];
+      for (let j = 1; j <= bl; j++) {
+        const cost = a.charCodeAt(i-1) === b.charCodeAt(j-1) ? 0 : 1;
+        cur[j] = Math.min(
+          cur[j-1] + 1,
+          prev[j] + 1,
+          prev[j-1] + cost,
+        );
+        if (i > 1 && j > 1
+            && a.charCodeAt(i-1) === b.charCodeAt(j-2)
+            && a.charCodeAt(i-2) === b.charCodeAt(j-1)) {
+          cur[j] = Math.min(cur[j], prevPrev[j-2] + 1);
+        }
+        if (cur[j] < rowMin) rowMin = cur[j];
+      }
+      if (rowMin > max) return max + 1;
+      [prevPrev, prev, cur] = [prev, cur, prevPrev];
+    }
+    return prev[bl];
+  }
+
+  function suggestionsFor(word) {
+    if (!word || !dict) return [];
+    const target = word.toLowerCase();
+    if (dict.has(target)) return [];
+    const maxDist = target.length <= 4 ? 1 : 2;
+    const results = [];
+    for (const candidate of dict) {
+      if (Math.abs(candidate.length - target.length) > maxDist) continue;
+      const d = damerauLevenshtein(target, candidate, maxDist);
+      if (d <= maxDist) {
+        results.push({ word: candidate, dist: d });
+        if (results.length > 200) break;
+      }
+    }
+    results.sort((a, b) => a.dist - b.dist || a.word.length - b.word.length);
+    // Preserve original case roughly — if input was Title-cased, capitalize result.
+    const isUpper = word[0] === word[0].toUpperCase();
+    return results.slice(0, 5).map(r =>
+      isUpper ? r.word[0].toUpperCase() + r.word.slice(1) : r.word
+    );
+  }
+
   function addToDict(_word) {}
   function ignoreForSession(_word) {}
 
