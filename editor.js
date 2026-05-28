@@ -41,8 +41,12 @@ function reclassifyAll() {
     const text = line.textContent;
     const nextText = (i+1 < lines.length) ? (lines[i+1].textContent || "") : "";
     let type;
-    if (line.dataset.forced === "true") type = line.dataset.type || classifyLine(text, prevText, prevType, nextText);
-    else type = classifyLine(text, prevText, prevType, nextText);
+    if (line.dataset.forced === "true") {
+      // Honor forced even when empty — writer intent wins until they undo it.
+      type = line.dataset.type || classifyLine(text, prevText, prevType, nextText);
+    } else {
+      type = classifyLine(text, prevText, prevType, nextText);
+    }
     line.dataset.type = type;
     line.classList.toggle("empty", text.trim().length === 0);
     if (text.trim().length === 0) line.setAttribute("data-placeholder", placeholderFor(type, prevType));
@@ -54,10 +58,34 @@ function reclassifyAll() {
   applyPageBreaks();
   applyMoodToPage();
   applyCommentMarkers();
+  applyAutoContd();
   updateStatus();
   updateSidebar();
   updateInspector();
   bumpDailyStreak();
+}
+
+/* Auto (CONT'D) — if the same character speaks twice in a row across only
+   action lines (no other character cue between), append (CONT'D) to the
+   second cue at render time only. Stored as data-contd so it never persists
+   into Fountain text or the writer's typed value. */
+function applyAutoContd() {
+  const lines = $$("#editor > div");
+  let lastChar = null;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const type = line.dataset.type;
+    if (type === "scene" || type === "transition") { lastChar = null; continue; }
+    if (type !== "character") continue;
+    const baseName = (line.textContent || "").replace(/\s*\(CONT'D\)\s*$/i, "").trim();
+    const key = baseName.replace(/\s*\(.*\)\s*$/, "").toUpperCase();
+    if (lastChar && lastChar === key && !/\(CONT'D\)/i.test(line.textContent || "")) {
+      line.dataset.contd = "true";
+    } else {
+      delete line.dataset.contd;
+    }
+    if (key) lastChar = key;
+  }
 }
 function placeholderFor(type, prevType) {
   switch (type) {
@@ -122,11 +150,38 @@ function getCaretOffsetInLine(line) {
   r.setEnd(sel.getRangeAt(0).endContainer, sel.getRangeAt(0).endOffset);
   return r.toString().length;
 }
+/* Context-aware Tab (Writer's Duet / Final Draft style): one press jumps to
+   the most-likely next type given the current type. Shift+Tab reverses.
+   No more 6-way carousel — the writer's hand should never need 4 presses. */
+function smartTabType(curr, dir = 1) {
+  const fwd = {
+    scene:         "action",
+    action:        "character",
+    character:     "parenthetical",
+    parenthetical: "dialogue",
+    dialogue:      "parenthetical",
+    transition:    "scene",
+    centered:      "action",
+    note:          "action",
+    section:       "scene",
+    synopsis:      "scene",
+  };
+  const back = {
+    scene:         "transition",
+    action:        "scene",
+    character:     "action",
+    parenthetical: "character",
+    dialogue:      "character",
+    transition:    "action",
+    centered:      "action",
+    note:          "action",
+    section:       "scene",
+    synopsis:      "scene",
+  };
+  return (dir > 0 ? fwd : back)[curr] || "action";
+}
 function cycleType(line, dir = 1) {
-  const curr = line.dataset.type || "action";
-  let idx = CYCLE.indexOf(curr); if (idx === -1) idx = 0;
-  idx = (idx + dir + CYCLE.length) % CYCLE.length;
-  forceType(line, CYCLE[idx]);
+  forceType(line, smartTabType(line.dataset.type || "action", dir));
 }
 function forceType(line, type) {
   line.dataset.type = type; line.dataset.forced = "true";
@@ -165,6 +220,35 @@ function onEditorKeydown(e) {
     const off = getCaretOffsetInLine(line);
     const before = text.substring(0, off);
     const after  = text.substring(off);
+
+    // CAPS+Enter promote: on a blank/unforced action line, if the writer just
+    // typed an ALL-CAPS name and is hitting Enter, promote this line to
+    // character cue and drop the next line into dialogue. This is the muscle
+    // memory pros expect from Writer's Duet — never reach for Tab.
+    if (currentType === "action" && after.trim() === "" && before.trim().length >= 2) {
+      const stripped = before.trim().replace(/[.,;!?]+$/, "");
+      const looksLikeCue = ALLCAPS_RE.test(stripped)
+        && !stripped.endsWith(":")
+        && !TRANS_RE.test(stripped)
+        && !SCENE_RE.test(stripped)
+        && !CHAR_BLACKLIST.has(stripped.toUpperCase())
+        && !/^(END OF|ACT [A-Z]+|SCENE [A-Z0-9]+|PART [A-Z]+|CHAPTER )/i.test(stripped);
+      if (looksLikeCue) {
+        line.textContent = stripped;
+        line.dataset.type = "character";
+        line.dataset.forced = "true";
+        markRevised(line);
+        const nd = document.createElement("div");
+        nd.dataset.type = "dialogue"; nd.dataset.forced = "true";
+        nd.innerHTML = "<br>";
+        markRevised(nd);
+        line.parentNode.insertBefore(nd, line.nextSibling);
+        placeCursor(nd, 0);
+        reclassifyAll(); setDirty();
+        return;
+      }
+    }
+
     line.textContent = before || ""; if (!line.textContent) line.innerHTML = "<br>";
     const nd = document.createElement("div");
     let newType;
@@ -176,7 +260,10 @@ function onEditorKeydown(e) {
       newType = nextTypeAfter(currentType);
     } else newType = currentType;
     nd.dataset.type = newType;
-    nd.dataset.forced = (newType !== "action" && newType !== "dialogue") ? "true" : "false";
+    // Always lock in the writer's intentional transition. Without this,
+    // reclassifyAll() reads "empty line between two dialogues" and demotes
+    // a fresh action line straight back to dialogue, fighting the writer.
+    nd.dataset.forced = (newType !== currentType) ? "true" : "false";
     if (after) nd.textContent = after; else nd.innerHTML = "<br>";
     markRevised(nd);
     line.parentNode.insertBefore(nd, line.nextSibling);
@@ -238,6 +325,77 @@ function onEditorKeydown(e) {
     toggleDualDialogueAt(line);
     return;
   }
+}
+
+/* Smart paste — if the clipboard text has multiple lines and Fountain-shaped
+   structure (a scene heading or character cue or multi-paragraph block),
+   parse it as Fountain instead of dumping as a single action paragraph.
+   Single-line / inline pastes fall through to the default browser behavior. */
+function onEditorPaste(e) {
+  const cd = e.clipboardData || window.clipboardData;
+  if (!cd) return;
+  const text = cd.getData("text/plain");
+  if (!text || !text.includes("\n")) return; // single-line: default paste
+  const lines = text.replace(/\r/g, "").split("\n");
+  const looksFountain =
+    lines.some(l => SCENE_RE.test(l.trim())) ||
+    lines.some(l => /^[A-Z][A-Z0-9 .\-()&']{1,}$/.test(l.trim()) && l.trim().length >= 2 && !TRANS_RE.test(l.trim())) ||
+    lines.filter(l => l.trim() === "").length >= 1 && lines.length >= 4;
+  if (!looksFountain) return;
+  e.preventDefault();
+  const line = currentLine() || editor.lastElementChild;
+  // Classify each pasted line against its neighbors and insert as proper divs.
+  const objs = lines.map(text => ({ text, type: null }));
+  for (let i = 0; i < objs.length; i++) {
+    const cur = objs[i]; const t = cur.text.trim();
+    const prev = i > 0 ? objs[i-1] : { text: "", type: null };
+    const next = i+1 < objs.length ? objs[i+1] : { text: "" };
+    if (!t) { cur.type = "blank"; continue; }
+    if (t.startsWith("!"))                          { cur.type = "action"; cur.text = cur.text.replace(/^!/,""); continue; }
+    if (t.startsWith(".") && !t.startsWith(".."))   { cur.type = "scene";  cur.text = cur.text.replace(/^\./,""); continue; }
+    if (t.startsWith("@"))                          { cur.type = "character"; cur.text = cur.text.replace(/^@/,""); continue; }
+    if (t.startsWith(">"))                          { cur.type = "transition"; cur.text = t.replace(/^>/,"").trim(); continue; }
+    if (SCENE_RE.test(t))                           { cur.type = "scene"; continue; }
+    if (TRANS_RE.test(t) && ALLCAPS_RE.test(t))     { cur.type = "transition"; continue; }
+    if (ALLCAPS_RE.test(t) && t.endsWith(":"))      { cur.type = "transition"; continue; }
+    if (t.startsWith("(") && t.endsWith(")") && prev && ["character","dialogue","parenthetical"].includes(prev.type)) {
+      cur.type = "parenthetical"; continue;
+    }
+    if (ALLCAPS_RE.test(t) && !t.endsWith(":") && next.text.trim() !== "" && (prev.text.trim() === "" || i === 0)) {
+      const stripped = t.replace(/[.,;!?]+$/, "").trim().toUpperCase();
+      if (CHAR_BLACKLIST.has(stripped) ||
+          /^(END OF|ACT [A-Z]+|SCENE [A-Z0-9]+|PART [A-Z]+|CHAPTER )/i.test(stripped)) {
+        cur.type = "action"; continue;
+      }
+      cur.type = "character"; continue;
+    }
+    if (prev && ["character","parenthetical","dialogue"].includes(prev.type) && prev.text.trim() !== "") {
+      cur.type = "dialogue"; continue;
+    }
+    cur.type = "action";
+  }
+  const frag = document.createDocumentFragment();
+  objs.forEach(o => {
+    if (o.type === "blank") return;
+    const d = document.createElement("div");
+    d.dataset.type = o.type;
+    d.dataset.forced = (o.type !== "action" && o.type !== "dialogue") ? "true" : "false";
+    d.textContent = o.text.replace(/^\s+/, "");
+    markRevised(d);
+    frag.appendChild(d);
+  });
+  if (line && line.parentNode) {
+    line.parentNode.insertBefore(frag, line.nextSibling);
+    // If the current line is empty, drop it — pasted content replaces it.
+    if (!line.textContent.trim()) line.remove();
+  } else {
+    editor.appendChild(frag);
+  }
+  reclassifyAll(); setDirty();
+  // Place cursor at end of last inserted line
+  const last = editor.lastElementChild;
+  if (last) placeCursor(last, last.textContent.length);
+  toast("Pasted " + objs.filter(o => o.type !== "blank").length + " lines (parsed as Fountain)");
 }
 
 function onEditorInput() {
@@ -461,6 +619,7 @@ function smartTypoOnInput(line) {
  * Autocomplete
  * =================================================================== */
 let acItems = []; let acIndex = 0; let acContext = null;
+const TOD_LIST = ["DAY","NIGHT","CONTINUOUS","MORNING","EVENING","LATER","MOMENTS LATER","SAME","DUSK","DAWN","AFTERNOON","NIGHT - LATER"];
 function gatherCharacters() {
   const set = new Set();
   $$("#editor > div[data-type='character']").forEach(d => {
@@ -477,6 +636,18 @@ function gatherSlugs() {
   });
   return Array.from(set).sort();
 }
+function gatherLocations() {
+  // Pull just the LOCATION portion of every scene heading (everything between
+  // INT./EXT. and the first " - "). Most-recently-used ranks first.
+  const seen = new Map(); // loc → last index
+  const scenes = $$("#editor > div[data-type='scene']");
+  scenes.forEach((d, i) => {
+    const t = (d.textContent || "").trim().replace(/^\./, "");
+    const m = t.match(/^(INT\.?|EXT\.?|EST\.?|INT\.?\/EXT\.?|I\.?\/E\.?)\s+(.+?)(?:\s*[-–]\s*.*)?$/i);
+    if (m && m[2]) seen.set(m[2].toUpperCase().trim(), i);
+  });
+  return Array.from(seen.entries()).sort((a,b) => b[1] - a[1]).map(([loc]) => loc);
+}
 function maybeShowAutocomplete() {
   const line = currentLine(); if (!line) return acClose();
   const t = line.textContent, type = line.dataset.type;
@@ -486,21 +657,40 @@ function maybeShowAutocomplete() {
     matches = gatherCharacters().filter(n => n !== prefix && n.startsWith(prefix));
     acContext = { kind: "char", line, prefix };
   } else if (type === "scene") {
-    const m = t.match(/^(\.|INT\.?|EXT\.?|EST\.?|INT\.?\/EXT\.?|I\.?\/E\.?)\s*(.*)$/i);
-    if (m && m[2].length > 0) {
-      const head = m[1].toUpperCase() + " ";
-      prefix = m[2].toUpperCase();
-      matches = gatherSlugs().filter(s => s.startsWith(prefix.split(" - ")[0]) && s !== t.trim().toUpperCase());
-      acContext = { kind: "scene", line, prefix, head };
+    const raw = t.trim();
+    const m = raw.match(/^(\.|INT\.?|EXT\.?|EST\.?|INT\.?\/EXT\.?|I\.?\/E\.?)\s*(.*)$/i);
+    if (m) {
+      const head = m[1].toUpperCase() + (m[1].endsWith(".") || m[1] === "." ? " " : ". ");
+      const body = (m[2] || "").toUpperCase();
+      // After a dash, suggest time-of-day. Before, suggest known locations.
+      const dashMatch = body.match(/^(.*?)\s*[-–]\s*(.*)$/);
+      if (dashMatch) {
+        // TOD suggestions
+        const locPart = dashMatch[1].trim();
+        const todPrefix = dashMatch[2].trim();
+        matches = TOD_LIST.filter(tod => !todPrefix || tod.startsWith(todPrefix)).slice(0, 8);
+        acContext = { kind: "scene-tod", line, head, locPart, todPrefix };
+      } else if (body.length > 0) {
+        // Location suggestions
+        const locs = gatherLocations();
+        matches = locs.filter(s => s.startsWith(body) && s !== body).slice(0, 8);
+        acContext = { kind: "scene-loc", line, head, body };
+      } else {
+        // Empty after INT./EXT. — show most-recent locations as a starter
+        const locs = gatherLocations();
+        matches = locs.slice(0, 8);
+        acContext = { kind: "scene-loc", line, head, body: "" };
+      }
     }
   }
   if (matches.length === 0) return acClose();
-  acItems = matches.slice(0, 6); acIndex = 0;
+  acItems = matches.slice(0, 8); acIndex = 0;
   renderAutocomplete(); positionAutocomplete(line);
 }
 function renderAutocomplete() {
-  ac.innerHTML = acItems.map((m,i) => `<div class="ac-item ${i===acIndex?'active':''}" data-i="${i}">${m}</div>`).join("");
+  ac.innerHTML = acItems.map((m,i) => `<div class="ac-item ${i===acIndex?'active':''}" data-i="${i}">${escapeHtml(m)}</div>`).join("");
   ac.classList.add("show");
+  ac.setAttribute("aria-hidden", "false");
   $$(".ac-item", ac).forEach(el => el.addEventListener("mousedown", e => {
     e.preventDefault(); acIndex = parseInt(el.dataset.i,10); acAccept();
   }));
@@ -515,12 +705,23 @@ function acMove(d) { acIndex = (acIndex + d + acItems.length) % acItems.length; 
 function acAccept() {
   if (!acContext || !acItems[acIndex]) return acClose();
   const choice = acItems[acIndex], line = acContext.line;
-  if (acContext.kind === "char") line.textContent = choice;
-  else if (acContext.kind === "scene") line.textContent = acContext.head + choice;
+  if (acContext.kind === "char") {
+    line.textContent = choice;
+  } else if (acContext.kind === "scene-loc") {
+    line.textContent = acContext.head + choice + " - ";
+  } else if (acContext.kind === "scene-tod") {
+    line.textContent = acContext.head + acContext.locPart + " - " + choice;
+  } else if (acContext.kind === "scene") {
+    line.textContent = acContext.head + choice;
+  }
   placeCursor(line, line.textContent.length);
   acClose(); reclassifyAll(); setDirty();
 }
-function acClose() { ac.classList.remove("show"); acItems = []; acContext = null; }
+function acClose() {
+  ac.classList.remove("show");
+  ac.setAttribute("aria-hidden", "true");
+  acItems = []; acContext = null;
+}
 
 /* =====================================================================
  * Typewriter mode

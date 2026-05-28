@@ -569,6 +569,20 @@ input, select, textarea { font: inherit; color: inherit; }
   text-transform: uppercase; margin: 1em 0 0;
   margin-left: 2.2in; padding-right: 1in;
 }
+
+/* Auto (CONT'D) — same character cue follows itself across action.
+   Stored as data-contd on the second cue; rendered via CSS so the writer's
+   typed value stays clean and Fountain serialization isn't polluted. */
+#editor > div[data-type="character"][data-contd="true"]::after {
+  content: " (CONT'D)";
+  color: var(--muted);
+  font-weight: inherit;
+}
+@media print {
+  #editor > div[data-type="character"][data-contd="true"]::after {
+    color: #000 !important;
+  }
+}
 #editor > div[data-type="parenthetical"] {
   margin-left: 1.6in; padding-right: 1.6in;
 }

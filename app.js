@@ -371,6 +371,11 @@ function bindEditorUI() {
   editor.addEventListener("blur", () => acClose());
   attachCharHover();
   editor.addEventListener("paste", e => {
+    // First: let the smart-paste handler attempt to parse Fountain. If it
+    // calls preventDefault() and inserts content, we're done. Otherwise fall
+    // through to the legacy plain-text insert.
+    onEditorPaste(e);
+    if (e.defaultPrevented) return;
     e.preventDefault();
     const text = (e.clipboardData || window.clipboardData).getData("text/plain");
     const sel = window.getSelection(); if (!sel.rangeCount) return;
