@@ -14,6 +14,7 @@
  *   bestscreen.v3.p.<id>.changes   → [{ t, type, lineIdx, before, after, author }]
  *   bestscreen.v3.p.<id>.bin       → [{ t, text }]
  *   bestscreen.v3.p.<id>.pdfs      → [{ t, name, watermark, version, sceneCount, pageCount }]
+ *   bestscreen.v3.p.<id>.proofdict → Proofcheck custom dict — { words, ignored }
  * ============================================================================= */
 
 const Storage = (() => {
@@ -140,7 +141,7 @@ const Storage = (() => {
     if (idx.lastOpenedId === id) idx.lastOpenedId = null;
     writeIndex(idx);
     // Drop sub-keys
-    ["doc","meta","bible","snaps","comments","changes","bin","pdfs"].forEach(suffix => {
+    ["doc","meta","bible","snaps","comments","changes","bin","pdfs","proofdict"].forEach(suffix => {
       localStorage.removeItem(proj(id) + "." + suffix);
     });
   }
@@ -249,6 +250,7 @@ const Storage = (() => {
       comments: getComments(id),
       changes: getChanges(id),
       pdfs: getPdfList(id),
+      proofdict: getProofDict(id),
     };
   }
   function importProject(bundle) {
@@ -264,6 +266,7 @@ const Storage = (() => {
     setComments(p.id, bundle.comments || []);
     setChanges(p.id, bundle.changes || []);
     setPdfList(p.id, bundle.pdfs || []);
+    setProofDict(p.id, bundle.proofdict || { words: [], ignored: [] });
     return p.id;
   }
 
