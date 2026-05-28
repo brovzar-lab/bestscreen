@@ -112,7 +112,80 @@ const Proof = (() => {
 
   // Placeholder — real implementations follow in later tasks
   function bind() {}
-  function loadDictForProject(pid) { projectId = pid; }
+
+  function loadDictForProject(pid) {
+    projectId = pid;
+    const meta = Storage.getMeta(pid);
+    language = (meta && meta.language) || "en";
+
+    // Lazy-load bundled wordlist on first use.
+    if (!dict) {
+      const raw = language === "es" ? (typeof DICT_ES_RAW === "string" ? DICT_ES_RAW : null)
+                                    : (typeof DICT_EN_RAW === "string" ? DICT_EN_RAW : null);
+      if (raw) {
+        const payload = LZString.decompressFromBase64(raw);
+        dict = new Set(payload.split("\n").filter(Boolean));
+        loaded = true;
+      }
+    }
+
+    // Load per-project custom dict
+    const stored = Storage.getProofDict(pid);
+    customDict = new Set(stored.words || []);
+    sessionIgnore = new Set();
+
+    // Auto-seed: character cues + Bible names + scene proper nouns
+    seedCustomDict();
+  }
+
+  function seedCustomDict() {
+    const editor = document.getElementById("editor");
+    if (!editor) return;
+    let added = 0;
+
+    // 1. Character cue names (strip parens)
+    editor.querySelectorAll("div[data-type='character']").forEach(d => {
+      const name = (d.textContent || "").replace(/\s*\(.*\)\s*$/, "").trim();
+      if (name && !customDict.has(name)) { customDict.add(name); added++; }
+    });
+
+    // 2. Bible character names
+    if (window.Bible && typeof Bible.allCharacters === "function") {
+      Bible.allCharacters().forEach(c => {
+        const name = (c.name || "").trim();
+        if (name && !customDict.has(name)) { customDict.add(name); added++; }
+      });
+    }
+
+    // 3. Scene-heading proper nouns — any ALL-CAPS token of length >= 2 that
+    //    isn't already in the base dict. Skips obvious words (INT, EXT, DAY, etc).
+    const skipTokens = new Set(["INT","EXT","EST","DAY","NIGHT","CONTINUOUS","MORNING","EVENING","LATER","SAME","DUSK","DAWN","AFTERNOON","INT.","EXT.","I/E","INT/EXT"]);
+    editor.querySelectorAll("div[data-type='scene']").forEach(d => {
+      const text = (d.textContent || "").replace(/^\./, "");
+      text.split(/[\s\-\/.,()]+/).forEach(tok => {
+        const t = tok.trim();
+        if (!t || t.length < 2) return;
+        if (skipTokens.has(t.toUpperCase())) return;
+        if (!/^[A-Z][A-Z'-]+$/.test(t)) return; // must be ALL CAPS
+        if (!customDict.has(t)) { customDict.add(t); added++; }
+      });
+    });
+
+    // Persist if seed grew the dict
+    if (added > 0) {
+      Storage.setProofDict(projectId, { words: Array.from(customDict), ignored: [] });
+    }
+  }
+
+  function isKnown(word) {
+    if (!word) return true;
+    if (sessionIgnore.has(word)) return true;
+    // Custom dict honors original case (cues are uppercase). Match raw and uppercase.
+    if (customDict.has(word) || customDict.has(word.toUpperCase())) return true;
+    if (dict && dict.has(word.toLowerCase())) return true;
+    return false;
+  }
+
   function setLanguage(lang) { language = lang; }
   function scheduleLivePass() {}
   function suggestionsFor(_word) { return []; }
@@ -121,7 +194,7 @@ const Proof = (() => {
 
   return {
     bind, loadDictForProject, setLanguage,
-    scheduleLivePass, suggestionsFor, addToDict, ignoreForSession,
+    scheduleLivePass, suggestionsFor, addToDict, ignoreForSession, isKnown,
     // introspection for tests:
     _state() { return { language, loaded, customSize: customDict.size, dictSize: dict?.size || 0 }; },
   };
