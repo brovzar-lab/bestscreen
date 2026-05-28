@@ -214,7 +214,26 @@ const Proof = (() => {
     return out;
   }
 
-  function setLanguage(lang) { language = lang; }
+  function setLanguage(lang) {
+    if (lang !== "en" && lang !== "es") return;
+    language = lang;
+    const raw = lang === "es" ? (typeof DICT_ES_RAW === "string" ? DICT_ES_RAW : null)
+                              : (typeof DICT_EN_RAW === "string" ? DICT_EN_RAW : null);
+    if (raw) {
+      const payload = LZString.decompressFromBase64(raw);
+      dict = new Set(payload.split("\n").filter(Boolean));
+      loaded = true;
+    } else {
+      dict = null; loaded = false;
+    }
+    if (projectId) {
+      const meta = Storage.getMeta(projectId) || {};
+      Storage.setMeta(projectId, { ...meta, language: lang });
+    }
+    const chip = document.getElementById("proof-lang");
+    if (chip) { chip.textContent = lang.toUpperCase(); chip.dataset.lang = lang; }
+    runLivePass();
+  }
 
   function scheduleLivePass() {
     if (debounceTimer) clearTimeout(debounceTimer);

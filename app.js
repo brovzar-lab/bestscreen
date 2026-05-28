@@ -163,7 +163,12 @@ window.addEventListener("hashchange", () => {
 function loadProject(id, opts={}) {
   Dashboard.hide();
   appState.projectId = id;
-  if (typeof Proof !== "undefined") Proof.loadDictForProject(id);
+  if (typeof Proof !== "undefined") {
+    Proof.loadDictForProject(id);
+    const lang = (Storage.getMeta(id) || {}).language || "en";
+    const chip = document.getElementById("proof-lang");
+    if (chip) { chip.textContent = lang.toUpperCase(); chip.dataset.lang = lang; }
+  }
   const project = Storage.getProject(id);
   const doc = Storage.getDoc(id) || "";
   const meta = Storage.getMeta(id) || {};
@@ -714,6 +719,14 @@ function bindEditorUI() {
   $$(".modal-backdrop").forEach(m => m.addEventListener("click", e => { if (e.target === m) m.classList.remove("open"); }));
 
   window.addEventListener("beforeunload", () => autosave());
+
+  const langChip = document.getElementById("proof-lang");
+  if (langChip) {
+    langChip.addEventListener("click", () => {
+      const cur = (Storage.getMeta(appState.projectId) || {}).language || "en";
+      Proof.setLanguage(cur === "en" ? "es" : "en");
+    });
+  }
 }
 
 function bindSidebarResize() {

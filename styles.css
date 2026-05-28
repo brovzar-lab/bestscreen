@@ -649,6 +649,22 @@ body[data-theme="court"] .proof-mark.proof-unknown {
   color: var(--ink-2);
 }
 .proof-popover .pp-btn:hover { background: var(--hl); color: var(--ink); }
+.proof-chip {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+  cursor: pointer;
+  margin: 0 6px;
+}
+.proof-chip:hover { background: var(--hl); color: var(--ink); }
+.proof-chip[data-lang="es"] { background: #dfeacd; border-color: #b4cf90; color: #36571c; }
+.proof-chip[data-lang="en"] { background: #d5e2f0; border-color: #8eb1d8; color: #1b3e63; }
 #editor > div[data-type="character"] {
   text-transform: uppercase; margin: 1em 0 0;
   margin-left: 2.2in; padding-right: 1in;
