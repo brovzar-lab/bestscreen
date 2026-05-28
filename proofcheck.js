@@ -115,10 +115,11 @@ const Proof = (() => {
     if (!editor) return;
     editor.addEventListener("click", (e) => {
       const mark = e.target.closest(".proof-mark.proof-unknown");
-      if (mark) {
-        e.stopPropagation();
-        showPopover(mark);
-      }
+      if (mark) { e.stopPropagation(); showPopover(mark); }
+    });
+    editor.addEventListener("contextmenu", (e) => {
+      const mark = e.target.closest(".proof-mark.proof-unknown");
+      if (mark) { e.preventDefault(); showPopover(mark); }
     });
   }
 
