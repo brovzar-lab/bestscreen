@@ -249,10 +249,7 @@ const Proof = (() => {
     for (const candidate of dict) {
       if (Math.abs(candidate.length - target.length) > maxDist) continue;
       const d = damerauLevenshtein(target, candidate, maxDist);
-      if (d <= maxDist) {
-        results.push({ word: candidate, dist: d });
-        if (results.length > 200) break;
-      }
+      if (d <= maxDist) results.push({ word: candidate, dist: d });
     }
     results.sort((a, b) => a.dist - b.dist || a.word.length - b.word.length);
     // Preserve original case roughly — if input was Title-cased, capitalize result.
