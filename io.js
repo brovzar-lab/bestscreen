@@ -108,6 +108,15 @@ function serializeFountain(includeTitle=true) {
       if (tp.date)    out += `Draft date: ${tp.date}\n`;
       if (tp.contact) out += `Contact: ${tp.contact}\n`;
       if (tp.episode) out += `Episode: ${tp.episode}\n`;
+      const proofMeta = (typeof Storage !== "undefined" && appState.projectId) ? Storage.getMeta(appState.projectId) : null;
+      const proofLang = (proofMeta && proofMeta.language) || "en";
+      out += "bs:lang=" + proofLang + "\n";
+      if (typeof Storage !== "undefined" && appState.projectId) {
+        const dictRec = Storage.getProofDict(appState.projectId);
+        if (dictRec && dictRec.words && dictRec.words.length) {
+          out += "bs:dict=" + dictRec.words.join(",") + "\n";
+        }
+      }
       out += "\n";
     }
   }
@@ -170,6 +179,23 @@ function parseFountainTitle(src) {
   const head = src.substring(0, idx);
   if (!/^[A-Za-z ]+:/.test(head)) return { meta, rest: src };
   head.split("\n").forEach(l => {
+    if (l.startsWith("bs:lang=")) {
+      const lang = l.slice("bs:lang=".length).trim();
+      if (lang === "en" || lang === "es") {
+        const existingMeta = Storage.getMeta(appState.projectId) || {};
+        Storage.setMeta(appState.projectId, { ...existingMeta, language: lang });
+      }
+      return;
+    }
+    if (l.startsWith("bs:dict=")) {
+      const words = l.slice("bs:dict=".length).split(",").map(w => w.trim()).filter(Boolean);
+      if (words.length) {
+        const cur = Storage.getProofDict(appState.projectId) || { words: [], ignored: [] };
+        const merged = Array.from(new Set([...cur.words, ...words]));
+        Storage.setProofDict(appState.projectId, { ...cur, words: merged });
+      }
+      return;
+    }
     const m = l.match(/^([A-Za-z ]+):\s*(.*)$/); if (!m) return;
     const key = m[1].toLowerCase().trim();
     if (key === "title") meta.title = m[2];
