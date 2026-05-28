@@ -115,6 +115,7 @@ const Storage = (() => {
       projectColor: coverColor,
       activeRevision: "white",
       dailyBaselines: {},
+      language: "en",
     });
     setBible(id, { characters: [], locations: [], rules: [] });
     setSnaps(id, []);
@@ -223,6 +224,8 @@ const Storage = (() => {
   const setMeta     = (id, m) => _write(id, "meta", m);
   const getBible    = id => _read(id, "bible", { characters: [], locations: [], rules: [] });
   const setBible    = (id, b) => _write(id, "bible", b);
+  const getProofDict = id => _read(id, "proofdict", { words: [], ignored: [] });
+  const setProofDict = (id, dict) => _write(id, "proofdict", dict);
   const getSnaps    = id => _read(id, "snaps", []);
   const setSnaps    = (id, s) => _write(id, "snaps", s);
   const getComments = id => _read(id, "comments", []);
@@ -314,7 +317,7 @@ const Storage = (() => {
     listSeries, createSeries, deleteSeries, getSeries, updateSeries,
     listProjectsBySeries, getSeriesBible, setSeriesBible,
     // per-project
-    getDoc, setDoc, getMeta, setMeta, getBible, setBible,
+    getDoc, setDoc, getMeta, setMeta, getBible, setBible, getProofDict, setProofDict,
     getSnaps, setSnaps, getComments, setComments,
     getChanges, setChanges, getBin, setBin,
     getPdfList, setPdfList,
