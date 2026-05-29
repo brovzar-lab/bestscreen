@@ -499,6 +499,7 @@ function onEditorInput() {
   }
   reclassifyAll(); setDirty();
   maybeShowAutocomplete();
+  if (window.Proof) Proof.scheduleLivePass();
 }
 
 function isModKey(e) { return e.metaKey || e.ctrlKey; }

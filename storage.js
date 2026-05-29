@@ -14,6 +14,7 @@
  *   bestscreen.v3.p.<id>.changes   → [{ t, type, lineIdx, before, after, author }]
  *   bestscreen.v3.p.<id>.bin       → [{ t, text }]
  *   bestscreen.v3.p.<id>.pdfs      → [{ t, name, watermark, version, sceneCount, pageCount }]
+ *   bestscreen.v3.p.<id>.proofdict → Proofcheck custom dict — { words, ignored }
  * ============================================================================= */
 
 const Storage = (() => {
@@ -115,6 +116,7 @@ const Storage = (() => {
       projectColor: coverColor,
       activeRevision: "white",
       dailyBaselines: {},
+      language: "en",
     });
     setBible(id, { characters: [], locations: [], rules: [] });
     setSnaps(id, []);
@@ -139,7 +141,7 @@ const Storage = (() => {
     if (idx.lastOpenedId === id) idx.lastOpenedId = null;
     writeIndex(idx);
     // Drop sub-keys
-    ["doc","meta","bible","snaps","comments","changes","bin","pdfs"].forEach(suffix => {
+    ["doc","meta","bible","snaps","comments","changes","bin","pdfs","proofdict"].forEach(suffix => {
       localStorage.removeItem(proj(id) + "." + suffix);
     });
   }
@@ -223,6 +225,8 @@ const Storage = (() => {
   const setMeta     = (id, m) => _write(id, "meta", m);
   const getBible    = id => _read(id, "bible", { characters: [], locations: [], rules: [] });
   const setBible    = (id, b) => _write(id, "bible", b);
+  const getProofDict = id => _read(id, "proofdict", { words: [], ignored: [] });
+  const setProofDict = (id, dict) => _write(id, "proofdict", dict);
   const getSnaps    = id => _read(id, "snaps", []);
   const setSnaps    = (id, s) => _write(id, "snaps", s);
   const getComments = id => _read(id, "comments", []);
@@ -246,6 +250,7 @@ const Storage = (() => {
       comments: getComments(id),
       changes: getChanges(id),
       pdfs: getPdfList(id),
+      proofdict: getProofDict(id),
     };
   }
   function importProject(bundle) {
@@ -261,6 +266,7 @@ const Storage = (() => {
     setComments(p.id, bundle.comments || []);
     setChanges(p.id, bundle.changes || []);
     setPdfList(p.id, bundle.pdfs || []);
+    setProofDict(p.id, bundle.proofdict || { words: [], ignored: [] });
     return p.id;
   }
 
@@ -314,7 +320,7 @@ const Storage = (() => {
     listSeries, createSeries, deleteSeries, getSeries, updateSeries,
     listProjectsBySeries, getSeriesBible, setSeriesBible,
     // per-project
-    getDoc, setDoc, getMeta, setMeta, getBible, setBible,
+    getDoc, setDoc, getMeta, setMeta, getBible, setBible, getProofDict, setProofDict,
     getSnaps, setSnaps, getComments, setComments,
     getChanges, setChanges, getBin, setBin,
     getPdfList, setPdfList,
