@@ -123,6 +123,7 @@ function renderBeatBoard() {
               <label class="bc-multi" title="Select for bulk AI"><input type="checkbox" class="bc-select" data-line="${s.lineIndex}" ${isSelected?'checked':''} /></label>
               <div class="bc-colors">${["red","amber","green","blue","violet","gray"].map(c => `<div class="bc-color ${color===c?'selected':''}" data-color="${c}" style="background:${beatColorCSS(c)}" title="${c}"></div>`).join("")}</div>
               <button class="bc-ai" data-line="${s.lineIndex}" title="AI: fill in this scene's synopsis based on the script + ${beatName ? "the " + beatName + " beat" : "context"}">✨</button>
+              <button class="bc-zoom" data-zoom="${s.lineIndex}" title="Scene Zoom (BMOC analyze + rewrite)">🔍</button>
             </div>
             <div class="bc-slug">${escapeHtml(s.slug)}</div>
             <textarea class="bc-syn" data-line="${s.lineIndex}" placeholder="Beat / synopsis…">${escapeHtml(syn)}</textarea>
@@ -177,6 +178,11 @@ function renderBeatBoard() {
     if (aiBtn) aiBtn.addEventListener("click", async e => {
       e.stopPropagation();
       await aiFillBeatSynopsis(parseInt(card.dataset.line, 10));
+    });
+    const zoomBtn = card.querySelector(".bc-zoom");
+    if (zoomBtn) zoomBtn.addEventListener("click", e => {
+      e.stopPropagation();
+      if (window.SceneZoom) window.SceneZoom.open(parseInt(zoomBtn.dataset.zoom, 10));
     });
   });
   $$(".beat-section-cards", board).forEach(zone => {
@@ -269,6 +275,7 @@ function renderCards() {
         <label class="ic-multi" title="Select for bulk AI"><input type="checkbox" class="ic-select" data-line="${s.lineIndex}" ${isSelected?'checked':''} /></label>
         <div class="ic-num">${i+1}.</div>
         <button class="ic-ai" data-line="${s.lineIndex}" title="AI: fill synopsis from script context">✨</button>
+        <button class="ic-zoom" data-zoom="${s.lineIndex}" title="Scene Zoom (BMOC analyze + rewrite)">🔍</button>
       </div>
       <div class="ic-slug">${escapeHtml(s.slug)}</div>
       <textarea class="ic-syn" data-line="${s.lineIndex}" placeholder="What happens?">${escapeHtml(synopsisAfter(s.lineIndex))}</textarea>
@@ -302,6 +309,11 @@ function renderCards() {
     if (aiBtn) aiBtn.addEventListener("click", async e => {
       e.stopPropagation();
       await aiFillBeatSynopsis(parseInt(card.dataset.line, 10));
+    });
+    const zoomBtn = card.querySelector(".ic-zoom");
+    if (zoomBtn) zoomBtn.addEventListener("click", e => {
+      e.stopPropagation();
+      if (window.SceneZoom) window.SceneZoom.open(parseInt(zoomBtn.dataset.zoom, 10));
     });
   });
   $$(".ic-syn").forEach(ta => ta.addEventListener("blur", () => { setSynopsisAfter(parseInt(ta.dataset.line,10), ta.value); setDirty(); }));

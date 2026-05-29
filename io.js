@@ -137,7 +137,7 @@ function serializeFountain(includeTitle=true) {
     }
     const t = line.textContent; const type = line.dataset.type;
     const meta = [];
-    ["color","tags","beat","thread","goal","mood","date","sound","rev"].forEach(k => {
+    ["color","tags","beat","thread","goal","mood","date","sound","rev","sceneNum"].forEach(k => {
       if (line.dataset[k]) meta.push(`${k}=${(line.dataset[k]+"").replace(/\|/g," ")}`);
     });
     const metaComment = meta.length ? ` /* bs:${meta.join(";")} */` : "";
@@ -303,6 +303,78 @@ function loadFountain(src) {
 /* =====================================================================
  * PDF / print
  * =================================================================== */
+/* Inject (MORE) / CHARACTER (CONT'D) at every page break that lands inside
+   a dialogue block. Uses the same per-element line-math as applyPageBreaks()
+   so the split matches the visible pagination. Returns a list of inserted
+   nodes so the caller can remove them after print. */
+function injectMoreContd() {
+  const inserted = [];
+  const all = $$("#editor > div");
+  // Compute running page position per line using the same constants used by
+  // applyPageBreaks() (PAGE_W / PAGE_SPACING / LINES_PER_PAGE in panels.js).
+  let used = 0;
+  let nextThreshold = LINES_PER_PAGE;
+  const positions = []; // {line, endUsed, page}
+  let pageNum = 1;
+  for (const d of all) {
+    const type = d.dataset.type;
+    if (["note","section","synopsis"].includes(type)) { positions.push({line:d, endUsed:used, page:pageNum, skip:true}); continue; }
+    const t = (d.textContent || "").trim();
+    if (!t) { positions.push({line:d, endUsed:used, page:pageNum, skip:true}); continue; }
+    const w = PAGE_W[type] || 60;
+    const wrapped = Math.max(1, Math.ceil(t.length / w));
+    const before = used;
+    used += wrapped + (PAGE_SPACING[type] || 0);
+    let endsPage = false;
+    while (used >= nextThreshold) {
+      endsPage = true;
+      pageNum++;
+      nextThreshold += LINES_PER_PAGE;
+    }
+    positions.push({ line: d, startUsed: before, endUsed: used, page: pageNum - (endsPage ? 1 : 0), endsPage });
+  }
+  // Walk: for each line that ends a page, look at the next non-skip sibling.
+  // If we are inside a dialogue block (current is dialogue/parenthetical AND
+  // next is dialogue/parenthetical, OR current is character with no dialogue
+  // shown yet), inject (MORE) after current and CHAR (CONT'D) before next.
+  for (let i = 0; i < positions.length; i++) {
+    const p = positions[i]; if (!p.endsPage) continue;
+    let nextIdx = i + 1;
+    while (nextIdx < positions.length && positions[nextIdx].skip) nextIdx++;
+    const cur = p.line;
+    const next = nextIdx < positions.length ? positions[nextIdx].line : null;
+    if (!next) continue;
+    const curType = cur.dataset.type;
+    const nextType = next.dataset.type;
+    const inDialogue = (curType === "dialogue" || curType === "parenthetical") && (nextType === "dialogue" || nextType === "parenthetical");
+    if (!inDialogue) continue;
+    // Walk backwards to find the character cue this dialogue belongs to.
+    let charLine = null;
+    for (let k = i; k >= 0; k--) {
+      if (positions[k].line.dataset.type === "character") { charLine = positions[k].line; break; }
+      const t = positions[k].line.dataset.type;
+      if (t === "scene" || t === "transition" || t === "action") break;
+    }
+    if (!charLine) continue;
+    const baseName = (charLine.textContent || "").replace(/\s*\(CONT'D\)\s*$/i, "").trim();
+    // Inject (MORE) after cur (centered/parenthetical-style indent)
+    const more = document.createElement("div");
+    more.dataset.type = "parenthetical";
+    more.dataset.printInjected = "true";
+    more.textContent = "(MORE)";
+    cur.parentNode.insertBefore(more, cur.nextSibling);
+    inserted.push(more);
+    // Inject CHAR (CONT'D) before next
+    const contd = document.createElement("div");
+    contd.dataset.type = "character";
+    contd.dataset.printInjected = "true";
+    contd.textContent = baseName + " (CONT'D)";
+    next.parentNode.insertBefore(contd, next);
+    inserted.push(contd);
+  }
+  return inserted;
+}
+
 function printPdf(watermarked=false) {
   const tp = appState.titleMeta;
   let titleHtml = "";
@@ -333,6 +405,10 @@ function printPdf(watermarked=false) {
   }
   document.body.classList.toggle("print-scene-numbers", appState.showSceneNumbersInPdf);
 
+  // Industry-standard MORE/CONT'D pagination — inject just before print and
+  // remove after, so the writer's source DOM never carries these markers.
+  const moreInserted = injectMoreContd();
+
   // Log PDF
   const entry = { t: Date.now(), name: appState.titleMeta.title || appState.filename,
     watermark: watermarked, version: appState.activeRevision, sceneCount: collectScenes().length,
@@ -346,6 +422,7 @@ function printPdf(watermarked=false) {
     window.print();
     setTimeout(() => {
       inserted.forEach(el => el.remove());
+      moreInserted.forEach(el => el.remove());
       document.body.classList.remove("print-scene-numbers");
     }, 100);
   }, 50);

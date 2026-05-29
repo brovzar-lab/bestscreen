@@ -91,6 +91,10 @@ let appState = {
   premise: "",
   theme: "",
   paceMode: false,
+  // Production mode: scene numbers locked at the moment of locking.
+  // Inserted scenes get letter suffixes (12A, 12B). Stored per-line in
+  // data-scene-num on scene heading divs.
+  prodLocked: false,
   // Daily streak baseline (for "today" counter when project opens)
   todayBaseline: 0,
   todayKey: "",
@@ -105,6 +109,7 @@ function boot() {
   Audio.setVolume(0.18);
   bindGlobalShortcuts();
   bindDashboardModals();
+  if (typeof SceneZoom !== "undefined") SceneZoom.bind();
 
   // Route
   const hash = location.hash;
@@ -170,7 +175,9 @@ function loadProject(id, opts={}) {
   appState.smartTypo = meta.smartTypo !== false;
   appState.showSceneNumbersInPdf = meta.showSceneNumbersInPdf !== false;
   appState.showPageBreaks = !!meta.showPageBreaks;
+  appState.prodLocked = !!meta.prodLocked;
   document.body.dataset.pagebreaks = appState.showPageBreaks ? "true" : "";
+  document.body.dataset.prodLocked = appState.prodLocked ? "true" : "";
   appState.filename = (project?.name || "untitled") + ".fountain";
 
   // Daily counters
@@ -219,6 +226,7 @@ function cycleTheme() {
 
 function setDirty() {
   appState.isDirty = true;
+  if (!appState.dirtyAt) appState.dirtyAt = Date.now();
   $("#save-state")?.classList.add("dirty");
   $("#save-state .lbl")?.replaceChildren(document.createTextNode("unsaved"));
   clearTimeout(appState.saveTimer);
@@ -226,9 +234,25 @@ function setDirty() {
 }
 function setSaved() {
   appState.isDirty = false;
+  appState.dirtyAt = null;
+  appState.savedAt = Date.now();
   $("#save-state")?.classList.remove("dirty");
   $("#save-state .lbl")?.replaceChildren(document.createTextNode("saved"));
 }
+
+// Heartbeat: every 5s, if dirty, show "unsaved · 12s ago" on the chip so the
+// writer sees stale-state clearly. If just saved, briefly show "saved · 3s".
+setInterval(() => {
+  const lbl = $("#save-state .lbl"); if (!lbl) return;
+  if (appState.isDirty && appState.dirtyAt) {
+    const secs = Math.floor((Date.now() - appState.dirtyAt) / 1000);
+    if (secs >= 3) lbl.textContent = "unsaved · " + (secs < 60 ? `${secs}s` : `${Math.floor(secs/60)}m`);
+  } else if (appState.savedAt) {
+    const secs = Math.floor((Date.now() - appState.savedAt) / 1000);
+    if (secs < 30) lbl.textContent = "saved · " + (secs < 1 ? "now" : `${secs}s`);
+    else lbl.textContent = "saved";
+  }
+}, 2500);
 function autosave() {
   if (!appState.projectId) return;
   try {
@@ -239,6 +263,7 @@ function autosave() {
       ...Storage.getMeta(appState.projectId),
       titleMeta: appState.titleMeta,
       activeRevision: appState.activeRevision,
+      prodLocked: appState.prodLocked,
       template: appState.template,
       logline: appState.logline,
       premise: appState.premise,
@@ -370,6 +395,11 @@ function bindEditorUI() {
   editor.addEventListener("blur", () => acClose());
   attachCharHover();
   editor.addEventListener("paste", e => {
+    // First: let the smart-paste handler attempt to parse Fountain. If it
+    // calls preventDefault() and inserts content, we're done. Otherwise fall
+    // through to the legacy plain-text insert.
+    onEditorPaste(e);
+    if (e.defaultPrevented) return;
     e.preventDefault();
     const text = (e.clipboardData || window.clipboardData).getData("text/plain");
     const sel = window.getSelection(); if (!sel.rangeCount) return;
@@ -391,6 +421,30 @@ function bindEditorUI() {
       placeCursor(last, (parts[parts.length-1] || "").length);
     }
     reclassifyAll(); setDirty();
+  });
+
+  editor.addEventListener("contextmenu", (e) => {
+    const line = e.target.closest("#editor > div");
+    if (!line) return;
+    e.preventDefault();
+    const existing = document.querySelector(".sz-ctxmenu");
+    if (existing) existing.remove();
+    const menu = document.createElement("div");
+    menu.className = "sz-ctxmenu";
+    menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;background:var(--paper-2);border:1px solid var(--line);border-radius:6px;padding:4px 0;z-index:9999;font-size:12px;min-width:160px;box-shadow:var(--shadow-2)`;
+    menu.innerHTML = `<button class="sz-ctxmenu-item" style="display:block;width:100%;text-align:left;padding:6px 12px;background:transparent;border:none;color:var(--ink);cursor:pointer;font-size:12px">🔍 Scene Zoom</button>`;
+    document.body.appendChild(menu);
+    const close = () => { menu.remove(); document.removeEventListener("click", close); document.removeEventListener("keydown", escListener, true); };
+    const escListener = (ev) => { if (ev.key === "Escape") { ev.stopPropagation(); close(); } };
+    setTimeout(() => {
+      document.addEventListener("click", close);
+      document.addEventListener("keydown", escListener, true);
+    }, 0);
+    menu.querySelector(".sz-ctxmenu-item").addEventListener("click", () => {
+      const idx = Array.from(editor.children).indexOf(line);
+      if (idx >= 0 && window.SceneZoom) window.SceneZoom.open(idx);
+      close();
+    });
   });
 
   // Drag to bin

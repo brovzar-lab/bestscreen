@@ -1000,6 +1000,78 @@ function gatherProjectContext({ scriptChars = 30000 } = {}) {
 
 // Small floating overlay anchored to an arbitrary element. Streams text in,
 // then asks the user to accept/cancel. Returns the accepted text (or null).
+/* AI dialogue rewrite — invoked by ⌘J on a dialogue line. Shows a small menu
+   anchored under the line. Each preset uses gatherProjectContext + the line's
+   character (from the nearest preceding character cue) so the AI knows whose
+   voice it's matching. The Bible Voice field, if present, is the most
+   load-bearing input here. */
+async function aiRewriteDialogueAt(line) {
+  if (!line || line.dataset.type !== "dialogue") return toast("Place cursor on a dialogue line");
+  if (!AI.isConfigured()) return toast("No API key — open AI assist to add one", 4000);
+
+  // Find the character cue this dialogue belongs to.
+  let probe = line;
+  while (probe && probe.dataset.type !== "character") {
+    if (probe.dataset.type === "scene" || probe.dataset.type === "transition" || probe.dataset.type === "action") break;
+    probe = probe.previousElementSibling;
+  }
+  const charName = probe && probe.dataset.type === "character"
+    ? (probe.textContent || "").replace(/\s*\(.*\)\s*$/, "").trim().toUpperCase()
+    : "";
+  const charRec = charName && window.Bible ? Bible.getCharacterByName(charName) : null;
+  const voiceLine = charRec?.voice ? `Their voice: ${charRec.voice}` : "";
+
+  const presets = [
+    { id: "tighten",  label: "Tighten",   sub: "Shorter, sharper, same meaning",
+      prompt: `You are a professional screenwriter. Rewrite this dialogue line to be tighter and sharper while preserving meaning, subtext, and the character's voice. Return ONLY the rewritten line, no quotes, no preamble.\n\nProject context:\n{CONTEXT}\n\nCharacter: ${charName || "(unknown)"}\n${voiceLine}\n\nOriginal line:\n{LINE}` },
+    { id: "punch",    label: "Make punchier",  sub: "Add edge or wit",
+      prompt: `You are a professional screenwriter. Rewrite this dialogue line to land harder — sharper rhythm, sharper irony, a memorable last beat. Stay in voice. Return ONLY the rewritten line.\n\nProject context:\n{CONTEXT}\n\nCharacter: ${charName || "(unknown)"}\n${voiceLine}\n\nOriginal line:\n{LINE}` },
+    { id: "subtext",  label: "More subtext",   sub: "Say it without saying it",
+      prompt: `Rewrite this line so the character does NOT state what they want or feel directly. They should imply, deflect, or change the subject — and yet the audience must still feel the underlying truth. Stay in voice. Return ONLY the rewritten line.\n\nProject context:\n{CONTEXT}\n\nCharacter: ${charName || "(unknown)"}\n${voiceLine}\n\nOriginal line:\n{LINE}` },
+    { id: "voice",    label: "Match Bible voice", sub: "Lock to character's Voice field",
+      prompt: `Rewrite this dialogue line to fit the character's voice EXACTLY as described in the Bible. Adjust rhythm, vocabulary, and idiom. Keep the line's intent identical. Return ONLY the rewritten line.\n\nProject context:\n{CONTEXT}\n\nCharacter: ${charName || "(unknown)"}\n${voiceLine || "(no Voice field — infer from existing dialogue)"}\n\nOriginal line:\n{LINE}` },
+    { id: "alt",      label: "Three alternatives", sub: "Pick the best one",
+      prompt: `Provide THREE different rewrites of this dialogue line, each pursuing a different angle (more direct, more ironic, more emotional). Number them 1) 2) 3). Stay in voice. No commentary.\n\nProject context:\n{CONTEXT}\n\nCharacter: ${charName || "(unknown)"}\n${voiceLine}\n\nOriginal line:\n{LINE}` },
+  ];
+
+  // Show a menu anchored to the dialogue line
+  const existing = document.querySelector(".ai-rewrite-menu"); if (existing) existing.remove();
+  const menu = document.createElement("div");
+  menu.className = "ai-rewrite-menu sz-ctxmenu";
+  const rect = line.getBoundingClientRect();
+  menu.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.bottom + 6}px;background:var(--paper);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow-2);padding:6px;z-index:200;min-width:280px;font-size:12.5px`;
+  menu.innerHTML = `<div style="padding:6px 8px;color:var(--muted);font-size:11px;letter-spacing:0.04em;text-transform:uppercase">AI rewrite ${charName ? "· " + escapeHtml(charName) : ""}</div>` +
+    presets.map((p,i) => `<div class="sz-mi" data-i="${i}" style="padding:7px 10px;border-radius:5px;cursor:pointer">
+      <div style="font-weight:600">${escapeHtml(p.label)}</div>
+      <div style="color:var(--muted);font-size:11px">${escapeHtml(p.sub)}</div>
+    </div>`).join("");
+  document.body.appendChild(menu);
+  $$(".sz-mi", menu).forEach(el => {
+    el.addEventListener("mouseenter", () => el.style.background = "var(--hl)");
+    el.addEventListener("mouseleave", () => el.style.background = "transparent");
+    el.addEventListener("click", async () => {
+      const preset = presets[parseInt(el.dataset.i, 10)];
+      menu.remove();
+      const ctx = gatherProjectContext({ scriptChars: 18000 });
+      const result = await aiInlineFill({
+        anchor: line,
+        label: "AI · " + preset.label,
+        prompt: preset.prompt,
+        vars: { CONTEXT: ctx, LINE: line.textContent || "" },
+      });
+      if (result) {
+        line.textContent = result.replace(/^["'""]+|["'""]+$/g, "");
+        markRevised(line);
+        reclassifyAll(); setDirty();
+        placeCursor(line, line.textContent.length); editor.focus();
+        toast("Rewrite applied");
+      }
+    });
+  });
+  const closer = (ev) => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener("click", closer); } };
+  setTimeout(() => document.addEventListener("click", closer), 0);
+}
+
 async function aiInlineFill({ anchor, label, prompt, vars }) {
   if (!AI.isConfigured()) {
     toast("No API key. Fill config.local.js or open Settings.", 4000);

@@ -9,7 +9,12 @@ function currentWordCount() {
 }
 function updateStatus() {
   const line = currentLine();
-  $("#stat-type").textContent = line ? prettyType(line.dataset.type) : "Action";
+  const stType = $("#stat-type");
+  const type = line ? (line.dataset.type || "action") : "action";
+  if (stType) {
+    stType.textContent = prettyType(type);
+    stType.dataset.type = type;
+  }
   const words = currentWordCount();
   const pages = Math.max(0, Math.ceil(linesToPages()));
   const scenes = $$("#editor > div[data-type='scene']").length;
@@ -124,13 +129,16 @@ function renderScenesSidebar(body) {
     el.addEventListener("click", () => navigateToLine(parseInt(el.dataset.line,10), el));
     el.addEventListener("dragstart", e => { e.dataTransfer.setData("text/plain", el.dataset.line); el.classList.add("dragging"); });
     el.addEventListener("dragend", () => el.classList.remove("dragging"));
-    el.addEventListener("dragover", e => { e.preventDefault(); el.classList.add("active"); });
-    el.addEventListener("dragleave", () => el.classList.remove("active"));
+    el.addEventListener("dragover", e => { e.preventDefault(); el.classList.add("drag-over"); });
+    el.addEventListener("dragleave", () => el.classList.remove("drag-over"));
     el.addEventListener("drop", e => {
-      e.preventDefault(); el.classList.remove("active");
+      e.preventDefault(); el.classList.remove("drag-over");
       const from = parseInt(e.dataTransfer.getData("text/plain"),10);
       const to = parseInt(el.dataset.line,10);
-      moveScene(from, to);
+      if (from !== to) {
+        moveScene(from, to);
+        toast("Scene moved · ⌘Z to undo isn't supported yet — drag back to revert");
+      }
     });
   });
 }
@@ -140,17 +148,99 @@ function renderCastSidebar(body) {
   if (cast.length === 0) { body.innerHTML = `<div class="side-empty">No characters yet.</div>`; return; }
   const max = Math.max(1, ...cast.map(c => c.words));
   body.innerHTML = cast.map(c => `
-    <div class="cast-item" data-name="${escapeHtml(c.name)}">
+    <div class="cast-item" data-name="${escapeHtml(c.name)}" title="Click to jump · right-click for rename / bible">
       <div class="ci-name">${escapeHtml(c.name)}</div>
       <div class="ci-meta">${c.cues} cues · ${c.words} words · ${c.scenes} scenes</div>
       <div class="ci-bar"><div class="ci-fill" style="width:${(c.words/max*100).toFixed(0)}%"></div></div>
     </div>`).join("");
-  $$(".cast-item", body).forEach(el => el.addEventListener("click", () => {
-    const name = el.dataset.name;
-    const first = $$("#editor > div[data-type='character']").find(d =>
-      d.textContent.replace(/\s*\(.*\)\s*$/,"").trim().toUpperCase() === name);
-    if (first) navigateToLine($$("#editor > div").indexOf(first), null);
-  }));
+  $$(".cast-item", body).forEach(el => {
+    el.addEventListener("click", () => {
+      const name = el.dataset.name;
+      const first = $$("#editor > div[data-type='character']").find(d =>
+        d.textContent.replace(/\s*\(.*\)\s*$/,"").trim().toUpperCase() === name);
+      if (first) navigateToLine($$("#editor > div").indexOf(first), null);
+    });
+    el.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      showCastContextMenu(e.clientX, e.clientY, el.dataset.name);
+    });
+  });
+}
+
+/* Right-click on a cast row → rename throughout script (cues + action
+   mentions + Bible) or jump to Bible card. */
+function showCastContextMenu(x, y, name) {
+  const existing = document.querySelector(".sz-ctxmenu"); if (existing) existing.remove();
+  const menu = document.createElement("div");
+  menu.className = "sz-ctxmenu";
+  menu.style.cssText = `position:fixed;left:${x}px;top:${y}px;background:var(--paper);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow-2);padding:4px;z-index:200;min-width:200px;font-size:12.5px`;
+  const items = [
+    { label: "Open in Bible", run: () => {
+        setView("bible");
+        setTimeout(() => {
+          const cards = $$(".bib-char");
+          const target = cards.find(c => c.querySelector(".bib-name")?.value?.toUpperCase() === name);
+          target?.scrollIntoView({ behavior: "smooth", block: "center" });
+          target?.classList.add("nav-target");
+          setTimeout(() => target?.classList.remove("nav-target"), 1200);
+        }, 200);
+      }},
+    { label: "Rename throughout…", run: () => renameCharacterFlow(name) },
+    { label: "Jump to first cue", run: () => {
+        const first = $$("#editor > div[data-type='character']").find(d =>
+          d.textContent.replace(/\s*\(.*\)\s*$/,"").trim().toUpperCase() === name);
+        if (first) navigateToLine($$("#editor > div").indexOf(first), null);
+      }},
+  ];
+  menu.innerHTML = items.map((it,i) => `<div class="sz-mi" data-i="${i}" style="padding:6px 10px;border-radius:5px;cursor:pointer">${escapeHtml(it.label)}</div>`).join("");
+  document.body.appendChild(menu);
+  $$(".sz-mi", menu).forEach(el => {
+    el.addEventListener("mouseenter", () => el.style.background = "var(--hl)");
+    el.addEventListener("mouseleave", () => el.style.background = "transparent");
+    el.addEventListener("click", () => { items[parseInt(el.dataset.i,10)].run(); menu.remove(); });
+  });
+  const closer = (ev) => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener("click", closer); } };
+  setTimeout(() => document.addEventListener("click", closer), 0);
+}
+
+async function renameCharacterFlow(oldName) {
+  const fresh = await (window.bsPrompt ? window.bsPrompt({
+    title: "Rename character",
+    label: `Rename "${oldName}" everywhere`,
+    placeholder: "NEW NAME",
+    defaultValue: oldName,
+    okText: "Rename",
+  }) : Promise.resolve(prompt(`Rename ${oldName} to:`, oldName)));
+  if (!fresh) return;
+  const newName = fresh.trim().toUpperCase();
+  if (!newName || newName === oldName) return;
+  let cueCount = 0, mentionCount = 0;
+  $$("#editor > div").forEach(d => {
+    const t = d.textContent || "";
+    if (d.dataset.type === "character") {
+      // Compare against the bare name (strip any trailing parens like (V.O.) or (CONT'D))
+      const bare = t.replace(/\s*\(.*\)\s*$/, "").trim().toUpperCase();
+      if (bare === oldName) {
+        const suffix = t.match(/\s*\(.*\)\s*$/);
+        d.textContent = newName + (suffix ? suffix[0] : "");
+        cueCount++;
+        markRevised(d);
+      }
+    } else if (d.dataset.type === "action" || d.dataset.type === "dialogue" || d.dataset.type === "parenthetical") {
+      // Replace whole-word ALL-CAPS mentions in body text. Use word boundaries.
+      const re = new RegExp("\\b" + oldName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "g");
+      if (re.test(t)) {
+        d.textContent = t.replace(re, newName);
+        mentionCount += (t.match(re) || []).length;
+        markRevised(d);
+      }
+    }
+  });
+  // Bible character entry — Bible.renameCharacter writes through to the
+  // live store (episode + series if applicable).
+  if (window.Bible?.renameCharacter) Bible.renameCharacter(oldName, newName);
+  reclassifyAll(); setDirty(); updateSidebar();
+  toast(`Renamed ${oldName} → ${newName} · ${cueCount} cue${cueCount===1?"":"s"}${mentionCount?`, ${mentionCount} mention${mentionCount===1?"":"s"}`:""}`);
 }
 function renderCommentsSidebar(body) {
   const comments = Storage.getComments(appState.projectId);
@@ -515,8 +605,9 @@ function updateInspector() {
         <dt>Logline</dt><dd style="white-space:normal">${escapeHtml(appState.logline) || "<i style='color:var(--muted)'>none</i>"}</dd>
         <dt>Theme</dt><dd>${escapeHtml(appState.theme) || "—"}</dd>
       </div>
-      <div style="display:flex;gap:6px;margin-top:8px">
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
         <button class="btn small" id="ins-logline">Open logline workshop</button>
+        <button class="btn small" id="ins-titlepage">Title page…</button>
       </div>
     </div>
     <div class="ins-section">
@@ -526,6 +617,10 @@ function updateInspector() {
       <label style="display:flex;gap:6px;font-size:12px;margin:4px 0"><input type="checkbox" id="opt-typewriter" ${appState.typewriter?"checked":""}/> Typewriter mode</label>
       <label style="display:flex;gap:6px;font-size:12px;margin:4px 0"><input type="checkbox" id="opt-smart-typo" ${appState.smartTypo?"checked":""}/> Smart typography</label>
       <label style="display:flex;gap:6px;font-size:12px;margin:4px 0"><input type="checkbox" id="opt-scene-num" ${appState.showSceneNumbersInPdf?"checked":""}/> Scene numbers in PDF</label>
+      <label style="display:flex;gap:6px;font-size:12px;margin:4px 0;align-items:flex-start" title="Production mode: locks current scene numbers so inserted scenes become 12A, 12B, etc. Industry-standard for shooting scripts.">
+        <input type="checkbox" id="opt-prod-locked" ${appState.prodLocked?"checked":""}/>
+        <span>Lock scene numbers (production)<br><span style="color:var(--muted);font-size:11px">New scenes get 12A · 12B suffixes</span></span>
+      </label>
     </div>
     <div class="ins-section">
       <h4>Breakdown — all scenes</h4>
@@ -555,7 +650,12 @@ function updateInspector() {
   $("#opt-typewriter")?.addEventListener("change", e => { setTypewriter(e.target.checked); });
   $("#opt-smart-typo")?.addEventListener("change", e => { appState.smartTypo = e.target.checked; setDirty(); });
   $("#opt-scene-num")?.addEventListener("change", e => { appState.showSceneNumbersInPdf = e.target.checked; setDirty(); });
+  $("#opt-prod-locked")?.addEventListener("change", e => {
+    if (e.target.checked) lockSceneNumbers(); else unlockSceneNumbers();
+    reclassifyAll();
+  });
   $("#ins-logline")?.addEventListener("click", openLoglineWorkshop);
+  $("#ins-titlepage")?.addEventListener("click", openTitlePage);
   $("#ins-template-sel")?.addEventListener("change", e => {
     appState.template = e.target.value || null;
     setDirty();
