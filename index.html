@@ -82,12 +82,12 @@
     <div class="brand small"><span class="brand-mark">BS</span><span class="brand-text">Bestscreen</span></div>
 
     <nav class="views" role="tablist">
-      <button class="view-tab active" data-view="script"><svg class="ic"><use href="#i-script"/></svg><span>Script</span></button>
-      <button class="view-tab" data-view="beats"><svg class="ic"><use href="#i-beats"/></svg><span>Beat Board</span></button>
-      <button class="view-tab" data-view="cards"><svg class="ic"><use href="#i-cards"/></svg><span>Cards</span></button>
-      <button class="view-tab" data-view="bible"><svg class="ic"><use href="#i-bible"/></svg><span>Bible</span></button>
-      <button class="view-tab" data-view="timeline"><svg class="ic"><use href="#i-timeline"/></svg><span>Timeline</span></button>
-      <button class="view-tab" data-view="stats"><svg class="ic"><use href="#i-stats"/></svg><span>Stats</span></button>
+      <button class="view-tab active" data-view="script" role="tab" aria-selected="true"><svg class="ic"><use href="#i-script"/></svg><span>Script</span></button>
+      <button class="view-tab" data-view="beats" role="tab" aria-selected="false"><svg class="ic"><use href="#i-beats"/></svg><span>Beat Board</span></button>
+      <button class="view-tab" data-view="cards" role="tab" aria-selected="false"><svg class="ic"><use href="#i-cards"/></svg><span>Cards</span></button>
+      <button class="view-tab" data-view="bible" role="tab" aria-selected="false"><svg class="ic"><use href="#i-bible"/></svg><span>Bible</span></button>
+      <button class="view-tab" data-view="timeline" role="tab" aria-selected="false"><svg class="ic"><use href="#i-timeline"/></svg><span>Timeline</span></button>
+      <button class="view-tab" data-view="stats" role="tab" aria-selected="false"><svg class="ic"><use href="#i-stats"/></svg><span>Stats</span></button>
     </nav>
 
     <div class="doc-meta">
@@ -127,11 +127,11 @@
   <div class="app" id="app">
 
     <aside class="sidebar" id="sidebar">
-      <div class="side-tabs">
-        <button class="side-tab active" data-tab="scenes"><svg class="ic"><use href="#i-script"/></svg>Scenes</button>
-        <button class="side-tab" data-tab="characters"><svg class="ic"><use href="#i-eye"/></svg>Cast</button>
-        <button class="side-tab" data-tab="comments"><svg class="ic"><use href="#i-comment"/></svg>Notes</button>
-        <button class="side-tab" data-tab="threads"><svg class="ic"><use href="#i-tag"/></svg>Threads</button>
+      <div class="side-tabs" role="tablist">
+        <button class="side-tab active" data-tab="scenes" role="tab" aria-selected="true"><svg class="ic"><use href="#i-script"/></svg>Scenes</button>
+        <button class="side-tab" data-tab="characters" role="tab" aria-selected="false"><svg class="ic"><use href="#i-eye"/></svg>Cast</button>
+        <button class="side-tab" data-tab="comments" role="tab" aria-selected="false"><svg class="ic"><use href="#i-comment"/></svg>Notes</button>
+        <button class="side-tab" data-tab="threads" role="tab" aria-selected="false"><svg class="ic"><use href="#i-tag"/></svg>Threads</button>
       </div>
       <div class="side-body" id="side-body"></div>
     </aside>
@@ -142,7 +142,7 @@
       <div class="view view-script active" id="view-script">
         <div class="stage" id="stage">
           <div class="paper" id="paper">
-            <div id="editor" contenteditable="true" spellcheck="true"></div>
+            <div id="editor" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Screenplay editor"></div>
           </div>
         </div>
       </div>
@@ -383,8 +383,8 @@
 
 <!-- New project -->
 <div class="modal-backdrop" id="modal-newproj">
-  <div class="modal">
-    <h2>New screenplay</h2>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-newproj-title">
+    <h2 id="modal-newproj-title">New screenplay</h2>
     <div class="form-row"><label>Title</label><input type="text" id="np-name" placeholder="The Last Train" /></div>
     <div class="form-row"><label>Type</label>
       <select id="np-type">
@@ -421,7 +421,7 @@
 
 <!-- New series -->
 <div class="modal-backdrop" id="modal-newseries">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-newseries-title">
     <h2>New series</h2>
     <div class="form-row"><label>Name</label><input type="text" id="ns-name" placeholder="Stranger Hour" /></div>
     <div class="form-row"><label>Type</label>
@@ -440,7 +440,7 @@
 
 <!-- Settings -->
 <div class="modal-backdrop" id="modal-settings">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-settings-title">
     <h2>Settings</h2>
     <div class="form-row"><label>Your name</label><input type="text" id="st-author" placeholder="Will be used on title pages" /></div>
     <h3 style="margin-top:18px;margin-bottom:8px">AI assistant (bring your own key)</h3>
@@ -463,7 +463,7 @@
 
 <!-- Title page -->
 <div class="modal-backdrop" id="modal-titlepage">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titlepage-title">
     <h2>Title page</h2>
     <div class="form-row"><label>Title</label><input type="text" id="tp-title" /></div>
     <div class="form-row"><label>Credit</label><input type="text" id="tp-credit" placeholder="Written by" /></div>
@@ -484,7 +484,7 @@
 
 <!-- Sprint setup -->
 <div class="modal-backdrop" id="modal-sprint">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-sprint-title">
     <h2>Sprint setup</h2>
     <div class="form-row"><label>Word goal</label><input type="number" id="sprint-goal" value="500" /></div>
     <div class="form-row"><label>Duration (min)</label><input type="number" id="sprint-min" value="15" /></div>
@@ -498,7 +498,7 @@
 
 <!-- Diff -->
 <div class="modal-backdrop" id="modal-diff">
-  <div class="modal big">
+  <div class="modal big" role="dialog" aria-modal="true" aria-labelledby="modal-diff-title">
     <h2>Compare snapshot <span id="diff-name" class="muted"></span></h2>
     <div class="form-row" style="margin-bottom:10px">
       <label>vs</label>
@@ -519,7 +519,7 @@
 
 <!-- Logline workshop -->
 <div class="modal-backdrop" id="modal-logline">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-logline-title">
     <h2>Logline workshop</h2>
     <p class="help">A good logline is one sentence with: <b>WHO</b> (protagonist + something memorable about them), <b>WHEN/WHERE</b> (setting + inciting incident), <b>MUST</b> (the goal), <b>OR ELSE</b> (the stakes).</p>
     <div class="form-row"><label>Logline</label><span class="lab-row" style="flex:1"><input type="text" id="ll-input" /><button class="btn small" id="ll-ai" title="AI: generate a logline candidate from the full script">✨ AI</button></span></div>
@@ -533,7 +533,7 @@
 
 <!-- Share -->
 <div class="modal-backdrop" id="modal-share">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-share-title">
     <h2>Share</h2>
     <p class="help">Generates a self-contained, read-only HTML file you can email or upload anywhere. No account needed for the reader. Annotation mode lets them leave inline comments that they can email back.</p>
     <div class="form-row"><label>Mode</label>
@@ -553,7 +553,7 @@
 
 <!-- Coverage -->
 <div class="modal-backdrop" id="modal-coverage">
-  <div class="modal big">
+  <div class="modal big" role="dialog" aria-modal="true" aria-labelledby="modal-coverage-title">
     <h2>Coverage</h2>
     <div id="coverage-body"></div>
     <div class="actions">
@@ -566,7 +566,7 @@
 
 <!-- Beat-template fidelity -->
 <div class="modal-backdrop" id="modal-fidelity">
-  <div class="modal big">
+  <div class="modal big" role="dialog" aria-modal="true" aria-labelledby="modal-fidelity-title">
     <h2>Template fidelity</h2>
     <p class="help">Each row is a beat your template expects. Mark scenes with a beat tag in the Inspector. Green = on target; red = far off; gray = not yet marked.</p>
     <div id="fidelity-body"></div>
@@ -576,7 +576,7 @@
 
 <!-- Sides export -->
 <div class="modal-backdrop" id="modal-sides">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-sides-title">
     <h2>Sides export</h2>
     <p class="help">Pick the scenes a performer needs. Bestscreen will export just those, with character names and lines isolated.</p>
     <div id="sides-list" class="sides-list"></div>
@@ -591,7 +591,7 @@
 
 <!-- Continuity -->
 <div class="modal-backdrop" id="modal-continuity">
-  <div class="modal big">
+  <div class="modal big" role="dialog" aria-modal="true" aria-labelledby="modal-continuity-title">
     <h2>Continuity warnings</h2>
     <div id="continuity-body"></div>
     <div class="actions"><button class="btn" id="cont-close">Close</button></div>
@@ -600,7 +600,7 @@
 
 <!-- Help -->
 <div class="modal-backdrop" id="modal-help">
-  <div class="modal big">
+  <div class="modal big" role="dialog" aria-modal="true" aria-labelledby="modal-help-title">
     <h2>Keyboard reference</h2>
     <div class="kb-cols">
       <div>
@@ -653,7 +653,7 @@
 
 <!-- Rename modal — used by character rename -->
 <div class="modal-backdrop" id="modal-rename">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-rename-title">
     <h2>Rename character</h2>
     <div class="form-row"><label>From</label><input type="text" id="rename-from" placeholder="JOHN" /></div>
     <div class="form-row"><label>To</label><input type="text" id="rename-to" placeholder="JONATHAN" /></div>
@@ -672,7 +672,7 @@
 
 <!-- Scene Zoom workspace -->
 <div class="modal-backdrop" id="modal-scenezoom">
-  <div class="modal sz-modal">
+  <div class="modal sz-modal" role="dialog" aria-modal="true" aria-label="Scene Zoom">
     <div class="sz-titlebar">
       <div class="sz-titlebar-text">
         <span class="sz-title">Scene Zoom</span>

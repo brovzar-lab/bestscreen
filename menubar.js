@@ -98,7 +98,7 @@
           },
         },
         { label: "Typewriter Mode", run: () => toggleTypewriter(), checked: () => appState.typewriter },
-        { label: "Dark Mode", run: () => cycleTheme() },
+        { label: "Switch Theme", run: () => cycleTheme() },
         { sep: true },
         {
           label: "Page Breaks",

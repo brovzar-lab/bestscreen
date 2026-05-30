@@ -1,6 +1,16 @@
 "use strict";
 /* panels.js — status bar, sidebar (scenes/cast/comments/threads), sentiment & pace overlays, comments (anchor/popover/markers), lightweight change log, inspector panel. */
 
+/* ---- Panel toggle helpers (used by menubar.js) ---- */
+function toggleSidebar() {
+  const app = $("#app");
+  if (app) app.dataset.sidebar = app.dataset.sidebar === "hidden" ? "" : "hidden";
+}
+function toggleInspector() {
+  const app = $("#app");
+  if (app) app.dataset.inspector = app.dataset.inspector === "hidden" ? "" : "hidden";
+}
+
 /* =====================================================================
  * Status, scenes, characters
  * =================================================================== */
