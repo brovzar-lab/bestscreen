@@ -98,6 +98,7 @@
           },
         },
         { label: "Typewriter Mode", run: () => toggleTypewriter(), checked: () => appState.typewriter },
+        { label: "Key Sounds", run: () => { appState.typewriterSound = !appState.typewriterSound; }, checked: () => appState.typewriterSound },
         { label: "Switch Theme", run: () => cycleTheme() },
         { sep: true },
         {

@@ -165,6 +165,7 @@ let appState = {
   showSceneNumbersInPdf: true,
   showPageBreaks: false,
   typewriter: false,
+  typewriterSound: false,
   sprint: null,
   template: null,
   logline: "",
@@ -370,7 +371,14 @@ function autosave() {
       pageView: appState.pageView,
     });
     Storage.updateProject(appState.projectId, { lastModified: Date.now(), name: appState.titleMeta.title || Storage.getProject(appState.projectId)?.name });
-    setTimeout(() => { $("#save-state").classList.remove("saving"); setSaved(); }, 80);
+    setTimeout(() => {
+      const ss = $("#save-state");
+      ss.classList.remove("saving");
+      setSaved();
+      // Design spell: brief green flash on the dot
+      ss.classList.add("just-saved");
+      setTimeout(() => ss.classList.remove("just-saved"), 600);
+    }, 80);
   } catch (e) { console.warn("autosave failed", e); }
 }
 

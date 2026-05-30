@@ -235,14 +235,33 @@ input, select, textarea { font: inherit; color: inherit; }
   display: inline-flex; gap: 6px; align-items: center;
   font-size: 11px;
   color: var(--muted);
+  transition: color 0.2s;
 }
 .save-state .dot {
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--good);
+  transition: background 0.25s, transform 0.25s cubic-bezier(.34,1.56,.64,1);
 }
-.save-state.dirty .dot { background: var(--warn); }
-.save-state.saving .dot { background: var(--accent); animation: pulse 1s infinite; }
-@keyframes pulse { 50% { opacity: .3; } }
+.save-state .lbl {
+  transition: opacity 0.15s;
+}
+.save-state.dirty .dot { background: var(--warn); transform: scale(1.3); }
+.save-state.dirty .lbl { color: var(--warn); }
+.save-state.saving .dot { background: var(--accent); animation: savePulse 0.8s infinite; }
+@keyframes savePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: .3; transform: scale(0.7); }
+}
+/* After save: brief green flash */
+.save-state.just-saved .dot {
+  background: var(--good);
+  animation: saveFlash 0.5s ease-out;
+}
+@keyframes saveFlash {
+  0%  { transform: scale(1.8); opacity: 0.6; }
+  60% { transform: scale(0.9); opacity: 1; }
+  100%{ transform: scale(1);   opacity: 1; }
+}
 
 .tb-actions {
   display: flex; align-items: center; gap: 2px;
@@ -833,11 +852,16 @@ body[data-prod-locked="true"] #editor > div[data-type="scene"][data-scene-num]::
   outline-offset: 1px;
 }
 
-/* Highlight scene currently in view */
+/* Highlight scene currently in view — shimmer sweep */
 #editor > div[data-type="scene"].nav-target {
   background: var(--accent-soft);
   border-radius: 3px;
-  transition: background 1s ease-out;
+  animation: sceneShimmer 1.2s ease-out;
+}
+@keyframes sceneShimmer {
+  0%   { background: linear-gradient(90deg, transparent 0%, var(--accent-soft) 0%, var(--accent) 0%, transparent 0%); background-size: 200% 100%; background-position: -100% 0; }
+  30%  { background: var(--accent-soft); opacity: 1; }
+  100% { background: transparent; }
 }
 
 /* ============ Beat Board ============ */
@@ -1993,6 +2017,16 @@ kbd {
 .dash-result {
   background: var(--paper); border: 1px solid var(--line);
   border-radius: 8px; padding: 10px 14px; margin-bottom: 8px;
+  animation: resultIn 0.28s cubic-bezier(.22,1,.36,1) both;
+}
+.dash-result:nth-child(1) { animation-delay: 0ms; }
+.dash-result:nth-child(2) { animation-delay: 40ms; }
+.dash-result:nth-child(3) { animation-delay: 80ms; }
+.dash-result:nth-child(4) { animation-delay: 120ms; }
+.dash-result:nth-child(5) { animation-delay: 160ms; }
+@keyframes resultIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 .dash-result-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
 .dash-result-title { font-weight: 600; font-size: 13px; }
@@ -2129,8 +2163,35 @@ kbd {
   background: var(--paper);
   border: 1px dashed var(--line);
   border-radius: 14px;
+  position: relative;
+  overflow: hidden;
 }
-.dash-empty-art { font-size: 60px; color: var(--accent); opacity: .6; margin-bottom: 12px; font-family: var(--font-disp); }
+/* Cinematic ambient glow behind empty state */
+.dash-empty::before {
+  content: '';
+  position: absolute;
+  top: -40%; left: 50%; translate: -50% 0;
+  width: 340px; height: 340px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+  opacity: 0.06;
+  pointer-events: none;
+  animation: emptyGlow 6s ease-in-out infinite alternate;
+}
+@keyframes emptyGlow {
+  0%   { opacity: 0.04; scale: 0.9; }
+  100% { opacity: 0.09; scale: 1.1; }
+}
+.dash-empty-art {
+  font-size: 64px; color: var(--accent); opacity: .7;
+  margin-bottom: 16px; font-family: var(--font-disp);
+  animation: emptyPen 3s ease-in-out infinite;
+  display: inline-block;
+}
+@keyframes emptyPen {
+  0%, 100% { transform: rotate(-3deg) translateY(0); }
+  50%      { transform: rotate(3deg)  translateY(-4px); }
+}
 
 .dash-streak-card {
   margin-top: 32px;
@@ -3450,12 +3511,18 @@ body[data-pageview="true"] #editor > div[data-page-end] {
   border-radius: 0 0 4px 4px;
   /* Bottom border = bottom edge of the paper card */
   border-bottom: 1px solid rgba(0,0,0,0.12);
-  /* Shadow below for depth + clear separation */
+  /* Stacked-paper depth: layered shadow for manuscript feel */
   box-shadow:
     0 3px 8px rgba(0,0,0,0.10),
     0 1px 2px rgba(0,0,0,0.06),
     2px 0 4px rgba(0,0,0,0.04),
-    -2px 0 4px rgba(0,0,0,0.04);
+    -2px 0 4px rgba(0,0,0,0.04),
+    /* second sheet peeking out */
+    2px 6px 0 -1px var(--paper, #fff),
+    2px 7px 3px -1px rgba(0,0,0,0.06),
+    /* third sheet */
+    4px 10px 0 -2px var(--paper, #fff),
+    4px 11px 3px -2px rgba(0,0,0,0.04);
   /* === THE PAGE GAP === */
   margin-bottom: 48px !important;
 }
@@ -3570,12 +3637,25 @@ body[data-pageview="true"][data-theme="court"] #editor > div[data-page-end] {
 .dash-guide-step {
   display: flex; gap: 12px; align-items: flex-start;
   font-size: 13px; line-height: 1.45;
+  animation: guideStepIn 0.4s cubic-bezier(.22,1,.36,1) both;
+}
+.dash-guide-step:nth-child(1) { animation-delay: 0.1s; }
+.dash-guide-step:nth-child(2) { animation-delay: 0.2s; }
+.dash-guide-step:nth-child(3) { animation-delay: 0.3s; }
+.dash-guide-step:nth-child(4) { animation-delay: 0.4s; }
+@keyframes guideStepIn {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
 .dash-guide-num {
   flex: 0 0 26px; height: 26px;
   background: var(--accent); color: #fff;
   border-radius: 50%; font-weight: 700;
   display: grid; place-items: center; font-size: 12px;
+  transition: transform 0.2s;
+}
+.dash-guide-step:hover .dash-guide-num {
+  transform: scale(1.15);
 }
 
 /* Welcome strip */

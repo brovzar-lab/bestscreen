@@ -827,6 +827,40 @@ function tightenTypewriter() {
   }
 }
 
+/* --- Design Spell: Typewriter key sound (opt-in) --- */
+const TypewriterSound = (() => {
+  let ctx = null;
+  function click() {
+    if (!appState.typewriter || !appState.typewriterSound) return;
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // 4ms burst of shaped noise = mechanical key click
+    const dur = 0.004;
+    const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * dur), ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      // Envelope: fast attack, fast decay
+      const env = 1 - (i / data.length);
+      data[i] = (Math.random() * 2 - 1) * env * 0.15;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.12;
+    src.connect(gain).connect(ctx.destination);
+    src.start();
+  }
+  return { click };
+})();
+// Hook into editor keydown — must run after editor.addEventListener in app.js
+document.addEventListener("DOMContentLoaded", () => {
+  const ed = document.getElementById("editor");
+  if (ed) ed.addEventListener("keydown", e => {
+    if (e.key.length === 1 || e.key === "Enter" || e.key === "Backspace") {
+      TypewriterSound.click();
+    }
+  });
+});
+
 /* =====================================================================
  * Voice dictation
  * =================================================================== */
