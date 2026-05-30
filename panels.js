@@ -78,8 +78,12 @@ function applyPageBreaks() {
   const editor = document.getElementById("editor");
   if (!editor) return;
   const all = $$("#editor > div");
-  // Clear any prior markers first so toggling off cleans up cleanly.
-  all.forEach(d => { d.removeAttribute("data-page-end"); d.removeAttribute("data-page-start"); });
+  // Clear any prior markers and height enforcement first.
+  all.forEach(d => {
+    d.removeAttribute("data-page-end");
+    d.removeAttribute("data-page-start");
+    d.style.removeProperty("padding-bottom");
+  });
   if (!appState.showPageBreaks && !appState.pageView) return;
   let used = 0;
   let nextThreshold = LINES_PER_PAGE;
@@ -105,6 +109,46 @@ function applyPageBreaks() {
       needsPageStart = true;
     }
   });
+
+  // ---- Enforce real 11" page height in Page View mode ----
+  // US Letter = 11 inches. At 96 CSS dpi = 1056px.
+  // The page has 1in top padding and 1in bottom padding (from CSS),
+  // leaving 9in = 864px for content. We measure the actual content
+  // height between each page-start and page-end, and if it's short,
+  // increase the page-end's padding-bottom to fill the page.
+  if (!appState.pageView) return;
+  const PAGE_HEIGHT_PX = 11 * 96; // 1056px
+  const TOP_PAD = 1 * 96;         // 96px (1in from CSS padding-top)
+  const BOT_PAD = 1 * 96;         // 96px (1in base padding-bottom)
+  const CONTENT_AREA = PAGE_HEIGHT_PX - TOP_PAD - BOT_PAD; // 864px
+
+  // Collect page groups: each group = [pageStart ... pageEnd]
+  const allLines = Array.from(all);
+  let groupStart = -1;
+  for (let i = 0; i < allLines.length; i++) {
+    const el = allLines[i];
+    if (el.hasAttribute("data-page-start")) {
+      groupStart = i;
+    }
+    if (el.hasAttribute("data-page-end") && groupStart >= 0) {
+      // Measure content height of lines in this page group
+      let contentH = 0;
+      for (let j = groupStart; j <= i; j++) {
+        // Get the raw content height (excluding padding added by page-start/end CSS)
+        const rect = allLines[j].getBoundingClientRect();
+        contentH += rect.height;
+      }
+      // Subtract the top padding (already included in getBoundingClientRect of page-start)
+      // and the base bottom padding (already included in page-end)
+      const actualContent = contentH - TOP_PAD - BOT_PAD;
+      if (actualContent < CONTENT_AREA) {
+        const deficit = CONTENT_AREA - actualContent;
+        // Add the deficit to page-end padding-bottom (on top of the 1in CSS base)
+        el.style.paddingBottom = `calc(1in + ${deficit}px)`;
+      }
+      groupStart = -1;
+    }
+  }
 }
 
 function togglePageView(force) {
