@@ -143,8 +143,8 @@ input, select, textarea { font: inherit; color: inherit; }
    ---------------------------------------------------------------------------- */
 .titlebar {
   display: grid;
-  /* back | brand | views | doc-meta(1fr) | actions */
-  grid-template-columns: auto auto auto 1fr auto;
+  /* back | brand | doc-meta(1fr) | views | actions */
+  grid-template-columns: auto auto 1fr auto auto;
   align-items: center;
   gap: 10px;
   height: 48px;
