@@ -3545,18 +3545,6 @@ body[data-pageview="true"] #editor > div[data-page-end]::after {
   pointer-events: none;
 }
 
-/* Faint dashed rule near bottom of page */
-body[data-pageview="true"] #editor > div[data-page-end]::before {
-  content: "";
-  position: absolute;
-  left: 1in;
-  right: 1in;
-  bottom: 0.25in;
-  height: 0;
-  border-bottom: 1px dashed rgba(0,0,0,0.08);
-  pointer-events: none;
-}
-
 /* =============================================
    Midnight (dark) theme — page view overrides
    ============================================= */
@@ -3586,10 +3574,6 @@ body[data-pageview="true"][data-theme="midnight"] #editor > div[data-page-end] {
     -2px 0 6px rgba(0,0,0,0.3);
 }
 
-[data-theme="midnight"] body[data-pageview="true"] #editor > div[data-page-end]::before,
-body[data-pageview="true"][data-theme="midnight"] #editor > div[data-page-end]::before {
-  border-bottom-color: rgba(255,255,255,0.06);
-}
 
 /* =============================================
    Court (high-contrast light) — page view overrides

@@ -585,11 +585,55 @@ function fdxToFountain(xml) {
   // Full Final Draft .fdx → Fountain converter
   // Handles multi-Text elements, DualDialogue, title page, scene numbers,
   // empty paragraphs as spacing, and CONT'D / MORE stripping.
+  //
+  // IMPORTANT: Many FDX files (especially from older Final Draft or
+  // WriterSolo/Highland exports) do NOT have a <TitlePage> element.
+  // Instead, the title page content appears as centered General/Title
+  // paragraphs before the first Scene Heading inside <Content>.
+  // We detect this pattern and extract structured title metadata.
   const doc = new DOMParser().parseFromString(xml, "application/xml");
 
   let out = "";
 
-  // ---- Title page (structured) ----
+  // ---- Helper: extract text from a Paragraph element ----
+  function paraText(p, paragraphType) {
+    const texts = Array.from(p.querySelectorAll(":scope > Text"));
+    if (texts.length === 0) return (p.textContent || "").trim();
+    const skipBold = ["Scene Heading", "Character", "Transition"].includes(paragraphType);
+    return texts.map(t => {
+      let s = t.textContent || "";
+      const style = (t.getAttribute("Style") || "").toLowerCase();
+      if (!style) return s;
+      const hasBold = style.includes("bold");
+      const hasItalic = style.includes("italic");
+      const hasUnderline = style.includes("underline");
+      const applyBold = hasBold && !skipBold;
+      if (applyBold && hasItalic) s = `***${s}***`;
+      else if (applyBold) s = `**${s}**`;
+      else if (hasItalic) s = `*${s}*`;
+      if (hasUnderline) s = `_${s}_`;
+      return s;
+    }).join("").trim();
+  }
+
+  // ---- Helper: extract scene number if present ----
+  function sceneNum(p) {
+    // Check both SceneProperties and the Number attribute on Paragraph itself
+    const sp = p.querySelector("SceneProperties");
+    if (sp) {
+      const num = sp.getAttribute("Number") || "";
+      if (num) return num;
+    }
+    const num = p.getAttribute("Number") || "";
+    return num;
+  }
+
+  // ---- Helper: strip (CONT'D) / (cont'd) from character names ----
+  function stripContd(name) {
+    return name.replace(/\s*\(CONT'?D\)\s*$/i, "").trim();
+  }
+
+  // ---- Try structured <TitlePage> first ----
   const titlePage = doc.querySelector("TitlePage");
   if (titlePage) {
     const tpParas = titlePage.querySelectorAll("Content > Paragraph");
@@ -599,9 +643,8 @@ function fdxToFountain(xml) {
       const texts = Array.from(p.querySelectorAll("Text"));
       const val = texts.map(t => (t.textContent || "").trim()).filter(Boolean).join(" ");
       if (!val) return;
-      if (!tpMap[type]) tpMap[type] = val; // first occurrence wins
+      if (!tpMap[type]) tpMap[type] = val;
     });
-    // Map FDX title page types to Fountain keys
     if (tpMap["Title"] || tpMap[""])   out += `Title: ${tpMap["Title"] || tpMap[""]}\n`;
     if (tpMap["Credit"])              out += `Credit: ${tpMap["Credit"]}\n`;
     if (tpMap["Author"])              out += `Author: ${tpMap["Author"]}\n`;
@@ -621,67 +664,123 @@ function fdxToFountain(xml) {
     if (out) out += "\n";
   }
 
-  // ---- Helper: extract text from a Paragraph element ----
-  // Reads the Style attribute from each <Text> child and wraps content
-  // in Fountain inline markup: **bold**, *italic*, _underline_.
-  //
-  // paragraphType: FDX Paragraph Type (e.g. "Scene Heading", "Character").
-  // Scene Headings, Characters, and Transitions are inherently bold via CSS,
-  // so we skip bold markers for those types to avoid literal ** in the text.
-  function paraText(p, paragraphType) {
-    const texts = Array.from(p.querySelectorAll(":scope > Text"));
-    if (texts.length === 0) return (p.textContent || "").trim();
-    const skipBold = ["Scene Heading", "Character", "Transition"].includes(paragraphType);
-    return texts.map(t => {
-      let s = t.textContent || "";
-      const style = (t.getAttribute("Style") || "").toLowerCase();
-      if (!style) return s;
-      const hasBold = style.includes("bold");
-      const hasItalic = style.includes("italic");
-      const hasUnderline = style.includes("underline");
-      // Determine effective bold (may be skipped for inherent types)
-      const applyBold = hasBold && !skipBold;
-      // Apply combined markers
-      if (applyBold && hasItalic) {
-        s = `***${s}***`;
-      } else if (applyBold) {
-        s = `**${s}**`;
-      } else if (hasItalic) {
-        s = `*${s}*`;
-      }
-      if (hasUnderline) {
-        s = `_${s}_`;
-      }
-      return s;
-    }).join("").trim();
-  }
-
-  // ---- Helper: extract scene number if present ----
-  function sceneNum(p) {
-    const sp = p.querySelector("SceneProperties");
-    return sp ? (sp.getAttribute("Number") || "") : "";
-  }
-
-  // ---- Helper: strip (CONT'D) / (cont'd) from character names ----
-  function stripContd(name) {
-    return name.replace(/\s*\(CONT'?D\)\s*$/i, "").trim();
-  }
-
   // ---- Process body paragraphs ----
-  // Walk the Content children, which may include DualDialogue wrappers.
-  // IMPORTANT: Use "FinalDraft > Content" to skip the TitlePage's <Content>.
   const content = doc.querySelector("FinalDraft > Content");
   if (!content) return out;
-
   const topChildren = Array.from(content.children);
+
+  // ---- Detect embedded title page (no <TitlePage> tag) ----
+  // If we don't have title metadata yet, look at the paragraphs before the
+  // first Scene Heading. If they are all centered General/Title types with
+  // mostly empty lines, that's the title page.
+  if (!out) {
+    const firstSceneIdx = topChildren.findIndex(node => {
+      if (node.tagName !== "Paragraph") return false;
+      return (node.getAttribute("Type") || "") === "Scene Heading";
+    });
+
+    if (firstSceneIdx > 0) {
+      // Collect all text from centered paragraphs before the first scene heading
+      const tpTexts = [];
+      for (let i = 0; i < firstSceneIdx; i++) {
+        const node = topChildren[i];
+        if (node.tagName !== "Paragraph") continue;
+        const type = node.getAttribute("Type") || "General";
+        const alignment = (node.getAttribute("Alignment") || "").toLowerCase();
+        // Only consider centered General/Title paragraphs as title page
+        if (type !== "General" && type !== "Title") break;
+        if (alignment !== "center") break;
+        const text = paraText(node, type);
+        tpTexts.push({ text, type });
+      }
+
+      // Extract title page metadata from the collected text blocks
+      const nonEmpty = tpTexts.filter(t => t.text);
+      if (nonEmpty.length > 0) {
+        // Heuristic title page extraction:
+        // 1. First non-empty "Title" type, or first non-empty text → Title
+        // 2. "Escrito por" / "Written by" → Credit, next non-empty → Author
+        // 3. Date pattern (DD/MM/YYYY or similar) → Draft date
+        // 4. "Revision" → next non-empty → Contact
+        let title = "", credit = "", author = "", date = "", source = "", contact = "";
+        const texts = nonEmpty.map(t => t.text);
+
+        for (let i = 0; i < texts.length; i++) {
+          const t = texts[i];
+          const tLow = t.toLowerCase();
+
+          // Title: first "Title" type paragraph, or first text if no title yet
+          if (nonEmpty[i].type === "Title" && !title) {
+            title = t; continue;
+          }
+          if (!title && i === 0) { title = t; continue; }
+
+          // Credit line
+          if (/^(written by|escrito por|screenplay by|script by|by)$/i.test(t)) {
+            credit = t; continue;
+          }
+
+          // Author: text after credit, or text that looks like a name
+          if (credit && !author) { author = t; continue; }
+          if (author && !author.includes("\n") && /^[A-ZÁÉÍÓÚÑ]/.test(t) && !/^\d/.test(t) &&
+              !/(version|revision|draft|fecha)/i.test(t)) {
+            // Additional author (co-writer)
+            author += "\n" + t; continue;
+          }
+
+          // Date: matches DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD, or "Month Day, Year"
+          if (/\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/.test(t) || /\d{4}-\d{2}-\d{2}/.test(t)) {
+            date = t; continue;
+          }
+
+          // Version/Draft
+          if (/^(\d+\w*\s+)?(version|versión|draft|borrador)/i.test(t)) {
+            source = t; continue;
+          }
+
+          // Revision marker
+          if (/^revision$/i.test(t)) {
+            // Next text is the revision author/note
+            if (i + 1 < texts.length) {
+              contact = "Revision: " + texts[i + 1];
+              i++; // skip next
+            }
+            continue;
+          }
+        }
+
+        // Build Fountain title page
+        if (title) out += `Title: ${title}\n`;
+        if (credit) out += `Credit: ${credit}\n`;
+        if (author) out += `Author: ${author}\n`;
+        if (source) out += `Source: ${source}\n`;
+        if (date) out += `Draft date: ${date}\n`;
+        if (contact) out += `Contact: ${contact}\n`;
+        if (out) out += "\n";
+      }
+    }
+  }
+
+  // ---- Determine which paragraphs are title page (to skip) ----
+  const firstSceneIdx = topChildren.findIndex(node => {
+    if (node.tagName !== "Paragraph") return false;
+    return (node.getAttribute("Type") || "") === "Scene Heading";
+  });
+
   let prevType = "";
 
   for (let ci = 0; ci < topChildren.length; ci++) {
     const node = topChildren[ci];
 
+    // Skip embedded title page paragraphs (before first scene heading)
+    // if we already extracted title metadata from them
+    if (out && firstSceneIdx > 0 && ci < firstSceneIdx && node.tagName === "Paragraph") {
+      const type = node.getAttribute("Type") || "General";
+      const alignment = (node.getAttribute("Alignment") || "").toLowerCase();
+      if ((type === "General" || type === "Title") && alignment === "center") continue;
+    }
+
     if (node.tagName === "DualDialogue") {
-      // DualDialogue contains two Character+Dialogue blocks side-by-side
-      // In Fountain, the second character cue gets a ^ suffix
       const ddParas = Array.from(node.querySelectorAll("Paragraph"));
       let charCount = 0;
       for (let di = 0; di < ddParas.length; di++) {
@@ -694,16 +793,14 @@ function fdxToFountain(xml) {
         if (type === "Character") {
           charCount++;
           text = stripContd(text);
-          // Ensure blank line before character cue
           if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
           if (charCount === 2) {
-            out += text + " ^\n"; // Fountain dual-dialogue marker
+            out += text + " ^\n";
           } else {
             out += text + "\n";
           }
           prevType = "Character";
         } else if (type === "Dialogue") {
-          // Skip standalone (MORE) lines
           if (/^\(MORE\)$/i.test(text.trim())) continue;
           out += text + "\n";
           prevType = "Dialogue";
@@ -715,7 +812,6 @@ function fdxToFountain(xml) {
           prevType = type;
         }
       }
-      // Ensure spacing after DualDialogue block
       if (!out.endsWith("\n\n")) out += "\n";
       continue;
     }
@@ -746,7 +842,20 @@ function fdxToFountain(xml) {
         out += text + snSuffix + "\n\n";
         break;
       case "Action":
-        out += text + "\n\n";
+        // Check for centered alignment — these are centered text in Final Draft
+        if ((p.getAttribute("Alignment") || "").toLowerCase() === "center") {
+          out += "> " + text + " <\n\n";
+        } else {
+          out += text + "\n\n";
+        }
+        break;
+      case "General":
+        // General with center alignment → Fountain centered
+        if ((p.getAttribute("Alignment") || "").toLowerCase() === "center") {
+          out += "> " + text + " <\n\n";
+        } else {
+          out += text + "\n\n";
+        }
         break;
       case "Character":
         text = stripContd(text);
@@ -761,11 +870,10 @@ function fdxToFountain(xml) {
         break;
       case "Transition":
         if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
-        out += text + "\n\n";
+        out += "> " + text + "\n\n";
         break;
-      case "General":
       case "Lyrics":
-        out += text + "\n\n";
+        out += "~" + text + "\n\n";
         break;
       default:
         out += text + "\n\n";

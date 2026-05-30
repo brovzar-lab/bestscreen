@@ -14,7 +14,34 @@ function fdxToFountain(xml) {
   const doc = new (new JSDOM()).window.DOMParser().parseFromString(xml, "application/xml");
   let out = "";
 
-  // ---- Title page (structured) ----
+  function paraText(p, paragraphType) {
+    const texts = Array.from(p.querySelectorAll(":scope > Text"));
+    if (texts.length === 0) return (p.textContent || "").trim();
+    const skipBold = ["Scene Heading", "Character", "Transition"].includes(paragraphType);
+    return texts.map(t => {
+      let s = t.textContent || "";
+      const style = (t.getAttribute("Style") || "").toLowerCase();
+      if (!style) return s;
+      const hasBold = style.includes("bold");
+      const hasItalic = style.includes("italic");
+      const applyBold = hasBold && !skipBold;
+      if (applyBold && hasItalic) s = `***${s}***`;
+      else if (applyBold) s = `**${s}**`;
+      else if (hasItalic) s = `*${s}*`;
+      if (style.includes("underline")) s = `_${s}_`;
+      return s;
+    }).join("").trim();
+  }
+  function sceneNum(p) {
+    const sp = p.querySelector("SceneProperties");
+    if (sp) { const num = sp.getAttribute("Number") || ""; if (num) return num; }
+    return p.getAttribute("Number") || "";
+  }
+  function stripContd(name) {
+    return name.replace(/\s*\(CONT'?D\)\s*$/i, "").trim();
+  }
+
+  // ---- Try structured <TitlePage> first ----
   const titlePage = doc.querySelector("TitlePage");
   if (titlePage) {
     const tpParas = titlePage.querySelectorAll("Content > Paragraph");
@@ -44,45 +71,71 @@ function fdxToFountain(xml) {
     if (out) out += "\n";
   }
 
-  function paraText(p, paragraphType) {
-    const texts = Array.from(p.querySelectorAll(":scope > Text"));
-    if (texts.length === 0) return (p.textContent || "").trim();
-    const skipBold = ["Scene Heading", "Character", "Transition"].includes(paragraphType);
-    return texts.map(t => {
-      let s = t.textContent || "";
-      const style = (t.getAttribute("Style") || "").toLowerCase();
-      if (!style) return s;
-      const hasBold = style.includes("bold");
-      const hasItalic = style.includes("italic");
-      const applyBold = hasBold && !skipBold;
-      if (applyBold && hasItalic) {
-        s = `***${s}***`;
-      } else if (applyBold) {
-        s = `**${s}**`;
-      } else if (hasItalic) {
-        s = `*${s}*`;
-      }
-      if (style.includes("underline")) {
-        s = `_${s}_`;
-      }
-      return s;
-    }).join("").trim();
-  }
-  function sceneNum(p) {
-    const sp = p.querySelector("SceneProperties");
-    return sp ? (sp.getAttribute("Number") || "") : "";
-  }
-  function stripContd(name) {
-    return name.replace(/\s*\(CONT'?D\)\s*$/i, "").trim();
-  }
-
   const content = doc.querySelector("FinalDraft > Content");
   if (!content) return out;
   const topChildren = Array.from(content.children);
-  let prevType = "";
 
+  // ---- Detect embedded title page (no <TitlePage> tag) ----
+  if (!out) {
+    const firstSceneIdx = topChildren.findIndex(node => {
+      if (node.tagName !== "Paragraph") return false;
+      return (node.getAttribute("Type") || "") === "Scene Heading";
+    });
+    if (firstSceneIdx > 0) {
+      const tpTexts = [];
+      for (let i = 0; i < firstSceneIdx; i++) {
+        const node = topChildren[i];
+        if (node.tagName !== "Paragraph") continue;
+        const type = node.getAttribute("Type") || "General";
+        const alignment = (node.getAttribute("Alignment") || "").toLowerCase();
+        if (type !== "General" && type !== "Title") break;
+        if (alignment !== "center") break;
+        tpTexts.push({ text: paraText(node, type), type });
+      }
+      const nonEmpty = tpTexts.filter(t => t.text);
+      if (nonEmpty.length > 0) {
+        let title = "", credit = "", author = "", date = "", source = "", contact = "";
+        const texts = nonEmpty.map(t => t.text);
+        for (let i = 0; i < texts.length; i++) {
+          const t = texts[i];
+          if (nonEmpty[i].type === "Title" && !title) { title = t; continue; }
+          if (!title && i === 0) { title = t; continue; }
+          if (/^(written by|escrito por|screenplay by|script by|by)$/i.test(t)) { credit = t; continue; }
+          if (credit && !author) { author = t; continue; }
+          if (author && !author.includes("\n") && /^[A-ZÁÉÍÓÚÑ]/.test(t) && !/^\d/.test(t) &&
+              !/(version|revision|draft|fecha)/i.test(t)) { author += "\n" + t; continue; }
+          if (/\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/.test(t)) { date = t; continue; }
+          if (/^(\d+\w*\s+)?(version|versión|draft|borrador)/i.test(t)) { source = t; continue; }
+          if (/^revision$/i.test(t)) {
+            if (i + 1 < texts.length) { contact = "Revision: " + texts[i + 1]; i++; }
+            continue;
+          }
+        }
+        if (title) out += `Title: ${title}\n`;
+        if (credit) out += `Credit: ${credit}\n`;
+        if (author) out += `Author: ${author}\n`;
+        if (source) out += `Source: ${source}\n`;
+        if (date) out += `Draft date: ${date}\n`;
+        if (contact) out += `Contact: ${contact}\n`;
+        if (out) out += "\n";
+      }
+    }
+  }
+
+  const firstSceneIdx = topChildren.findIndex(node => {
+    if (node.tagName !== "Paragraph") return false;
+    return (node.getAttribute("Type") || "") === "Scene Heading";
+  });
+
+  let prevType = "";
   for (let ci = 0; ci < topChildren.length; ci++) {
     const node = topChildren[ci];
+
+    if (out && firstSceneIdx > 0 && ci < firstSceneIdx && node.tagName === "Paragraph") {
+      const type = node.getAttribute("Type") || "General";
+      const alignment = (node.getAttribute("Alignment") || "").toLowerCase();
+      if ((type === "General" || type === "Title") && alignment === "center") continue;
+    }
 
     if (node.tagName === "DualDialogue") {
       const ddParas = Array.from(node.querySelectorAll("Paragraph"));
@@ -94,8 +147,7 @@ function fdxToFountain(xml) {
         let text = paraText(p, type);
         if (!text && type !== "Action") continue;
         if (type === "Character") {
-          charCount++;
-          text = stripContd(text);
+          charCount++; text = stripContd(text);
           if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
           out += charCount === 2 ? text + " ^\n" : text + "\n";
           prevType = "Character";
@@ -131,7 +183,14 @@ function fdxToFountain(xml) {
       case "Scene Heading":
         if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
         out += text + snSuffix + "\n\n"; break;
-      case "Action":        out += text + "\n\n"; break;
+      case "Action":
+      case "General":
+        if ((p.getAttribute("Alignment") || "").toLowerCase() === "center") {
+          out += "> " + text + " <\n\n";
+        } else {
+          out += text + "\n\n";
+        }
+        break;
       case "Character":
         text = stripContd(text);
         if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
@@ -140,7 +199,8 @@ function fdxToFountain(xml) {
       case "Parenthetical": out += text + "\n"; break;
       case "Transition":
         if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
-        out += text + "\n\n"; break;
+        out += "> " + text + "\n\n"; break;
+      case "Lyrics":        out += "~" + text + "\n\n"; break;
       default:              out += text + "\n\n";
     }
     prevType = type;
@@ -223,8 +283,8 @@ describe('FDX Parser (fdxToFountain)', () => {
     expect(lines[irinaIdx - 1]).toBe('');
   });
 
-  it('should output transition', () => {
-    expect(fountain).toContain('CUT TO:\n');
+  it('should output transition with Fountain > prefix', () => {
+    expect(fountain).toContain('> CUT TO:\n');
   });
 
   it('should output DualDialogue with ^ marker', () => {
@@ -290,10 +350,63 @@ describe('FDX Parser (fdxToFountain)', () => {
     // Character: bold is inherent → no ** markers
     expect(result).toContain('JOHN');
     expect(result).not.toContain('**JOHN**');
-    // Transition: bold is inherent → no ** markers
-    expect(result).toContain('CUT TO:');
+    // Transition: bold is inherent → no ** markers, uses > prefix
+    expect(result).toContain('> CUT TO:');
     expect(result).not.toContain('**CUT TO:**');
     // Action: bold is NOT inherent → should get ** markers
     expect(result).toContain('**Bold action text.**');
+  });
+
+  it('should extract embedded title page when no TitlePage tag exists', () => {
+    // This simulates the actual Matadero FDX structure from Final Draft
+    const embeddedFdx = `<?xml version="1.0" encoding="UTF-8"?>
+<FinalDraft DocumentType="Script" Template="No" Version="2">
+<Content>
+  <Paragraph Type="General" Alignment="Center"><Text></Text></Paragraph>
+  <Paragraph Type="General" Alignment="Center"><Text></Text></Paragraph>
+  <Paragraph Type="Title" Alignment="Center"><Text Style="">Matadero</Text></Paragraph>
+  <Paragraph Type="General" Alignment="Center"><Text></Text></Paragraph>
+  <Paragraph Type="General" Alignment="Center"><Text Style="">Escrito por</Text></Paragraph>
+  <Paragraph Type="General" Alignment="Center"><Text Style="">Mariano Borgognone</Text></Paragraph>
+  <Paragraph Type="General" Alignment="Center"><Text Style="">Isabela Gonzalez Pazo</Text></Paragraph>
+  <Paragraph Type="General" Alignment="Center"><Text Style="">5ta Version</Text></Paragraph>
+  <Paragraph Type="General" Alignment="Center"><Text Style="">25/05/2026</Text></Paragraph>
+  <Paragraph Type="General" Alignment="Center"><Text Style="">Revision</Text></Paragraph>
+  <Paragraph Type="General" Alignment="Center"><Text Style="">Billy Rovzar</Text></Paragraph>
+  <Paragraph Type="Scene Heading" Number="1"><Text Style="AllCaps+Bold">INT. CASA DE Irina - BAÑO - NOCHE</Text></Paragraph>
+  <Paragraph Type="Action"><Text>Oscuro. Irina (18) ya está vestida.</Text></Paragraph>
+  <Paragraph Type="Character"><Text>IRINA</Text></Paragraph>
+  <Paragraph Type="Dialogue"><Text>Hola mundo.</Text></Paragraph>
+</Content>
+</FinalDraft>`;
+    const result = fdxToFountain(embeddedFdx);
+    // Title page metadata should be extracted
+    expect(result).toContain('Title: Matadero');
+    expect(result).toContain('Credit: Escrito por');
+    expect(result).toContain('Author: Mariano Borgognone');
+    expect(result).toContain('Isabela Gonzalez Pazo');
+    expect(result).toContain('Draft date: 25/05/2026');
+    expect(result).toContain('Contact: Revision: Billy Rovzar');
+    // Title page text should NOT appear as action/body content
+    expect(result).not.toMatch(/\nMatadero\n/);
+    expect(result).not.toMatch(/\nEscrito por\n/);
+    expect(result).not.toMatch(/\nBilly Rovzar\n[^]/);  // not as body text
+    // Script body should still work
+    expect(result).toContain('INT. CASA DE Irina - BAÑO - NOCHE');
+    expect(result).toContain('Oscuro. Irina (18) ya está vestida.');
+    expect(result).toContain('IRINA\n');
+    expect(result).toContain('Hola mundo.');
+  });
+
+  it('should extract scene number from Paragraph Number attribute', () => {
+    const numFdx = `<?xml version="1.0" encoding="UTF-8"?>
+<FinalDraft DocumentType="Script" Template="No" Version="2">
+<Content>
+  <Paragraph Type="Scene Heading" Number="42"><Text>INT. OFFICE - DAY</Text></Paragraph>
+  <Paragraph Type="Action"><Text>An action line.</Text></Paragraph>
+</Content>
+</FinalDraft>`;
+    const result = fdxToFountain(numFdx);
+    expect(result).toContain('INT. OFFICE - DAY #42#');
   });
 });
