@@ -293,7 +293,8 @@ function loadProject(id, opts={}) {
     appState.titleMeta.title = project.name;
   }
   $("#doc-title-name").textContent = appState.titleMeta.title || project?.name || "Untitled";
-  $("#rev-badge").style.background = REVISION_COLORS.find(r => r.id===appState.activeRevision)?.css || "#fff";
+  const revBadge = $("#rev-badge");
+  if (revBadge) revBadge.style.background = REVISION_COLORS.find(r => r.id===appState.activeRevision)?.css || "#fff";
   saveBinBadge();
 
   setView("script");
@@ -454,6 +455,38 @@ function setView(v) {
 }
 
 /* =====================================================================
+ * Shared action helpers — called by both toolbar buttons (if present)
+ * and menubar items. Centralizes the logic so removing toolbar buttons
+ * doesn't break the menus.
+ * =================================================================== */
+function openFindbar() { $("#findbar").classList.add("open"); $("#find-input").focus(); }
+function openSprintModal() { $("#modal-sprint").classList.add("open"); }
+function openShareModal() { $("#modal-share").classList.add("open"); }
+function openHelpModal() { $("#modal-help").classList.add("open"); }
+function openAmbientSounds() { const d = $("#drawer-sound"); d.classList.add("open"); d.setAttribute("aria-hidden","false"); }
+function saveAsFountain() {
+  const text = serializeFountain(true);
+  downloadFile(appState.filename || "screenplay.fountain", text, "text/plain");
+  autosave(); toast("Saved");
+}
+function openAiAssist() {
+  if (!Storage.getSettings().ai?.apiKey) {
+    modalConfirm({
+      title: "No AI key configured",
+      body: "Add an API key in Settings to enable AI assist. Go to dashboard now?",
+      okText: "Open Settings"
+    }).then(ok => {
+      if (ok) { autosave(); location.hash = "#/dashboard"; Dashboard.show(); setTimeout(() => $("#dash-settings")?.click(), 50); }
+    });
+    return;
+  }
+  // Position AI menu below the menubar when triggered from menu
+  const mb = $("#menubar");
+  const r = mb ? mb.getBoundingClientRect() : { left: 200, bottom: 60 };
+  openAiMenu({ x: r.left + 200, y: r.bottom + 4 });
+}
+
+/* =====================================================================
  * Wire editor UI
  * =================================================================== */
 function bindEditorUI() {
@@ -467,46 +500,31 @@ function bindEditorUI() {
     Dashboard.show();
   });
 
-  // Toolbar
-  $("#btn-cmd").addEventListener("click", openCmdk);
-  $("#btn-find").addEventListener("click", () => { $("#findbar").classList.add("open"); $("#find-input").focus(); });
-  $("#btn-typewriter").addEventListener("click", toggleTypewriter);
-  $("#btn-dictate").addEventListener("click", toggleDictation);
-  $("#btn-sprint").addEventListener("click", () => $("#modal-sprint").classList.add("open"));
-  $("#btn-aloud").addEventListener("click", openAloud);
-  $("#btn-ai").addEventListener("click", async () => {
-    if (!Storage.getSettings().ai?.apiKey) {
-      const ok = await modalConfirm({
-        title: "No AI key configured",
-        body: "Add an API key in Settings to enable AI assist. Go to dashboard now?",
-        okText: "Open Settings"
-      });
-      if (ok) { autosave(); location.hash = "#/dashboard"; Dashboard.show(); setTimeout(() => $("#dash-settings")?.click(), 50); }
-      return;
-    }
-    const r = $("#btn-ai").getBoundingClientRect();
-    openAiMenu({ x: r.left, y: r.bottom + 4 });
-  });
-  $("#btn-sound").addEventListener("click", () => {
-    const d = $("#drawer-sound"); d.classList.add("open"); d.setAttribute("aria-hidden","false");
-  });
-  $("#btn-bin").addEventListener("click", openBin);
-  $("#btn-snapshot").addEventListener("click", openSnap);
-  $("#btn-share").addEventListener("click", () => $("#modal-share").classList.add("open"));
-  $("#btn-open").addEventListener("click", openFromFile);
-  $("#btn-save").addEventListener("click", () => {
-    const text = serializeFountain(true);
-    downloadFile(appState.filename || "screenplay.fountain", text, "text/plain");
-    autosave(); toast("Saved");
-  });
-  $("#btn-print").addEventListener("click", () => printPdf(false));
-  $("#btn-export-fdx").addEventListener("click", exportFdx);
+  // Toolbar — buttons that still exist
   $("#btn-inspector").addEventListener("click", () => {
     const app = $("#app"); app.dataset.inspector = app.dataset.inspector === "hidden" ? "" : "hidden";
   });
-  $("#btn-pageview")?.addEventListener("click", () => togglePageView());
   $("#btn-theme").addEventListener("click", cycleTheme);
-  $("#btn-help").addEventListener("click", () => $("#modal-help").classList.add("open"));
+
+  // Toolbar — buttons removed from HTML (now handled by menubar only)
+  // Use optional chaining so they safely no-op if element is missing.
+  $("#btn-cmd")?.addEventListener("click", openCmdk);
+  $("#btn-find")?.addEventListener("click", openFindbar);
+  $("#btn-typewriter")?.addEventListener("click", toggleTypewriter);
+  $("#btn-dictate")?.addEventListener("click", toggleDictation);
+  $("#btn-sprint")?.addEventListener("click", openSprintModal);
+  $("#btn-aloud")?.addEventListener("click", openAloud);
+  $("#btn-ai")?.addEventListener("click", openAiAssist);
+  $("#btn-sound")?.addEventListener("click", openAmbientSounds);
+  $("#btn-bin")?.addEventListener("click", openBin);
+  $("#btn-snapshot")?.addEventListener("click", openSnap);
+  $("#btn-share")?.addEventListener("click", openShareModal);
+  $("#btn-open")?.addEventListener("click", openFromFile);
+  $("#btn-save")?.addEventListener("click", saveAsFountain);
+  $("#btn-print")?.addEventListener("click", () => printPdf(false));
+  $("#btn-export-fdx")?.addEventListener("click", exportFdx);
+  $("#btn-pageview")?.addEventListener("click", () => togglePageView());
+  $("#btn-help")?.addEventListener("click", openHelpModal);
 
   // Side tabs
   $$(".side-tab").forEach(t => t.addEventListener("click", () => setSidebarTab(t.dataset.tab)));

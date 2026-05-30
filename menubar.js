@@ -17,13 +17,12 @@
         { label: "New Project", run: () => Dashboard.show() },
         { label: "Open\u2026", shortcut: "\u2318O", run: () => openFromFile() },
         { sep: true },
-        { label: "Save .fountain", shortcut: "\u2318S", run: () => $("#btn-save").click() },
+        { label: "Save .fountain", shortcut: "\u2318S", run: () => saveAsFountain() },
         { label: "Export .fdx", run: () => exportFdx() },
         { sep: true },
         { label: "Title Page\u2026", run: () => openTitlePage() },
         { sep: true },
         { label: "Print / PDF", shortcut: "\u2318P", run: () => printPdf(false) },
-        { label: "Watermarked PDF", run: () => printPdfWithWatermark() },
         { sep: true },
         { label: "Back to Projects", run: () => Dashboard.show() },
       ],
@@ -41,7 +40,7 @@
         { sep: true },
         { label: "Select All", shortcut: "\u2318A", run: () => document.execCommand("selectAll") },
         { sep: true },
-        { label: "Find\u2026", shortcut: "\u2318F", run: () => $("#btn-find").click() },
+        { label: "Find\u2026", shortcut: "\u2318F", run: () => openFindbar() },
         { label: "Go To\u2026", shortcut: "\u2318K", run: () => openCmdk() },
         { sep: true },
         { label: "Dictate", run: () => toggleDictation() },
@@ -59,24 +58,14 @@
           run: () => { appState.smartTypo = !appState.smartTypo; setDirty(); },
           checked: () => appState.smartTypo,
         },
-        {
-          label: "Read-Only (Production Lock)",
-          run: () => {
-            appState.prodLocked = !appState.prodLocked;
-            document.body.dataset.prodLocked = appState.prodLocked ? "true" : "";
-            setDirty();
-          },
-          checked: () => appState.prodLocked,
-        },
       ],
     },
     {
       label: "Share",
       items: [
-        { label: "Share Link\u2026", run: () => $("#btn-share").click() },
+        { label: "Share Link\u2026", run: () => openShareModal() },
         { label: "Sides Export\u2026", run: () => openSides() },
         { sep: true },
-        { label: "Coverage Report", run: () => generateCoverage() },
         { label: "Email Document", disabled: true },
       ],
     },
@@ -127,18 +116,17 @@
     {
       label: "Tools",
       items: [
-        { label: "AI Assist\u2026", run: () => $("#btn-ai").click() },
+        { label: "AI Assist\u2026", run: () => openAiAssist() },
         { label: "Proofcheck", run: () => typeof Proof !== "undefined" && Proof.run() },
         { sep: true },
         { label: "Outliner", arrow: true, disabled: true },
-        { label: "Graveyard (Scrap Bin)", run: () => openBin() },
         { label: "Comments", arrow: true, disabled: true },
         { label: "Spelling & Grammar", arrow: true, disabled: true },
         { sep: true },
         { label: "ReadAloud", shortcut: "\u2318\u21E7A", run: () => openAloud() },
         { sep: true },
-        { label: "Writing Sprint", shortcut: "\u2318\u21E7F", run: () => $("#btn-sprint").click() },
-        { label: "Ambient Sounds", run: () => $("#btn-sound").click() },
+        { label: "Writing Sprint", shortcut: "\u2318\u21E7F", run: () => openSprintModal() },
+        { label: "Ambient Sounds", run: () => openAmbientSounds() },
         { sep: true },
         { label: "Continuity Check", run: () => openContinuity() },
         { label: "Logline Workshop", run: () => openLoglineWorkshop() },
@@ -174,7 +162,6 @@
         { sep: true },
         { label: "Scrap Bin", shortcut: "\u2318\u21E7B", run: () => openBin() },
         { label: "Duplicate Document", disabled: true },
-        { label: "Timeline View", run: () => setView("timeline") },
       ],
     },
     {
@@ -207,7 +194,6 @@
       label: "Customize",
       items: [
         { label: "Settings\u2026", run: () => $("#modal-settings").classList.add("open") },
-        { label: "Display Theme", run: () => cycleTheme() },
         { sep: true },
         {
           label: "Document Language",
@@ -218,10 +204,8 @@
     {
       label: "Help",
       items: [
-        { label: "Keyboard Shortcuts", run: () => $("#modal-help").classList.add("open") },
-        { label: "Formatting Guide", run: () => $("#modal-help").classList.add("open") },
-        { sep: true },
-        { label: "Command Palette", shortcut: "\u2318K", run: () => openCmdk() },
+        { label: "Keyboard Shortcuts", run: () => openHelpModal() },
+        { label: "Formatting Guide", run: () => openHelpModal() },
       ],
     },
   ];

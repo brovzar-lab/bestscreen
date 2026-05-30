@@ -145,8 +145,8 @@ function addToBin(text) {
   arr.unshift({ t: Date.now(), text });
   Storage.setBin(appState.projectId, arr);
   saveBinBadge();
-  $("#btn-bin").classList.add("active");
-  setTimeout(() => $("#btn-bin").classList.remove("active"), 600);
+  $("#btn-bin")?.classList.add("active");
+  setTimeout(() => $("#btn-bin")?.classList.remove("active"), 600);
   toast("Sent to bin");
 }
 function restoreFromBin(i) {
@@ -163,8 +163,8 @@ function restoreFromBin(i) {
 function saveBinBadge() {
   if (!appState.projectId) return;
   const n = Storage.getBin(appState.projectId).length;
-  $("#bin-count").textContent = n;
-  $("#bin-count").classList.toggle("show", n > 0);
+  const el = $("#bin-count");
+  if (el) { el.textContent = n; el.classList.toggle("show", n > 0); }
 }
 
 function openSnap() { const d = $("#drawer-snap"); d.classList.add("open"); d.setAttribute("aria-hidden","false"); renderSnaps(); }
@@ -364,8 +364,8 @@ const COMMANDS = [
   { kind: "view",   text: "Bible",            sub: "Open project bible",   run: () => setView("bible") },
   { kind: "view",   text: "Story timeline",   sub: "Chronological view",   run: () => setView("timeline") },
   { kind: "view",   text: "Statistics",       sub: "Charts & analytics",   run: () => setView("stats") },
-  { kind: "action", text: "Find / Replace",   sub: "⌘ F",                  run: () => $("#btn-find").click() },
-  { kind: "action", text: "Sprint mode",      sub: "Word goal + timer",    run: () => $("#btn-sprint").click() },
+  { kind: "action", text: "Find / Replace",   sub: "⌘ F",                  run: () => openFindbar() },
+  { kind: "action", text: "Sprint mode",      sub: "Word goal + timer",    run: () => openSprintModal() },
   { kind: "action", text: "Table read",       sub: "Hear your script",     run: () => openAloud() },
   { kind: "action", text: "Typewriter mode",  sub: "Toggle focused writing", run: () => toggleTypewriter() },
   { kind: "action", text: "Voice dictation",  sub: "Speak your dialogue",  run: () => toggleDictation() },
@@ -379,11 +379,11 @@ const COMMANDS = [
   { kind: "action", text: "PDF history",       sub: "All PDFs you generated", run: () => openPdfLogViewer() },
   { kind: "action", text: "Print / PDF",      sub: "⌘ P",                  run: () => printPdf(false) },
   { kind: "action", text: "Watermarked PDF",  sub: "Confidential draft",   run: () => printPdfWithWatermark() },
-  { kind: "action", text: "Share link",       sub: "Self-contained HTML",  run: () => $("#btn-share").click() },
-  { kind: "action", text: "Ambient sound",    sub: "Rain, fire, café…",    run: () => $("#btn-sound").click() },
-  { kind: "action", text: "AI assist",        sub: "Bring-your-own-key",   run: () => $("#btn-ai").click() },
+  { kind: "action", text: "Share link",       sub: "Self-contained HTML",  run: () => openShareModal() },
+  { kind: "action", text: "Ambient sound",    sub: "Rain, fire, café…",    run: () => openAmbientSounds() },
+  { kind: "action", text: "AI assist",        sub: "Bring-your-own-key",   run: () => openAiAssist() },
   { kind: "action", text: "Open file…",       sub: ".fountain or .fdx (⌘O)", run: () => openFromFile() },
-  { kind: "action", text: "Save .fountain",   sub: "Download (⌘S)",         run: () => $("#btn-save").click() },
+  { kind: "action", text: "Save .fountain",   sub: "Download (⌘S)",         run: () => saveAsFountain() },
   { kind: "action", text: "Title page",       sub: "Edit metadata",        run: () => openTitlePage() },
   { kind: "action", text: "Toggle theme",     sub: "Manuscript / Midnight / Court", run: () => cycleTheme() },
   { kind: "action", text: "Back to projects", sub: "Dashboard",            run: () => { location.hash = "#/dashboard"; Dashboard.show(); } },
