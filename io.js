@@ -549,53 +549,238 @@ function downloadFile(name, content, mime) {
 function openFromFile() { $("#file-input").value = ""; $("#file-input").click(); }
 
 function fdxToFountain(xml) {
-  // Minimal Final Draft .fdx → Fountain converter
+  // Full Final Draft .fdx → Fountain converter
+  // Handles multi-Text elements, DualDialogue, title page, scene numbers,
+  // empty paragraphs as spacing, and CONT'D / MORE stripping.
   const doc = new DOMParser().parseFromString(xml, "application/xml");
-  const paras = doc.getElementsByTagName("Paragraph");
+
   let out = "";
-  // Pull title page first
-  const titleParas = doc.querySelectorAll("TitlePage Paragraph Text");
-  const titleLines = Array.from(titleParas).map(t => (t.textContent || "").trim()).filter(Boolean);
-  if (titleLines.length) {
-    out += `Title: ${titleLines[0]}\n`;
-    if (titleLines[1]) out += `Credit: ${titleLines[1]}\n`;
-    if (titleLines[2]) out += `Author: ${titleLines[2]}\n`;
-    out += "\n";
-  }
-  for (let i = 0; i < paras.length; i++) {
-    const p = paras[i];
-    // Skip title-page paragraphs (already consumed)
-    if (p.closest("TitlePage")) continue;
-    const type = p.getAttribute("Type") || "Action";
-    const text = (p.textContent || "").trim();
-    if (!text) continue;
-    switch (type) {
-      case "Scene Heading": out += text + "\n\n"; break;
-      case "Action":        out += text + "\n\n"; break;
-      case "Character":     out += text + "\n"; break;
-      case "Dialogue":      out += text + "\n"; break;
-      case "Parenthetical": out += text + "\n"; break;
-      case "Transition":    out += text + "\n\n"; break;
-      default:              out += text + "\n\n";
+
+  // ---- Title page (structured) ----
+  const titlePage = doc.querySelector("TitlePage");
+  if (titlePage) {
+    const tpParas = titlePage.querySelectorAll("Content > Paragraph");
+    const tpMap = {};
+    tpParas.forEach(p => {
+      const type = (p.getAttribute("Type") || "").trim();
+      const texts = Array.from(p.querySelectorAll("Text"));
+      const val = texts.map(t => (t.textContent || "").trim()).filter(Boolean).join(" ");
+      if (!val) return;
+      if (!tpMap[type]) tpMap[type] = val; // first occurrence wins
+    });
+    // Map FDX title page types to Fountain keys
+    if (tpMap["Title"] || tpMap[""])   out += `Title: ${tpMap["Title"] || tpMap[""]}\n`;
+    if (tpMap["Credit"])              out += `Credit: ${tpMap["Credit"]}\n`;
+    if (tpMap["Author"])              out += `Author: ${tpMap["Author"]}\n`;
+    if (tpMap["Source"])              out += `Source: ${tpMap["Source"]}\n`;
+    if (tpMap["Draft date"])          out += `Draft date: ${tpMap["Draft date"]}\n`;
+    if (tpMap["Contact"])             out += `Contact: ${tpMap["Contact"]}\n`;
+    // Fallback: if no typed paragraphs, try raw text
+    if (!out) {
+      const rawTexts = Array.from(titlePage.querySelectorAll("Paragraph Text"))
+        .map(t => (t.textContent || "").trim()).filter(Boolean);
+      if (rawTexts.length) {
+        out += `Title: ${rawTexts[0]}\n`;
+        if (rawTexts[1]) out += `Credit: ${rawTexts[1]}\n`;
+        if (rawTexts[2]) out += `Author: ${rawTexts[2]}\n`;
+      }
     }
+    if (out) out += "\n";
   }
-  return out;
+
+  // ---- Helper: extract text from a Paragraph element ----
+  function paraText(p) {
+    const texts = Array.from(p.querySelectorAll(":scope > Text"));
+    if (texts.length === 0) return (p.textContent || "").trim();
+    // Join multiple <Text> runs with space (they are inline formatting runs)
+    return texts.map(t => (t.textContent || "")).join("").trim();
+  }
+
+  // ---- Helper: extract scene number if present ----
+  function sceneNum(p) {
+    const sp = p.querySelector("SceneProperties");
+    return sp ? (sp.getAttribute("Number") || "") : "";
+  }
+
+  // ---- Helper: strip (CONT'D) / (cont'd) from character names ----
+  function stripContd(name) {
+    return name.replace(/\s*\(CONT'?D\)\s*$/i, "").trim();
+  }
+
+  // ---- Process body paragraphs ----
+  // Walk the Content children, which may include DualDialogue wrappers.
+  // IMPORTANT: Use "FinalDraft > Content" to skip the TitlePage's <Content>.
+  const content = doc.querySelector("FinalDraft > Content");
+  if (!content) return out;
+
+  const topChildren = Array.from(content.children);
+  let prevType = "";
+
+  for (let ci = 0; ci < topChildren.length; ci++) {
+    const node = topChildren[ci];
+
+    if (node.tagName === "DualDialogue") {
+      // DualDialogue contains two Character+Dialogue blocks side-by-side
+      // In Fountain, the second character cue gets a ^ suffix
+      const ddParas = Array.from(node.querySelectorAll("Paragraph"));
+      let charCount = 0;
+      for (let di = 0; di < ddParas.length; di++) {
+        const p = ddParas[di];
+        if (p.closest("TitlePage")) continue;
+        const type = p.getAttribute("Type") || "Action";
+        let text = paraText(p);
+        if (!text && type !== "Action") continue;
+
+        if (type === "Character") {
+          charCount++;
+          text = stripContd(text);
+          // Ensure blank line before character cue
+          if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
+          if (charCount === 2) {
+            out += text + " ^\n"; // Fountain dual-dialogue marker
+          } else {
+            out += text + "\n";
+          }
+          prevType = "Character";
+        } else if (type === "Dialogue") {
+          // Skip standalone (MORE) lines
+          if (/^\(MORE\)$/i.test(text.trim())) continue;
+          out += text + "\n";
+          prevType = "Dialogue";
+        } else if (type === "Parenthetical") {
+          out += text + "\n";
+          prevType = "Parenthetical";
+        } else {
+          out += text + "\n\n";
+          prevType = type;
+        }
+      }
+      // Ensure spacing after DualDialogue block
+      if (!out.endsWith("\n\n")) out += "\n";
+      continue;
+    }
+
+    if (node.tagName !== "Paragraph") continue;
+    const p = node;
+    if (p.closest("TitlePage")) continue;
+
+    const type = p.getAttribute("Type") || "Action";
+    let text = paraText(p);
+
+    // Empty paragraphs are spacing cues — emit a blank line
+    if (!text) {
+      if (prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
+      prevType = "blank";
+      continue;
+    }
+
+    // Skip standalone (MORE) lines
+    if (/^\(MORE\)$/i.test(text.trim())) continue;
+
+    const sn = sceneNum(p);
+    const snComment = sn ? ` /* bs:sceneNum=${sn} */` : "";
+
+    switch (type) {
+      case "Scene Heading":
+        if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
+        out += text + snComment + "\n\n";
+        break;
+      case "Action":
+        out += text + "\n\n";
+        break;
+      case "Character":
+        text = stripContd(text);
+        if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
+        out += text + "\n";
+        break;
+      case "Dialogue":
+        out += text + "\n";
+        break;
+      case "Parenthetical":
+        out += text + "\n";
+        break;
+      case "Transition":
+        if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
+        out += text + "\n\n";
+        break;
+      case "General":
+      case "Lyrics":
+        out += text + "\n\n";
+        break;
+      default:
+        out += text + "\n\n";
+    }
+    prevType = type;
+  }
+
+  return out.replace(/\n{3,}/g, "\n\n");
 }
 
 function exportFdx() {
   const lines = $$("#editor > div");
   const map = { scene:"Scene Heading", action:"Action", character:"Character", dialogue:"Dialogue",
                 parenthetical:"Parenthetical", transition:"Transition", centered:"Action" };
+
+  // ---- Title page ----
+  let titleXml = "";
+  const tp = appState.titleMeta;
+  if (tp.title || tp.author || tp.credit) {
+    let tpContent = "";
+    const titlePagePara = (type, val) => {
+      if (!val) return "";
+      const esc = val.replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]));
+      return `    <Paragraph Type="${type}"><Text>${esc}</Text></Paragraph>\n`;
+    };
+    tpContent += titlePagePara("Title", tp.title);
+    tpContent += titlePagePara("Credit", tp.credit || "Written by");
+    tpContent += titlePagePara("Author", tp.author);
+    if (tp.source) tpContent += titlePagePara("Source", tp.source);
+    if (tp.date) tpContent += titlePagePara("Draft date", tp.date);
+    if (tp.contact) tpContent += titlePagePara("Contact", tp.contact);
+    titleXml = `<TitlePage>\n  <Content>\n${tpContent}  </Content>\n</TitlePage>\n`;
+  }
+
+  // ---- Body ----
   let body = "";
-  lines.forEach(line => {
-    const t = (line.textContent || "").replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]));
-    if (!t.trim()) return;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Handle .dual-pair wrappers → DualDialogue
+    if (line.classList.contains("dual-pair")) {
+      body += "  <DualDialogue>\n";
+      const halves = Array.from(line.children);
+      halves.forEach(half => {
+        Array.from(half.children).forEach(il => {
+          const t = (il.textContent || "").replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]));
+          if (!t.trim()) return;
+          const fdxType = map[il.dataset.type] || "Action";
+          body += `    <Paragraph Type="${fdxType}"><Text>${t}</Text></Paragraph>\n`;
+        });
+      });
+      body += "  </DualDialogue>\n";
+      continue;
+    }
+
+    const rawText = line.textContent || "";
+    const t = rawText.replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]));
+    if (!t.trim()) continue;
     const fdxType = map[line.dataset.type] || "Action";
-    body += `  <Paragraph Type="${fdxType}"><Text>${t}</Text></Paragraph>\n`;
-  });
+
+    // Scene heading with optional SceneProperties
+    if (line.dataset.type === "scene") {
+      const sn = line.dataset.sceneNum || "";
+      const spAttr = sn ? ` Number="${sn}"` : "";
+      body += `  <Paragraph Type="${fdxType}">`;
+      if (sn) body += `<SceneProperties${spAttr}/>`;
+      body += `<Text>${t}</Text></Paragraph>\n`;
+    } else {
+      body += `  <Paragraph Type="${fdxType}"><Text>${t}</Text></Paragraph>\n`;
+    }
+  }
+
   const xml = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
-<FinalDraft DocumentType="Script" Template="No" Version="1">
-<Content>
+<FinalDraft DocumentType="Script" Template="No" Version="3">
+${titleXml}<Content>
 ${body}</Content>
 </FinalDraft>`;
   downloadFile(appState.filename.replace(/\.[^.]+$/,"") + ".fdx", xml, "application/xml");

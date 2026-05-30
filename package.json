@@ -6,6 +6,13 @@
   "scripts": {
     "dev": "node dev-server.js",
     "start": "node dev-server.js",
-    "open": "node dev-server.js --open"
+    "open": "node dev-server.js --open",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "jsdom": "^29.1.1",
+    "playwright": "^1.60.0",
+    "vitest": "^3.2.1"
   }
 }

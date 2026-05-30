@@ -52,11 +52,20 @@ const Storage = (() => {
     }
   }
   function writeIndex(idx) {
-    try { localStorage.setItem(KEY_INDEX, JSON.stringify(idx)); }
-    catch (e) { console.warn("Index write failed", e); }
+    try {
+      localStorage.setItem(KEY_INDEX, JSON.stringify(idx));
+      checkQuota();
+    }
+    catch (e) {
+      console.warn("Index write failed", e);
+      if (typeof toast === "function") toast("⚠️ Save failed — storage may be full. Export your project.");
+    }
   }
 
   function uid() {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      return crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+    }
     return Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
   }
 
@@ -216,7 +225,10 @@ const Storage = (() => {
     try {
       localStorage.setItem(proj(id) + "." + suffix,
         typeof value === "string" ? value : JSON.stringify(value));
-    } catch (e) { console.warn(`write ${suffix} failed`, e); }
+    } catch (e) {
+      console.warn(`write ${suffix} failed`, e);
+      if (typeof toast === "function") toast("⚠️ Save failed — storage may be full. Export your project.");
+    }
   }
 
   const getDoc      = id => _readRaw(id, "doc");
@@ -305,6 +317,29 @@ const Storage = (() => {
       case "feature":
       default:          return `Title: Untitled\nCredit: Written by\nAuthor:\n\nFADE IN:\n\nINT. SOMEWHERE - DAY\n\n`;
     }
+  }
+
+  // ---------- Storage quota monitoring ----------
+  let _lastQuotaCheck = 0;
+  function checkQuota() {
+    const now = Date.now();
+    if (now - _lastQuotaCheck < 30000) return; // throttle: check at most every 30s
+    _lastQuotaCheck = now;
+    try {
+      let total = 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("bestscreen.")) {
+          total += key.length + (localStorage.getItem(key) || "").length;
+        }
+      }
+      const totalMB = (total * 2) / (1024 * 1024); // UTF-16 = 2 bytes/char
+      if (totalMB > 3.5) { // ~70% of 5MB
+        if (typeof toast === "function") {
+          toast("⚠️ Storage is getting full (" + totalMB.toFixed(1) + " MB). Export or delete old projects.");
+        }
+      }
+    } catch (e) { /* silent */ }
   }
 
   return {

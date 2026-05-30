@@ -55,8 +55,88 @@ const TRANS_RE   = /[A-Z][A-Z0-9 \-]+TO:$/;
 const ALLCAPS_RE = /^[A-Z0-9][A-Z0-9 ()\-'.,&/:]*$/;
 
 // Sentiment lexicon — expanded from ~80 to ~400 words for usable coverage
-const SENT_POS = new Set(("love loves loved loving lovely lover great greatest amazing amazed amazing wonderful wonders happy happily happiness joy joyful joyous smile smiles smiling laugh laughs laughing laughter hope hoped hopeful hopefully brilliant beautiful beautifully kind kindly warm warmly bright brighter brightest safe safely safety peace peaceful gentle gently tender tenderly win wins won winner winning friend friends friendly friendship trust trusts trusted trusting thrill thrills thrilled incredible perfect perfectly bliss blissful soft softly soothing forgive forgives forgiven heal healing healed calm calmly cherish cherished sweet sweetly delight delighted relieved relief grateful gratitude thanks thank thanked proud proudly pride lucky luckily fortunate blessed blessing blessings hug hugs hugged hugging kiss kisses kissed kissing embrace embraced wedding marry married celebrate celebration party laughed magic magical hero heroic save saves saved saving rescue rescued together unite united reunite reunited triumph triumphant succeed succeeded success successful victory victorious dream dreams dreamed lullaby lullabies").split(/\s+/).filter(Boolean));
-const SENT_NEG = new Set(("hate hates hated hateful hating angry anger angrily rage raged raging scream screams screamed screaming shout shouts shouted shouting cry cries cried crying weep weeps wept weeping tear tears teary fear fears feared afraid scared scary scares scaring terror terrified terrifying horror horrible horribly horrify dark darkness darker darkest cold colder coldly cruel cruelty cruelly kill kills killed killer killing dying death dead die died deathly hurt hurts hurting wound wounded wounds bleed bleeds bled bleeding blood bloody broken break breaks breaking grief grieving grieved sad sadly sadness lonely loneliness empty emptiness bitter bitterly bitterness pain pains painful painfully ache aches aching loss lose loses lost losing rotten poison poisoned poisonous evil evils panic panicked panicking violent violence crash crashed crashing gun guns knife knives stab stabbed stabbing shot shoots shooting nightmare nightmares destroy destroyed destroying destruction war wars warring fight fights fought fighting attack attacks attacked attacking betray betrayed betrayal abandoned abandon abandons leaving leave left alone forsaken haunt haunted haunting ghost ghosts curse cursed cursing damn damned damnation suffer suffered suffering misery miserable hopeless helpless desperate despair despise despised despising loathe loathed loathing disgust disgusted disgusting ugly ugliness vile vileness wretched wretch worthless useless pointless meaningless tragedy tragic burn burned burning explode exploded explosion sick sickness ill illness disease diseased ruined ruin ruining drown drowned drowning suffocate suffocating choke choking strangle strangled scream screamed terror chase chased pursued").split(/\s+/).filter(Boolean));
+const SENT_POS = new Set([
+  "love","loves","loved","loving","lovely","lover",
+  "great","greatest","amazing","amazed","wonderful","wonders",
+  "happy","happily","happiness","joy","joyful","joyous",
+  "smile","smiles","smiling","laugh","laughs","laughing","laughter",
+  "hope","hoped","hopeful","hopefully","brilliant",
+  "beautiful","beautifully","kind","kindly","warm","warmly",
+  "bright","brighter","brightest","safe","safely","safety",
+  "peace","peaceful","gentle","gently","tender","tenderly",
+  "win","wins","won","winner","winning",
+  "friend","friends","friendly","friendship",
+  "trust","trusts","trusted","trusting",
+  "thrill","thrills","thrilled","incredible",
+  "perfect","perfectly","bliss","blissful",
+  "soft","softly","soothing","forgive","forgives","forgiven",
+  "heal","healing","healed","calm","calmly",
+  "cherish","cherished","sweet","sweetly",
+  "delight","delighted","relieved","relief",
+  "grateful","gratitude","thanks","thank","thanked",
+  "proud","proudly","pride","lucky","luckily","fortunate",
+  "blessed","blessing","blessings",
+  "hug","hugs","hugged","hugging",
+  "kiss","kisses","kissed","kissing",
+  "embrace","embraced","wedding","marry","married",
+  "celebrate","celebration","party","laughed",
+  "magic","magical","hero","heroic",
+  "save","saves","saved","saving","rescue","rescued",
+  "together","unite","united","reunite","reunited",
+  "triumph","triumphant","succeed","succeeded",
+  "success","successful","victory","victorious",
+  "dream","dreams","dreamed","lullaby","lullabies",
+]);
+const SENT_NEG = new Set([
+  "hate","hates","hated","hateful","hating",
+  "angry","anger","angrily","rage","raged","raging",
+  "scream","screams","screamed","screaming",
+  "shout","shouts","shouted","shouting",
+  "cry","cries","cried","crying","weep","weeps","wept","weeping",
+  "tear","tears","teary",
+  "fear","fears","feared","afraid","scared","scary","scares","scaring",
+  "terror","terrified","terrifying",
+  "horror","horrible","horribly","horrify",
+  "dark","darkness","darker","darkest",
+  "cold","colder","coldly","cruel","cruelty","cruelly",
+  "kill","kills","killed","killer","killing",
+  "dying","death","dead","die","died","deathly",
+  "hurt","hurts","hurting","wound","wounded","wounds",
+  "bleed","bleeds","bled","bleeding","blood","bloody",
+  "broken","break","breaks","breaking",
+  "grief","grieving","grieved","sad","sadly","sadness",
+  "lonely","loneliness","empty","emptiness",
+  "bitter","bitterly","bitterness",
+  "pain","pains","painful","painfully","ache","aches","aching",
+  "loss","lose","loses","lost","losing",
+  "rotten","poison","poisoned","poisonous","evil","evils",
+  "panic","panicked","panicking",
+  "violent","violence","crash","crashed","crashing",
+  "gun","guns","knife","knives","stab","stabbed","stabbing",
+  "shot","shoots","shooting",
+  "nightmare","nightmares",
+  "destroy","destroyed","destroying","destruction",
+  "war","wars","warring","fight","fights","fought","fighting",
+  "attack","attacks","attacked","attacking",
+  "betray","betrayed","betrayal",
+  "abandoned","abandon","abandons",
+  "leaving","leave","left","alone","forsaken",
+  "haunt","haunted","haunting","ghost","ghosts",
+  "curse","cursed","cursing","damn","damned","damnation",
+  "suffer","suffered","suffering","misery","miserable",
+  "hopeless","helpless","desperate","despair",
+  "despise","despised","despising","loathe","loathed","loathing",
+  "disgust","disgusted","disgusting",
+  "ugly","ugliness","vile","vileness","wretched","wretch",
+  "worthless","useless","pointless","meaningless",
+  "tragedy","tragic","burn","burned","burning",
+  "explode","exploded","explosion",
+  "sick","sickness","ill","illness","disease","diseased",
+  "ruined","ruin","ruining",
+  "drown","drowned","drowning",
+  "suffocate","suffocating","choke","choking",
+  "strangle","strangled","chase","chased","pursued",
+]);
 
 // Tokens that look like character cues but aren't — exclude from cast detection
 const CHAR_BLACKLIST = new Set([
@@ -182,6 +262,8 @@ function loadProject(id, opts={}) {
   appState.smartTypo = meta.smartTypo !== false;
   appState.showSceneNumbersInPdf = meta.showSceneNumbersInPdf !== false;
   appState.showPageBreaks = !!meta.showPageBreaks;
+  appState.pageView = !!meta.pageView;
+  document.body.dataset.pageview = appState.pageView ? "true" : "";
   appState.prodLocked = !!meta.prodLocked;
   document.body.dataset.pagebreaks = appState.showPageBreaks ? "true" : "";
   document.body.dataset.prodLocked = appState.prodLocked ? "true" : "";
@@ -194,6 +276,13 @@ function loadProject(id, opts={}) {
   if (!appState._bound) { bindEditorUI(); bindSidebarResize(); appState._bound = true; }
 
   loadFountain(doc || sampleStarter(project?.type));
+
+  // Show welcome strip for empty/new projects (one-time, globally dismissed)
+  if (!localStorage.getItem("bestscreen.welcomeDismissed")) {
+    const lines = $$("#editor > div");
+    const isEmpty = lines.length <= 3 || currentWordCount() < 20;
+    if (isEmpty) showWelcomeStrip();
+  }
 
   // Bind Bible to this project so character hover popovers work before Bible view is opened
   if (typeof Bible !== "undefined" && Bible.bind) Bible.bind(id);
@@ -278,6 +367,7 @@ function autosave() {
       smartTypo: appState.smartTypo,
       showSceneNumbersInPdf: appState.showSceneNumbersInPdf,
       showPageBreaks: appState.showPageBreaks,
+      pageView: appState.pageView,
     });
     Storage.updateProject(appState.projectId, { lastModified: Date.now(), name: appState.titleMeta.title || Storage.getProject(appState.projectId)?.name });
     setTimeout(() => { $("#save-state").classList.remove("saving"); setSaved(); }, 80);
@@ -303,6 +393,35 @@ function bumpDailyStreak() {
   idx.streak = idx.streak || {};
   idx.streak[k] = delta;
   Storage.writeIndex(idx);
+}
+
+/* =====================================================================
+ * Welcome strip — shown once for new/empty projects
+ * =================================================================== */
+function showWelcomeStrip() {
+  const existing = document.getElementById("welcome-strip");
+  if (existing) return;
+  const strip = document.createElement("div");
+  strip.id = "welcome-strip";
+  strip.className = "welcome-strip";
+  strip.innerHTML = `
+    <div class="ws-content">
+      <div class="ws-icon">✨</div>
+      <div class="ws-text">
+        <b>Welcome to Bestscreen.</b> Start writing — type <kbd>INT.</kbd> or <kbd>EXT.</kbd> for a scene heading,
+        then a CHARACTER NAME in caps, and dialogue below it.
+        Use <kbd>⌘K</kbd> to discover all commands, or explore the tabs above: Beat Board, Cards, Bible, and more.
+      </div>
+      <button class="ws-dismiss" onclick="dismissWelcome()" title="Dismiss">✕</button>
+    </div>
+  `;
+  const stage = document.getElementById("stage");
+  if (stage) stage.insertBefore(strip, stage.firstChild);
+}
+function dismissWelcome() {
+  const strip = document.getElementById("welcome-strip");
+  if (strip) { strip.style.opacity = "0"; setTimeout(() => strip.remove(), 200); }
+  localStorage.setItem("bestscreen.welcomeDismissed", "1");
 }
 
 /* =====================================================================
@@ -377,6 +496,7 @@ function bindEditorUI() {
   $("#btn-inspector").addEventListener("click", () => {
     const app = $("#app"); app.dataset.inspector = app.dataset.inspector === "hidden" ? "" : "hidden";
   });
+  $("#btn-pageview")?.addEventListener("click", () => togglePageView());
   $("#btn-theme").addEventListener("click", cycleTheme);
   $("#btn-help").addEventListener("click", () => $("#modal-help").classList.add("open"));
 
@@ -619,27 +739,8 @@ function bindEditorUI() {
   // Continuity
   $("#cont-close").addEventListener("click", () => $("#modal-continuity").classList.remove("open"));
 
-  // Theme dash
-  $("#btn-theme-dash")?.addEventListener("click", cycleTheme);
 
-  // Settings (dashboard modal)
-  $("#st-cancel")?.addEventListener("click", () => $("#modal-settings").classList.remove("open"));
-  $("#st-save")?.addEventListener("click", () => {
-    Storage.setSettings({
-      author: $("#st-author").value,
-      ai: { provider: $("#st-ai-provider").value, apiKey: $("#st-ai-key").value, model: $("#st-ai-model").value }
-    });
-    $("#modal-settings").classList.remove("open"); toast("Settings saved");
-  });
 
-  // New project / series
-  $("#np-cancel")?.addEventListener("click", () => $("#modal-newproj").classList.remove("open"));
-  $("#np-go")?.addEventListener("click", () => Dashboard.createFromModal());
-  $$(".np-color").forEach(c => c.addEventListener("click", () => {
-    $$(".np-color").forEach(x => x.classList.toggle("selected", x === c));
-  }));
-  $("#ns-cancel")?.addEventListener("click", () => $("#modal-newseries").classList.remove("open"));
-  $("#ns-go")?.addEventListener("click", () => Dashboard.createSeries());
 
   // File input (replaces current doc; FDX auto-converted)
   $("#file-input").addEventListener("change", async (e) => {
@@ -691,6 +792,8 @@ function bindEditorUI() {
         Storage.updateProject(id, { name: title, lastModified: Date.now() });
         toast(`Created "${title}"`);
         loadProject(id);
+        // Auto-enable page view for imported scripts
+        if (ext === "fdx") togglePageView(true);
         return;
       }
       // choice === "replace"
@@ -702,6 +805,8 @@ function bindEditorUI() {
       }
       autosave();
       toast(`Replaced with ${file.name}`);
+      // Auto-enable page view for imported scripts
+      if (ext === "fdx") togglePageView(true);
       return;
     }
     // No active project — create one from the file
@@ -713,6 +818,8 @@ function bindEditorUI() {
     Storage.updateProject(id, { name: title, lastModified: Date.now() });
     toast(`Created "${title}"`);
     loadProject(id);
+    // Auto-enable page view for imported scripts
+    if (ext === "fdx") togglePageView(true);
   });
 
   // Modal backdrop click
@@ -780,7 +887,7 @@ function bindGlobalShortcuts() {
     if (meta && e.key === "k" && !e.shiftKey) { e.preventDefault(); appState.projectId ? openCmdk() : null; return; }
     if (meta && e.key === "f" && !e.shiftKey) { e.preventDefault(); $("#btn-find")?.click(); return; }
     if (meta && e.shiftKey && (e.key === "F" || e.key === "f")) { e.preventDefault(); $("#btn-sprint")?.click(); return; }
-    if (meta && e.shiftKey && (e.key === "R" || e.key === "r")) { e.preventDefault(); openAloud(); return; }
+    if (meta && e.shiftKey && (e.key === "A" || e.key === "a")) { e.preventDefault(); openAloud(); return; }
     if (meta && e.shiftKey && (e.key === "S" || e.key === "s")) { e.preventDefault(); openSnap(); return; }
     if (meta && e.shiftKey && (e.key === "B" || e.key === "b")) { e.preventDefault(); openBin(); return; }
     if (meta && e.shiftKey && (e.key === "H" || e.key === "h")) { e.preventDefault(); $("#btn-back")?.click(); return; }

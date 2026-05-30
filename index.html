@@ -49,6 +49,10 @@
   <symbol id="i-sparkles"   viewBox="0 0 24 24"><path d="m12 3 1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5zM18 14l1 2.5L21.5 17 19 18l-1 2.5L17 18l-2.5-1L17 16z" fill="currentColor"/></symbol>
   <symbol id="i-back"       viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-grip"       viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.4" fill="currentColor"/><circle cx="15" cy="6" r="1.4" fill="currentColor"/><circle cx="9" cy="12" r="1.4" fill="currentColor"/><circle cx="15" cy="12" r="1.4" fill="currentColor"/><circle cx="9" cy="18" r="1.4" fill="currentColor"/><circle cx="15" cy="18" r="1.4" fill="currentColor"/></symbol>
+  <symbol id="i-pageview"   viewBox="0 0 24 24"><path d="M6 3h12v18H6zM6 10h12M6 17h12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="i-strip"      viewBox="0 0 24 24"><rect x="2" y="6" width="5" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="9.5" y="6" width="5" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="17" y="6" width="5" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-list"       viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="4" cy="6" r="1.5" fill="currentColor"/><circle cx="4" cy="12" r="1.5" fill="currentColor"/><circle cx="4" cy="18" r="1.5" fill="currentColor"/></symbol>
+  <symbol id="i-grid"       viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="3" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="14" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="14" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
 </defs>
 </svg>
 
@@ -94,28 +98,31 @@
     </div>
 
     <div class="tb-actions">
-      <button class="iconbtn" id="btn-cmd" title="Command palette (⌘K)"><svg class="ic"><use href="#i-cmd"/></svg></button>
-      <button class="iconbtn" id="btn-find" title="Find / Replace (⌘F)"><svg class="ic"><use href="#i-find"/></svg></button>
-      <button class="iconbtn" id="btn-typewriter" title="Typewriter mode"><svg class="ic"><use href="#i-typewriter"/></svg></button>
-      <button class="iconbtn" id="btn-dictate" title="Voice dictation"><svg class="ic"><use href="#i-mic"/></svg></button>
-      <button class="iconbtn" id="btn-sprint" title="Sprint mode (⌘⇧F)"><svg class="ic"><use href="#i-sprint"/></svg></button>
-      <button class="iconbtn" id="btn-aloud" title="Table read (⌘⇧R)"><svg class="ic"><use href="#i-aloud"/></svg></button>
-      <button class="iconbtn" id="btn-ai" title="AI assist (BYOK)"><svg class="ic"><use href="#i-sparkles"/></svg></button>
-      <button class="iconbtn" id="btn-sound" title="Ambient sounds"><svg class="ic"><use href="#i-sound"/></svg></button>
-      <button class="iconbtn" id="btn-bin" title="Scrap bin (⌘⇧B)"><svg class="ic"><use href="#i-bin"/></svg><span class="badge" id="bin-count"></span></button>
-      <button class="iconbtn" id="btn-snapshot" title="Snapshots (⌘⇧S)"><svg class="ic"><use href="#i-snapshot"/></svg></button>
-      <button class="iconbtn" id="btn-share" title="Generate share link"><svg class="ic"><use href="#i-share"/></svg></button>
+      <button class="iconbtn" id="btn-cmd" title="Command palette — search all actions, views, and tools (⌘K)"><svg class="ic"><use href="#i-cmd"/></svg></button>
+      <button class="iconbtn" id="btn-find" title="Find & Replace across your script (⌘F)"><svg class="ic"><use href="#i-find"/></svg></button>
+      <button class="iconbtn" id="btn-typewriter" title="Typewriter mode — keeps your current line centered on screen"><svg class="ic"><use href="#i-typewriter"/></svg></button>
+      <button class="iconbtn" id="btn-dictate" title="Voice dictation — speak your dialogue and action aloud"><svg class="ic"><use href="#i-mic"/></svg></button>
+      <button class="iconbtn" id="btn-sprint" title="Writing sprint — timed sessions to boost productivity (⌘⇧F)"><svg class="ic"><use href="#i-sprint"/></svg></button>
+      <button class="iconbtn" id="btn-aloud" title="Table read — hear your script read aloud with text-to-speech (⌘⇧A)"><svg class="ic"><use href="#i-aloud"/></svg></button>
+      <button class="iconbtn" id="btn-ai" title="AI writing assist — rewrite, continue, or analyze scenes (bring your own API key)"><svg class="ic"><use href="#i-sparkles"/></svg></button>
+      <button class="iconbtn" id="btn-sound" title="Ambient sounds — rain, cafe, fireplace, and more for focus"><svg class="ic"><use href="#i-sound"/></svg></button>
+      <button class="iconbtn" id="btn-bin" title="Scrap bin — deleted scenes saved here for recovery (⌘⇧B)"><svg class="ic"><use href="#i-bin"/></svg><span class="badge" id="bin-count"></span></button>
+      <button class="iconbtn" id="btn-snapshot" title="Snapshots — save and compare versions of your script (⌘⇧S)"><svg class="ic"><use href="#i-snapshot"/></svg></button>
+      <button class="iconbtn" id="btn-share" title="Share — generate a read-only link for collaborators"><svg class="ic"><use href="#i-share"/></svg></button>
       <span class="sep"></span>
-      <button class="iconbtn" id="btn-open" title="Open .fountain / .fdx (⌘O)"><svg class="ic"><use href="#i-folder"/></svg></button>
-      <button class="iconbtn" id="btn-save" title="Save .fountain (⌘S)"><svg class="ic"><use href="#i-save"/></svg></button>
-      <button class="iconbtn" id="btn-print" title="Print / Export PDF (⌘P)"><svg class="ic"><use href="#i-print"/></svg></button>
-      <button class="iconbtn" id="btn-export-fdx" title="Export Final Draft .fdx"><svg class="ic"><use href="#i-fdx"/></svg></button>
+      <button class="iconbtn" id="btn-open" title="Open a .fountain or Final Draft .fdx file (⌘O)"><svg class="ic"><use href="#i-folder"/></svg></button>
+      <button class="iconbtn" id="btn-save" title="Download your script as a .fountain file (⌘S)"><svg class="ic"><use href="#i-save"/></svg></button>
+      <button class="iconbtn" id="btn-print" title="Print or export as industry-standard PDF (⌘P)"><svg class="ic"><use href="#i-print"/></svg></button>
+      <button class="iconbtn" id="btn-export-fdx" title="Export as Final Draft .fdx for compatibility"><svg class="ic"><use href="#i-fdx"/></svg></button>
       <span class="sep"></span>
-      <button class="iconbtn" id="btn-inspector" title="Inspector"><svg class="ic"><use href="#i-inspector"/></svg></button>
-      <button class="iconbtn" id="btn-theme" title="Theme"><svg class="ic"><use href="#i-theme"/></svg></button>
-      <button class="iconbtn" id="btn-help" title="Help (?)"><svg class="ic"><use href="#i-help"/></svg></button>
+      <button class="iconbtn" id="btn-pageview" title="Page View — show your script as discrete pages"><svg class="ic"><use href="#i-pageview"/></svg></button>
+      <button class="iconbtn" id="btn-inspector" title="Inspector — scene details, overlays, revision colors, and story metadata"><svg class="ic"><use href="#i-inspector"/></svg></button>
+      <button class="iconbtn" id="btn-theme" title="Theme — switch between Manuscript, Midnight, and Court visual styles"><svg class="ic"><use href="#i-theme"/></svg></button>
+      <button class="iconbtn" id="btn-help" title="Help — keyboard shortcuts, formatting guide, and tips"><svg class="ic"><use href="#i-help"/></svg></button>
     </div>
   </header>
+
+  <nav class="menubar" id="menubar" role="menubar"></nav>
 
   <div class="app" id="app">
 
@@ -446,6 +453,7 @@
     <div class="form-row"><label>Model</label><input type="text" id="st-ai-model" placeholder="claude-sonnet-4-6 or gpt-4o-mini" /></div>
     <div class="form-row"><label>API key</label><input type="password" id="st-ai-key" placeholder="sk-…" /></div>
     <p class="help">Your key stays in this browser. Requests go directly from this browser to the provider. Leave blank to disable AI assist.</p>
+    <p class="help" style="color:var(--accent);font-size:11px">⚠ Your key is stored unencrypted in this browser's local storage. Always set a spend cap on your API key. Never enter a key on a shared computer.</p>
     <div class="actions">
       <button class="btn" id="st-cancel">Cancel</button>
       <button class="btn primary" id="st-save">Save</button>
@@ -731,6 +739,7 @@
 <script src="dict-en.js" async></script>
 <script src="dict-es.js" async></script>
 <script src="proofcheck.js"></script>
+<script src="menubar.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

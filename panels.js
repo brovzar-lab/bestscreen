@@ -69,16 +69,22 @@ function applyPageBreaks() {
   if (!editor) return;
   const all = $$("#editor > div");
   // Clear any prior markers first so toggling off cleans up cleanly.
-  all.forEach(d => d.removeAttribute("data-page-end"));
-  if (!appState.showPageBreaks) return;
+  all.forEach(d => { d.removeAttribute("data-page-end"); d.removeAttribute("data-page-start"); });
+  if (!appState.showPageBreaks && !appState.pageView) return;
   let used = 0;
   let nextThreshold = LINES_PER_PAGE;
   let pageNum = 1;
+  let needsPageStart = true; // First content line starts page 1
   all.forEach(d => {
     const type = d.dataset.type;
     if (["note","section","synopsis"].includes(type)) return;
     const t = (d.textContent || "").trim();
     if (!t) return;
+    // Mark the start of a new page
+    if (needsPageStart) {
+      d.setAttribute("data-page-start", String(pageNum));
+      needsPageStart = false;
+    }
     const w = PAGE_W[type] || 60;
     const wrapped = Math.max(1, Math.ceil(t.length / w));
     used += wrapped + (PAGE_SPACING[type] || 0);
@@ -86,8 +92,23 @@ function applyPageBreaks() {
       d.setAttribute("data-page-end", String(pageNum));
       pageNum++;
       nextThreshold += LINES_PER_PAGE;
+      needsPageStart = true;
     }
   });
+}
+
+function togglePageView(force) {
+  const on = force !== undefined ? force : !appState.pageView;
+  appState.pageView = on;
+  document.body.dataset.pageview = on ? "true" : "";
+  // Page View implies page breaks; ensure they are calculated
+  if (on) appState.showPageBreaks = true;
+  document.body.dataset.pagebreaks = appState.showPageBreaks ? "true" : "";
+  applyPageBreaks();
+  setDirty();
+  // Update the toolbar button state
+  const btn = document.getElementById("btn-pageview");
+  if (btn) btn.classList.toggle("active", on);
 }
 
 /* =====================================================================
@@ -111,7 +132,7 @@ function updateSidebar() {
 function renderScenesSidebar(body) {
   const scenes = collectScenes();
   if (scenes.length === 0) {
-    body.innerHTML = `<div class="side-empty">No scenes yet.<br><br>Type <kbd>INT.</kbd> or <kbd>EXT.</kbd> to begin.</div>`;
+    body.innerHTML = `<div class="side-empty"><b>No scenes yet</b><br><br>Start writing in the editor — type <kbd>INT.</kbd> or <kbd>EXT.</kbd> to create your first scene heading. Scenes will appear here as a navigable list.</div>`;
     return;
   }
   body.innerHTML = scenes.map((s,i) => {
@@ -145,7 +166,7 @@ function renderScenesSidebar(body) {
 function pad(n, w) { return String(n).padStart(w, "0"); }
 function renderCastSidebar(body) {
   const cast = analyzeCharacters();
-  if (cast.length === 0) { body.innerHTML = `<div class="side-empty">No characters yet.</div>`; return; }
+  if (cast.length === 0) { body.innerHTML = `<div class="side-empty"><b>No characters yet</b><br><br>Characters appear here automatically when you write dialogue cues — type a CHARACTER NAME in ALL CAPS, then write their dialogue on the next line.</div>`; return; }
   const max = Math.max(1, ...cast.map(c => c.words));
   body.innerHTML = cast.map(c => `
     <div class="cast-item" data-name="${escapeHtml(c.name)}" title="Click to jump · right-click for rename / bible">
@@ -613,6 +634,7 @@ function updateInspector() {
     <div class="ins-section">
       <h4>Overlays</h4>
       <label style="display:flex;gap:6px;font-size:12px;margin:4px 0"><input type="checkbox" id="opt-pace" ${appState.paceMode?"checked":""}/> Pace heatmap on script</label>
+      <label style="display:flex;gap:6px;font-size:12px;margin:4px 0"><input type="checkbox" id="opt-pageview" ${appState.pageView?"checked":""}/> Page View (discrete pages)</label>
       <label style="display:flex;gap:6px;font-size:12px;margin:4px 0"><input type="checkbox" id="opt-pagebreaks" ${appState.showPageBreaks?"checked":""}/> Show page breaks in editor</label>
       <label style="display:flex;gap:6px;font-size:12px;margin:4px 0"><input type="checkbox" id="opt-typewriter" ${appState.typewriter?"checked":""}/> Typewriter mode</label>
       <label style="display:flex;gap:6px;font-size:12px;margin:4px 0"><input type="checkbox" id="opt-smart-typo" ${appState.smartTypo?"checked":""}/> Smart typography</label>
@@ -641,6 +663,10 @@ function updateInspector() {
   $("#opt-pace")?.addEventListener("change", e => {
     appState.paceMode = e.target.checked;
     document.body.dataset.pace = appState.paceMode ? "true" : "";
+  });
+  $("#opt-pageview")?.addEventListener("change", e => {
+    togglePageView(e.target.checked);
+    updateInspector(); // refresh checkbox states since pageView implies pageBreaks
   });
   $("#opt-pagebreaks")?.addEventListener("change", e => {
     appState.showPageBreaks = e.target.checked;

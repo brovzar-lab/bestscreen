@@ -141,8 +141,14 @@ const Dashboard = (() => {
     return `
       <div class="dash-empty">
         <div class="dash-empty-art">✎</div>
-        <h3>Nothing here yet.</h3>
-        <p>Click <b>New screenplay</b> above to begin.</p>
+        <h3>Your screenwriting studio is ready.</h3>
+        <p style="margin-bottom:18px">Click <b>New screenplay</b> above to begin, then follow the natural flow:</p>
+        <div class="dash-guide-steps">
+          <div class="dash-guide-step"><span class="dash-guide-num">1</span><div><b>Write</b><br>Start in the Script tab. Type <kbd>INT.</kbd> or <kbd>EXT.</kbd> for scene headings, then write dialogue and action.</div></div>
+          <div class="dash-guide-step"><span class="dash-guide-num">2</span><div><b>Structure</b><br>Switch to the Beat Board to see your scenes as cards. Drag them to restructure your story.</div></div>
+          <div class="dash-guide-step"><span class="dash-guide-num">3</span><div><b>Characters</b><br>Open the Bible tab to flesh out backstories, relationships, and world rules.</div></div>
+          <div class="dash-guide-step"><span class="dash-guide-num">4</span><div><b>Polish</b><br>Use Stats for pacing analysis, AI assist for rewrites, and Page View for final layout.</div></div>
+        </div>
       </div>
     `;
   }
@@ -460,33 +466,115 @@ const Dashboard = (() => {
   // Standalone FDX→Fountain so dashboard.js doesn't depend on app.js being loaded
   function fdxToFountainStandalone(xml) {
     const doc = new DOMParser().parseFromString(xml, "application/xml");
-    const paras = doc.getElementsByTagName("Paragraph");
     let out = "";
-    const titleParas = doc.querySelectorAll("TitlePage Paragraph Text");
-    const titleLines = Array.from(titleParas).map(t => (t.textContent || "").trim()).filter(Boolean);
-    if (titleLines.length) {
-      out += `Title: ${titleLines[0]}\n`;
-      if (titleLines[1]) out += `Credit: ${titleLines[1]}\n`;
-      if (titleLines[2]) out += `Author: ${titleLines[2]}\n`;
-      out += "\n";
+
+    // ---- Title page (structured) ----
+    const titlePage = doc.querySelector("TitlePage");
+    if (titlePage) {
+      const tpParas = titlePage.querySelectorAll("Content > Paragraph");
+      const tpMap = {};
+      tpParas.forEach(p => {
+        const type = (p.getAttribute("Type") || "").trim();
+        const texts = Array.from(p.querySelectorAll("Text"));
+        const val = texts.map(t => (t.textContent || "").trim()).filter(Boolean).join(" ");
+        if (!val) return;
+        if (!tpMap[type]) tpMap[type] = val;
+      });
+      if (tpMap["Title"] || tpMap[""])   out += `Title: ${tpMap["Title"] || tpMap[""]}\n`;
+      if (tpMap["Credit"])              out += `Credit: ${tpMap["Credit"]}\n`;
+      if (tpMap["Author"])              out += `Author: ${tpMap["Author"]}\n`;
+      if (tpMap["Source"])              out += `Source: ${tpMap["Source"]}\n`;
+      if (tpMap["Draft date"])          out += `Draft date: ${tpMap["Draft date"]}\n`;
+      if (tpMap["Contact"])             out += `Contact: ${tpMap["Contact"]}\n`;
+      if (!out) {
+        const rawTexts = Array.from(titlePage.querySelectorAll("Paragraph Text"))
+          .map(t => (t.textContent || "").trim()).filter(Boolean);
+        if (rawTexts.length) {
+          out += `Title: ${rawTexts[0]}\n`;
+          if (rawTexts[1]) out += `Credit: ${rawTexts[1]}\n`;
+          if (rawTexts[2]) out += `Author: ${rawTexts[2]}\n`;
+        }
+      }
+      if (out) out += "\n";
     }
-    for (let i = 0; i < paras.length; i++) {
-      const p = paras[i];
-      if (p.closest && p.closest("TitlePage")) continue;
+
+    // Helper: extract text from a Paragraph
+    function paraText(p) {
+      const texts = Array.from(p.querySelectorAll(":scope > Text"));
+      if (texts.length === 0) return (p.textContent || "").trim();
+      return texts.map(t => (t.textContent || "")).join("").trim();
+    }
+    function stripContd(name) {
+      return name.replace(/\s*\(CONT'?D\)\s*$/i, "").trim();
+    }
+
+    const content = doc.querySelector("FinalDraft > Content");
+    if (!content) return out;
+    const topChildren = Array.from(content.children);
+    let prevType = "";
+
+    for (let ci = 0; ci < topChildren.length; ci++) {
+      const node = topChildren[ci];
+
+      if (node.tagName === "DualDialogue") {
+        const ddParas = Array.from(node.querySelectorAll("Paragraph"));
+        let charCount = 0;
+        for (let di = 0; di < ddParas.length; di++) {
+          const p = ddParas[di];
+          if (p.closest("TitlePage")) continue;
+          const type = p.getAttribute("Type") || "Action";
+          let text = paraText(p);
+          if (!text && type !== "Action") continue;
+          if (type === "Character") {
+            charCount++;
+            text = stripContd(text);
+            if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
+            out += charCount === 2 ? text + " ^\n" : text + "\n";
+            prevType = "Character";
+          } else if (type === "Dialogue") {
+            if (/^\(MORE\)$/i.test(text.trim())) continue;
+            out += text + "\n"; prevType = "Dialogue";
+          } else if (type === "Parenthetical") {
+            out += text + "\n"; prevType = "Parenthetical";
+          } else {
+            out += text + "\n\n"; prevType = type;
+          }
+        }
+        if (!out.endsWith("\n\n")) out += "\n";
+        continue;
+      }
+
+      if (node.tagName !== "Paragraph") continue;
+      const p = node;
+      if (p.closest("TitlePage")) continue;
       const type = p.getAttribute("Type") || "Action";
-      const text = (p.textContent || "").trim();
-      if (!text) continue;
+      let text = paraText(p);
+
+      if (!text) {
+        if (prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
+        prevType = "blank"; continue;
+      }
+      if (/^\(MORE\)$/i.test(text.trim())) continue;
+
       switch (type) {
-        case "Scene Heading": out += text + "\n\n"; break;
+        case "Scene Heading":
+          if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
+          out += text + "\n\n"; break;
         case "Action":        out += text + "\n\n"; break;
-        case "Character":     out += text + "\n"; break;
+        case "Character":
+          text = stripContd(text);
+          if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
+          out += text + "\n"; break;
         case "Dialogue":      out += text + "\n"; break;
         case "Parenthetical": out += text + "\n"; break;
-        case "Transition":    out += text + "\n\n"; break;
+        case "Transition":
+          if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
+          out += text + "\n\n"; break;
         default:              out += text + "\n\n";
       }
+      prevType = type;
     }
-    return out;
+    return out.replace(/\n{3,}/g, "\n\n");
   }
 
   function openSettings() {

@@ -259,14 +259,60 @@ function moveSceneToSection(sceneLineIdx, targetSectionIdx) {
 /* =====================================================================
  * Cards view
  * =================================================================== */
+// Cards view mode state: "grid" | "list" | "strip"
+let _cardsViewMode = "grid";
+
+function _renderCardsViewToggle() {
+  return `<div class="cards-mode-toggle">
+    <button class="cards-mode-btn${_cardsViewMode==='grid'?' active':''}" data-mode="grid" title="Grid view">
+      <svg class="ic ic-sm"><use href="#i-grid"/></svg>
+    </button>
+    <button class="cards-mode-btn${_cardsViewMode==='list'?' active':''}" data-mode="list" title="List view">
+      <svg class="ic ic-sm"><use href="#i-list"/></svg>
+    </button>
+    <button class="cards-mode-btn${_cardsViewMode==='strip'?' active':''}" data-mode="strip" title="Strip Board">
+      <svg class="ic ic-sm"><use href="#i-strip"/></svg>
+    </button>
+  </div>`;
+}
+
+function _wireCardsViewToggle(root) {
+  root.querySelectorAll(".cards-mode-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      _cardsViewMode = btn.dataset.mode;
+      renderCards();
+    });
+  });
+}
+
+function _parseSlugParts(slug) {
+  const upper = (slug || "").toUpperCase();
+  const m = upper.match(/^(INT\.?|EXT\.?|EST\.?|INT\.?\/EXT\.?|I\.?\/E\.?)\s*(.+?)(?:\s*[-–]\s*(.+))?$/);
+  if (!m) return { ie: "", location: slug, tod: "" };
+  return { ie: m[1].replace(/\.$/,""), location: (m[2] || "").trim(), tod: (m[3] || "").trim() };
+}
+
 function renderCards() {
   const root = $("#cards");
   const scenes = collectScenes();
   if (scenes.length === 0) {
-    root.innerHTML = `<div class="side-empty" style="grid-column:1/-1;text-align:center;padding:80px 20px;color:var(--muted)">No scenes yet — go to the Script tab and write one.</div>`;
+    root.innerHTML = `<div class="side-empty" style="grid-column:1/-1;text-align:center;padding:80px 20px;color:var(--muted)"><b>No scenes to show</b><br><br>Scene cards are created from your script. Go to the <b>Script</b> tab and write at least one scene heading (<kbd>INT.</kbd> or <kbd>EXT.</kbd>) — then come back here to see your scenes as index cards you can rearrange.</div>`;
     return;
   }
-  const toolbarHtml = `<div class="cards-toolbar-wrap" style="grid-column:1/-1">${_renderMultiSelectToolbar("bs-toolbar-cards")}</div>`;
+
+  if (_cardsViewMode === "strip") {
+    _renderStripBoard(root, scenes);
+    return;
+  }
+  if (_cardsViewMode === "list") {
+    _renderCardsList(root, scenes);
+    return;
+  }
+
+  // Default: Grid view
+  const toolbarHtml = `<div class="cards-toolbar-wrap" style="grid-column:1/-1">
+    ${_renderCardsViewToggle()}${_renderMultiSelectToolbar("bs-toolbar-cards")}
+  </div>`;
   root.innerHTML = toolbarHtml + scenes.map((s,i) => {
     const isSelected = _selectedScenes.has(s.lineIndex);
     return `
@@ -282,6 +328,7 @@ function renderCards() {
       <div class="ic-foot"><span>${s.words} w · ${s.characters.size} char</span><span>${Array.from(s.characters).slice(0,3).join(", ")}</span></div>
     </div>`;
   }).join("");
+  _wireCardsViewToggle(root);
   const cardsToolbar = $("#bs-toolbar-cards");
   if (cardsToolbar) _wireMultiSelectToolbar(cardsToolbar, {
     allLineIdxs: () => Array.from(root.querySelectorAll(".idx-card[data-line]")).map(c => parseInt(c.dataset.line, 10)),
@@ -294,7 +341,7 @@ function renderCards() {
     cb.closest(".idx-card")?.classList.toggle("ic-multi-selected", cb.checked);
     _updateToolbarCount(cardsToolbar);
   }));
-  $$(".idx-card").forEach(card => {
+  $$(".idx-card", root).forEach(card => {
     card.addEventListener("dragstart", e => { e.dataTransfer.setData("text/plain", card.dataset.line); card.classList.add("dragging"); });
     card.addEventListener("dragend", () => card.classList.remove("dragging"));
     card.addEventListener("dragover", e => { e.preventDefault(); card.classList.add("drop-target"); });
@@ -316,7 +363,109 @@ function renderCards() {
       if (window.SceneZoom) window.SceneZoom.open(parseInt(zoomBtn.dataset.zoom, 10));
     });
   });
-  $$(".ic-syn").forEach(ta => ta.addEventListener("blur", () => { setSynopsisAfter(parseInt(ta.dataset.line,10), ta.value); setDirty(); }));
+  $$(".ic-syn", root).forEach(ta => ta.addEventListener("blur", () => { setSynopsisAfter(parseInt(ta.dataset.line,10), ta.value); setDirty(); }));
+}
+
+/* =====================================================================
+ * Strip Board — horizontal filmstrip view
+ * =================================================================== */
+function _renderStripBoard(root, scenes) {
+  const toolbarHtml = `<div class="cards-toolbar-wrap" style="width:100%">${_renderCardsViewToggle()}</div>`;
+
+  root.className = "cards strip-board-container";
+  root.innerHTML = toolbarHtml + `<div class="strip-board" id="strip-board-scroll">
+    ${scenes.map((s, i) => {
+      const parts = _parseSlugParts(s.slug);
+      const syn = synopsisAfter(s.lineIndex);
+      const sn = s.lineIndex;
+      const sceneNum = ($$("#editor > div")[s.lineIndex] || {}).dataset?.sceneNum || (i + 1);
+      const colorDot = s.color ? `<span class="strip-color" style="background:${s.color}"></span>` : "";
+
+      // Determine INT/EXT badge style
+      const ieBadge = parts.ie ? `<span class="strip-badge strip-badge-${parts.ie.startsWith("INT") ? "int" : "ext"}">${escapeHtml(parts.ie)}</span>` : "";
+      const todBadge = parts.tod ? `<span class="strip-badge strip-badge-tod">${escapeHtml(parts.tod)}</span>` : "";
+
+      return `<div class="strip-card" draggable="true" data-line="${sn}">
+        <div class="strip-num">${sceneNum}${colorDot}</div>
+        <div class="strip-badges">${ieBadge}${todBadge}</div>
+        <div class="strip-slug" title="${escapeHtml(s.slug)}">${escapeHtml(parts.location || s.slug)}</div>
+        <div class="strip-syn">${escapeHtml(syn || "—")}</div>
+        <div class="strip-meta">${s.words}w · ${s.characters.size}c</div>
+      </div>`;
+    }).join("")}
+  </div>`;
+
+  _wireCardsViewToggle(root);
+
+  // Wire drag-and-drop
+  root.querySelectorAll(".strip-card").forEach(card => {
+    card.addEventListener("dragstart", e => {
+      e.dataTransfer.setData("text/plain", card.dataset.line);
+      card.classList.add("dragging");
+    });
+    card.addEventListener("dragend", () => card.classList.remove("dragging"));
+    card.addEventListener("dragover", e => {
+      e.preventDefault();
+      card.classList.add("drop-target");
+    });
+    card.addEventListener("dragleave", () => card.classList.remove("drop-target"));
+    card.addEventListener("drop", e => {
+      e.preventDefault();
+      card.classList.remove("drop-target");
+      moveScene(parseInt(e.dataTransfer.getData("text/plain"), 10), parseInt(card.dataset.line, 10));
+      renderCards();
+    });
+    card.addEventListener("dblclick", () => navigateToLine(parseInt(card.dataset.line, 10), null));
+  });
+}
+
+/* =====================================================================
+ * List view — compact outline
+ * =================================================================== */
+function _renderCardsList(root, scenes) {
+  const toolbarHtml = `<div class="cards-toolbar-wrap" style="width:100%">${_renderCardsViewToggle()}</div>`;
+
+  root.className = "cards list-view-container";
+  root.innerHTML = toolbarHtml + `<div class="cards-list">
+    ${scenes.map((s, i) => {
+      const parts = _parseSlugParts(s.slug);
+      const syn = synopsisAfter(s.lineIndex);
+      const sceneNum = ($$("#editor > div")[s.lineIndex] || {}).dataset?.sceneNum || (i + 1);
+      const colorDot = s.color ? `<span class="strip-color" style="background:${s.color}"></span>` : "";
+      const ieBadge = parts.ie ? `<span class="strip-badge strip-badge-${parts.ie.startsWith("INT") ? "int" : "ext"}">${escapeHtml(parts.ie)}</span>` : "";
+
+      return `<div class="list-row" draggable="true" data-line="${s.lineIndex}">
+        <div class="list-num">${sceneNum}${colorDot}</div>
+        <div class="list-ie">${ieBadge}</div>
+        <div class="list-slug">${escapeHtml(parts.location || s.slug)}</div>
+        <div class="list-syn">${escapeHtml(syn || "")}</div>
+        <div class="list-meta">${s.words}w · ${s.characters.size}c</div>
+      </div>`;
+    }).join("")}
+  </div>`;
+
+  _wireCardsViewToggle(root);
+
+  // Wire drag-and-drop
+  root.querySelectorAll(".list-row").forEach(row => {
+    row.addEventListener("dragstart", e => {
+      e.dataTransfer.setData("text/plain", row.dataset.line);
+      row.classList.add("dragging");
+    });
+    row.addEventListener("dragend", () => row.classList.remove("dragging"));
+    row.addEventListener("dragover", e => {
+      e.preventDefault();
+      row.classList.add("drop-target");
+    });
+    row.addEventListener("dragleave", () => row.classList.remove("drop-target"));
+    row.addEventListener("drop", e => {
+      e.preventDefault();
+      row.classList.remove("drop-target");
+      moveScene(parseInt(e.dataTransfer.getData("text/plain"), 10), parseInt(row.dataset.line, 10));
+      renderCards();
+    });
+    row.addEventListener("dblclick", () => navigateToLine(parseInt(row.dataset.line, 10), null));
+  });
 }
 
 /* =====================================================================
@@ -606,7 +755,7 @@ function renderTimeline() {
   });
   const undated = scenes.filter(s => !s.date);
   if (dated.length === 0) {
-    body.innerHTML = `<div class="side-empty" style="text-align:center;padding:40px">No dated scenes yet.<br><br>In the Inspector, set "In-story date" on any scene to plot it here.</div>`;
+    body.innerHTML = `<div class="side-empty" style="text-align:center;padding:40px"><b>No dated scenes yet</b><br><br>The Timeline shows your story in chronological order. To set it up:<br>1. Click a scene in the Script tab<br>2. Open the Inspector (sidebar toggle)<br>3. Set an "In-story date" for each scene<br><br>Scenes will appear here ordered by their in-story date.</div>`;
     return;
   }
   body.innerHTML = `

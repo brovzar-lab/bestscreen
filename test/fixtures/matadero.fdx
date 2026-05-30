@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="3">
+<TitlePage>
+  <Content>
+    <Paragraph Type="Title"><Text>Matadero</Text></Paragraph>
+    <Paragraph Type="Credit"><Text>Escrito por</Text></Paragraph>
+    <Paragraph Type="Author"><Text>Mariano Borgognone</Text></Paragraph>
+    <Paragraph Type="Author"><Text>Isabela Gonzalez Fazo</Text></Paragraph>
+    <Paragraph Type="Source"><Text>5ta Version</Text></Paragraph>
+    <Paragraph Type="Draft date"><Text>25/05/2026</Text></Paragraph>
+    <Paragraph Type="Contact"><Text>Revision</Text></Paragraph>
+    <Paragraph Type="Contact"><Text>Billy Rovzar</Text></Paragraph>
+  </Content>
+</TitlePage>
+<Content>
+  <Paragraph Type="Scene Heading"><SceneProperties Number="1"/><Text>INT. CASA DE IRINA - BAÑO - NOCHE</Text></Paragraph>
+  <Paragraph Type="Action"><Text>Oscuro. Irina (18) ya está vestida. Un foco. El espejo manchado.</Text></Paragraph>
+  <Paragraph Type="Action"><Text>Irina se coloca una argolla en el septum. Dos segundos. De memoria, sin verse.</Text></Paragraph>
+  <Paragraph Type="Scene Heading"><SceneProperties Number="2"/><Text>EXT. PUEBLO - AMANECER</Text></Paragraph>
+  <Paragraph Type="Action"><Text>El cielo apenas gris. Las calles vacías. Un pueblo fronterizo al norte de México.</Text></Paragraph>
+  <Paragraph Type="Scene Heading"><SceneProperties Number="3"/><Text>INT. CASA DE IRINA - SALA - AMANECER</Text></Paragraph>
+  <Paragraph Type="Action"><Text>La tele encendida pinta la sala de azul. Sin volumen.</Text></Paragraph>
+  <Paragraph Type="Action"><Text>En el sofá, su MADRE (65) duerme. Vestida. Boca arriba. Irina le tapa con una cobija. Mete la orilla bajo su hombro.</Text></Paragraph>
+  <Paragraph Type="Action"><Text>Apaga la tele. La sala se vuelve negra.</Text></Paragraph>
+  <Paragraph Type="Scene Heading"><SceneProperties Number="4"/><Text>EXT./INT. FOOD MART - ESTACIONAMIENTO - AMANECER</Text></Paragraph>
+  <Paragraph Type="Action"><Text>El monolítico edificio</Text></Paragraph>
+  <Paragraph Type="Action"><Text>de un</Text></Paragraph>
+  <Paragraph Type="Action"><Text>SUPERMERCADO "FOOD MART" se dibuja sobre el cielo matutino. Un enorme complejo en medio del desierto, junto a una ruta asfaltada de doble mano que entra al estacionamiento.</Text></Paragraph>
+  <Paragraph Type="Action"><Text>Las persianas metálicas que recubren las ventanas de vidrio se elevar lenta y RUIDOSAMENTE, retrayéndose hacia el interior.</Text></Paragraph>
+  <Paragraph Type="Character"><Text>IRINA</Text></Paragraph>
+  <Paragraph Type="Dialogue"><Text>Buenos días, Don Carlos.</Text></Paragraph>
+  <Paragraph Type="Character"><Text>DON CARLOS</Text></Paragraph>
+  <Paragraph Type="Parenthetical"><Text>(sin mirar)</Text></Paragraph>
+  <Paragraph Type="Dialogue"><Text>Llegas tarde.</Text></Paragraph>
+  <Paragraph Type="Action"><Text>Irina mira el reloj. No llega tarde.</Text></Paragraph>
+  <Paragraph Type="Transition"><Text>CUT TO:</Text></Paragraph>
+  <Paragraph Type="Scene Heading"><SceneProperties Number="5"/><Text>INT. FOOD MART - INT. - DÍA</Text></Paragraph>
+  <Paragraph Type="Action"><Text>Pasillo estrecho. Luces fluorescentes. Irina camina entre estantes.</Text></Paragraph>
+  <DualDialogue>
+    <Paragraph Type="Character"><Text>IRINA</Text></Paragraph>
+    <Paragraph Type="Dialogue"><Text>¿Y el pedido de ayer?</Text></Paragraph>
+    <Paragraph Type="Character"><Text>DON CARLOS</Text></Paragraph>
+    <Paragraph Type="Dialogue"><Text>No llegó. Nunca llega.</Text></Paragraph>
+  </DualDialogue>
+  <Paragraph Type="Action"><Text>Silencio incómodo.</Text></Paragraph>
+  <Paragraph Type="Action"><Text AdornmentStyle="0" Color="#000000" Font="Courier Final Draft" RevisionID="0" Size="12" Style="">Irina revisa una caja medio vacía de </Text><Text AdornmentStyle="0" Color="#000000" Font="Courier Final Draft" RevisionID="0" Size="12" Style="Bold">SALSA VALENTINA</Text><Text AdornmentStyle="0" Color="#000000" Font="Courier Final Draft" RevisionID="0" Size="12" Style="">. Suspira.</Text></Paragraph>
+</Content>
+</FinalDraft>

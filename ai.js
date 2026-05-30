@@ -14,6 +14,14 @@
 
 const AI = (() => {
 
+  // Shared fetch helper with AbortController timeout
+  function _fetchWithTimeout(url, opts, timeoutMs = 60000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { ...opts, signal: controller.signal })
+      .finally(() => clearTimeout(timer));
+  }
+
   const COMMANDS = [
     { id: "punch",    label: "Punch up",        prompt: "Make this line sharper, funnier, or more cinematic. Output ONLY the rewritten line, no commentary.\n\nLINE:\n{TEXT}" },
     { id: "tighten",  label: "Tighten",         prompt: "Rewrite this to be tighter. Cut filler words. Output ONLY the rewritten line.\n\nLINE:\n{TEXT}" },
@@ -50,14 +58,19 @@ const AI = (() => {
       prompt = prompt.replaceAll("{" + k + "}", v || "");
     });
 
-    if (ai.provider === "anthropic") return callAnthropic(ai, prompt);
-    if (ai.provider === "openai")    return callOpenAI(ai, prompt);
-    throw new Error("Unknown provider: " + ai.provider);
+    try {
+      if (ai.provider === "anthropic") return await callAnthropic(ai, prompt);
+      if (ai.provider === "openai")    return await callOpenAI(ai, prompt);
+      throw new Error("Unknown provider: " + ai.provider);
+    } catch (e) {
+      if (e.name === "AbortError") throw new Error("Request timed out. The AI provider took too long to respond. Try again.");
+      throw e;
+    }
   }
 
   async function callAnthropic(ai, prompt) {
     const model = ai.model || "claude-sonnet-4-6";
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
+    const r = await _fetchWithTimeout("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -81,7 +94,7 @@ const AI = (() => {
 
   async function callOpenAI(ai, prompt) {
     const model = ai.model || "gpt-4o-mini";
-    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    const r = await _fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -139,7 +152,7 @@ const AI = (() => {
 
   async function* streamAnthropic(ai, prompt) {
     const model = ai.model || "claude-sonnet-4-6";
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
+    const r = await _fetchWithTimeout("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -148,7 +161,7 @@ const AI = (() => {
         "anthropic-dangerous-direct-browser-access": "true",
       },
       body: JSON.stringify({ model, max_tokens: 1024, stream: true, messages: [{ role: "user", content: prompt }] }),
-    });
+    }, 90000);
     if (!r.ok) { const t = await r.text(); throw new Error("Anthropic " + r.status + ": " + t.slice(0, 200)); }
     for await (const ev of readSSE(r)) {
       if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") {
@@ -159,14 +172,14 @@ const AI = (() => {
 
   async function* streamOpenAI(ai, prompt) {
     const model = ai.model || "gpt-4o-mini";
-    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    const r = await _fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "content-type": "application/json",
         "authorization": "Bearer " + ai.apiKey,
       },
       body: JSON.stringify({ model, max_tokens: 1024, stream: true, messages: [{ role: "user", content: prompt }] }),
-    });
+    }, 90000);
     if (!r.ok) { const t = await r.text(); throw new Error("OpenAI " + r.status + ": " + t.slice(0, 200)); }
     for await (const ev of readSSE(r)) {
       const chunk = ev.choices?.[0]?.delta?.content;
