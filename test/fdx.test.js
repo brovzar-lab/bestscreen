@@ -47,7 +47,22 @@ function fdxToFountain(xml) {
   function paraText(p) {
     const texts = Array.from(p.querySelectorAll(":scope > Text"));
     if (texts.length === 0) return (p.textContent || "").trim();
-    return texts.map(t => (t.textContent || "")).join("").trim();
+    return texts.map(t => {
+      let s = t.textContent || "";
+      const style = (t.getAttribute("Style") || "").toLowerCase();
+      if (!style) return s;
+      if (style.includes("bold") && style.includes("italic")) {
+        s = `***${s}***`;
+      } else if (style.includes("bold")) {
+        s = `**${s}**`;
+      } else if (style.includes("italic")) {
+        s = `*${s}*`;
+      }
+      if (style.includes("underline")) {
+        s = `_${s}_`;
+      }
+      return s;
+    }).join("").trim();
   }
   function sceneNum(p) {
     const sp = p.querySelector("SceneProperties");
@@ -106,12 +121,12 @@ function fdxToFountain(xml) {
     if (/^\(MORE\)$/i.test(text.trim())) continue;
 
     const sn = sceneNum(p);
-    const snComment = sn ? ` /* bs:sceneNum=${sn} */` : "";
+    const snSuffix = sn ? ` #${sn}#` : "";
 
     switch (type) {
       case "Scene Heading":
         if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
-        out += text + snComment + "\n\n"; break;
+        out += text + snSuffix + "\n\n"; break;
       case "Action":        out += text + "\n\n"; break;
       case "Character":
         text = stripContd(text);
@@ -163,10 +178,10 @@ describe('FDX Parser (fdxToFountain)', () => {
     expect(fountain).toContain('EXT./INT. FOOD MART - ESTACIONAMIENTO - AMANECER');
   });
 
-  it('should preserve scene numbers as bs:sceneNum comments', () => {
-    expect(fountain).toContain('/* bs:sceneNum=1 */');
-    expect(fountain).toContain('/* bs:sceneNum=2 */');
-    expect(fountain).toContain('/* bs:sceneNum=5 */');
+  it('should preserve scene numbers as Fountain #number# syntax', () => {
+    expect(fountain).toContain('#1#');
+    expect(fountain).toContain('#2#');
+    expect(fountain).toContain('#5#');
   });
 
   it('scene heading should be followed by double newline', () => {
@@ -213,14 +228,42 @@ describe('FDX Parser (fdxToFountain)', () => {
     expect(fountain).toContain('No llegó. Nunca llega.');
   });
 
-  it('should join multi-Text elements without space between runs', () => {
-    // The last paragraph has three <Text> elements: "Irina revisa..."  "SALSA VALENTINA"  ". Suspira."
-    expect(fountain).toContain('Irina revisa una caja medio vacía de SALSA VALENTINA. Suspira.');
+  it('should join multi-Text elements and preserve inline formatting', () => {
+    // The last paragraph has three <Text> elements: plain, Bold "SALSA VALENTINA", plain ". Suspira."
+    expect(fountain).toContain('Irina revisa una caja medio vacía de **SALSA VALENTINA**. Suspira.');
   });
 
   it('should not contain XML tags or parse errors', () => {
     expect(fountain).not.toContain('<Paragraph');
     expect(fountain).not.toContain('<Text');
     expect(fountain).not.toContain('parsererror');
+  });
+
+  it('should preserve inline formatting from FDX Style attributes', () => {
+    // Test with a synthetic FDX containing styled text
+    const styledFdx = `<?xml version="1.0" encoding="UTF-8"?>
+<FinalDraft DocumentType="Script" Template="No" Version="3">
+<Content>
+  <Paragraph Type="Action">
+    <Text>The door </Text>
+    <Text Style="Bold">slams</Text>
+    <Text> shut.</Text>
+  </Paragraph>
+  <Paragraph Type="Action">
+    <Text Style="Italic">She whispers.</Text>
+  </Paragraph>
+  <Paragraph Type="Action">
+    <Text Style="Bold+Italic">BANG!</Text>
+    <Text> Then </Text>
+    <Text Style="Underline">silence</Text>
+    <Text>.</Text>
+  </Paragraph>
+</Content>
+</FinalDraft>`;
+    const result = fdxToFountain(styledFdx);
+    expect(result).toContain('The door **slams** shut.');
+    expect(result).toContain('*She whispers.*');
+    expect(result).toContain('***BANG!***');
+    expect(result).toContain('_silence_');
   });
 });

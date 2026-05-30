@@ -146,17 +146,24 @@ function serializeFountain(includeTitle=true) {
     }
     const t = line.textContent; const type = line.dataset.type;
     const meta = [];
-    ["color","tags","beat","thread","goal","mood","date","sound","rev","sceneNum"].forEach(k => {
+    ["color","tags","beat","thread","goal","mood","date","sound","rev"].forEach(k => {
       if (line.dataset[k]) meta.push(`${k}=${(line.dataset[k]+"").replace(/\|/g," ")}`);
     });
+    // Scene numbers use Fountain-standard #number# syntax, not bs: comments
+    if (type !== "scene" && line.dataset.sceneNum) {
+      meta.push(`sceneNum=${line.dataset.sceneNum}`);
+    }
     const metaComment = meta.length ? ` /* bs:${meta.join(";")} */` : "";
     const needsBlankBefore =
       (type === "scene" && prevType !== "" && prevType !== "scene") ||
       (type === "character" && prevType !== "" && prevType !== "scene" && prevType !== "character");
     if (needsBlankBefore && !out.endsWith("\n\n")) out += "\n";
     switch (type) {
-      case "scene":
-        out += (SCENE_RE.test(t.trim()) ? t.trim() : "." + t.trim()) + metaComment + "\n"; break;
+      case "scene": {
+        const sceneText = SCENE_RE.test(t.trim()) ? t.trim() : "." + t.trim();
+        const snSuffix = line.dataset.sceneNum ? ` #${line.dataset.sceneNum}#` : "";
+        out += sceneText + snSuffix + metaComment + "\n"; break;
+      }
       case "character":     out += t.trim() + metaComment + "\n"; break;
       case "dialogue":      out += t + "\n"; break;
       case "parenthetical": out += t.trim() + "\n"; break;
@@ -277,6 +284,14 @@ function loadFountain(src) {
     d.dataset.type = o.type;
     d.dataset.forced = (o.type !== "action" && o.type !== "dialogue") ? "true" : "false";
     let text = o.text.replace(/^\s+/, "");
+    // Extract Fountain-standard scene numbers: INT. HOUSE - DAY #1#
+    if (o.type === "scene") {
+      const snMatch = text.match(/\s*#([^#]+)#\s*$/);
+      if (snMatch) {
+        d.dataset.sceneNum = snMatch[1].trim();
+        text = text.replace(/\s*#[^#]+#\s*$/, "");
+      }
+    }
     if (o.type === "character" && o.dualRight) {
       dualRightCharIdx.add(editor.children.length);
     }
@@ -589,11 +604,30 @@ function fdxToFountain(xml) {
   }
 
   // ---- Helper: extract text from a Paragraph element ----
+  // Reads the Style attribute from each <Text> child and wraps content
+  // in Fountain inline markup: **bold**, *italic*, _underline_.
+  // Inspired by rsdoiel/fdx XML structure: Style="Bold", "Italic",
+  // "Bold+Italic", "Underline", "Bold+Underline", etc.
   function paraText(p) {
     const texts = Array.from(p.querySelectorAll(":scope > Text"));
     if (texts.length === 0) return (p.textContent || "").trim();
-    // Join multiple <Text> runs with space (they are inline formatting runs)
-    return texts.map(t => (t.textContent || "")).join("").trim();
+    return texts.map(t => {
+      let s = t.textContent || "";
+      const style = (t.getAttribute("Style") || "").toLowerCase();
+      if (!style) return s;
+      // Apply Fountain formatting markers based on FDX Style attribute
+      if (style.includes("bold") && style.includes("italic")) {
+        s = `***${s}***`;
+      } else if (style.includes("bold")) {
+        s = `**${s}**`;
+      } else if (style.includes("italic")) {
+        s = `*${s}*`;
+      }
+      if (style.includes("underline")) {
+        s = `_${s}_`;
+      }
+      return s;
+    }).join("").trim();
   }
 
   // ---- Helper: extract scene number if present ----
@@ -678,12 +712,12 @@ function fdxToFountain(xml) {
     if (/^\(MORE\)$/i.test(text.trim())) continue;
 
     const sn = sceneNum(p);
-    const snComment = sn ? ` /* bs:sceneNum=${sn} */` : "";
+    const snSuffix = sn ? ` #${sn}#` : "";
 
     switch (type) {
       case "Scene Heading":
         if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
-        out += text + snComment + "\n\n";
+        out += text + snSuffix + "\n\n";
         break;
       case "Action":
         out += text + "\n\n";
@@ -769,12 +803,23 @@ function exportFdx() {
     // Scene heading with optional SceneProperties
     if (line.dataset.type === "scene") {
       const sn = line.dataset.sceneNum || "";
-      const spAttr = sn ? ` Number="${sn}"` : "";
       body += `  <Paragraph Type="${fdxType}">`;
-      if (sn) body += `<SceneProperties${spAttr}/>`;
-      body += `<Text>${t}</Text></Paragraph>\n`;
+      // Use locked scene number from dataset if available
+      if (sn) {
+        body += `<SceneProperties Number="${sn}"/>`;
+      } else {
+        // Parse Fountain scene number syntax: TEXT #number#
+        const snMatch = rawText.match(/#([^#]+)#\s*$/);
+        if (snMatch) {
+          body += `<SceneProperties Number="${snMatch[1].replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}"/>`;
+        }
+      }
+      // Remove scene number from text for the XML content
+      const cleanText = t.replace(/\s*#[^#]+#\s*$/, '');
+      body += `<Text>${cleanText}</Text></Paragraph>\n`;
     } else {
-      body += `  <Paragraph Type="${fdxType}"><Text>${t}</Text></Paragraph>\n`;
+      // Parse Fountain inline formatting and emit as FDX <Text Style> runs
+      body += parseFountainToFdxParagraph(fdxType, t);
     }
   }
 
@@ -786,3 +831,61 @@ ${body}</Content>
   downloadFile(appState.filename.replace(/\.[^.]+$/,"") + ".fdx", xml, "application/xml");
 }
 
+/* =====================================================================
+ * FDX inline formatting helper — converts Fountain markup to FDX <Text Style> runs.
+ * Splits text on ***bold+italic***, **bold**, *italic*, _underline_ markers
+ * and emits separate <Text Style="..."> elements for each run.
+ * =================================================================== */
+function parseFountainToFdxParagraph(fdxType, escapedText) {
+  // Regex to find Fountain inline formatting markers in already-XML-escaped text
+  // Order matters: check bold+italic (***) before bold (**) before italic (*)
+  const runs = [];
+  // Work with the raw escaped text; split into styled runs
+  // We use a simple state machine: scan for markers, push runs
+  let remaining = escapedText;
+  const markerRe = /(\*{3})(.*?)\1|(\*{2})(.*?)\3|(\*)(.*?)\5|(_)(.*?)\7/g;
+
+  let lastIndex = 0;
+  let match;
+  // Reset regex state
+  markerRe.lastIndex = 0;
+
+  while ((match = markerRe.exec(escapedText)) !== null) {
+    // Push any plain text before this match
+    if (match.index > lastIndex) {
+      runs.push({ text: escapedText.slice(lastIndex, match.index), style: "" });
+    }
+    if (match[1] === "***") {
+      runs.push({ text: match[2], style: "Bold+Italic" });
+    } else if (match[3] === "**") {
+      runs.push({ text: match[4], style: "Bold" });
+    } else if (match[5] === "*") {
+      runs.push({ text: match[6], style: "Italic" });
+    } else if (match[7] === "_") {
+      runs.push({ text: match[8], style: "Underline" });
+    }
+    lastIndex = match.index + match[0].length;
+  }
+  // Push remaining plain text
+  if (lastIndex < escapedText.length) {
+    runs.push({ text: escapedText.slice(lastIndex), style: "" });
+  }
+
+  // If no formatting found, emit simple paragraph
+  if (runs.length === 0 || (runs.length === 1 && !runs[0].style)) {
+    return `  <Paragraph Type="${fdxType}"><Text>${escapedText}</Text></Paragraph>\n`;
+  }
+
+  // Build paragraph with multiple <Text> elements
+  let out = `  <Paragraph Type="${fdxType}">`;
+  for (const run of runs) {
+    if (!run.text) continue;
+    if (run.style) {
+      out += `<Text Style="${run.style}">${run.text}</Text>`;
+    } else {
+      out += `<Text>${run.text}</Text>`;
+    }
+  }
+  out += `</Paragraph>\n`;
+  return out;
+}

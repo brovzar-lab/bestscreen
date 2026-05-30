@@ -498,11 +498,26 @@ const Dashboard = (() => {
       if (out) out += "\n";
     }
 
-    // Helper: extract text from a Paragraph
+    // Helper: extract text from a Paragraph, preserving inline formatting
     function paraText(p) {
       const texts = Array.from(p.querySelectorAll(":scope > Text"));
       if (texts.length === 0) return (p.textContent || "").trim();
-      return texts.map(t => (t.textContent || "")).join("").trim();
+      return texts.map(t => {
+        let s = t.textContent || "";
+        const style = (t.getAttribute("Style") || "").toLowerCase();
+        if (!style) return s;
+        if (style.includes("bold") && style.includes("italic")) {
+          s = `***${s}***`;
+        } else if (style.includes("bold")) {
+          s = `**${s}**`;
+        } else if (style.includes("italic")) {
+          s = `*${s}*`;
+        }
+        if (style.includes("underline")) {
+          s = `_${s}_`;
+        }
+        return s;
+      }).join("").trim();
     }
     function stripContd(name) {
       return name.replace(/\s*\(CONT'?D\)\s*$/i, "").trim();

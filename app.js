@@ -51,8 +51,8 @@ const MOODS = [
 ];
 
 const SCENE_RE   = /^(INT\.?|EXT\.?|EST\.?|INT\.?\/EXT\.?|I\.?\/E\.?)[\.\s]/i;
-const TRANS_RE   = /[A-Z][A-Z0-9 \-]+TO:$/;
-const ALLCAPS_RE = /^[A-Z0-9][A-Z0-9 ()\-'.,&/:]*$/;
+const TRANS_RE   = /[\p{Lu}][\p{Lu}\p{N} \-]+TO:$/u;
+const ALLCAPS_RE = /^[\p{Lu}\p{N}][\p{Lu}\p{N} ()'\-.,\u0026\/:]*$/u;
 
 // Sentiment lexicon — expanded from ~80 to ~400 words for usable coverage
 const SENT_POS = new Set([
