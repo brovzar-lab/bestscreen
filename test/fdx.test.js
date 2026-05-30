@@ -149,7 +149,8 @@ function fdxToFountain(xml) {
         if (type === "Character") {
           charCount++; text = stripContd(text);
           if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
-          out += charCount === 2 ? text + " ^\n" : text + "\n";
+          const charPrefix = (text !== text.toUpperCase()) ? "@" : "";
+          out += charCount === 2 ? charPrefix + text + " ^\n" : charPrefix + text + "\n";
           prevType = "Character";
         } else if (type === "Dialogue") {
           if (/^\(MORE\)$/i.test(text.trim())) continue;
@@ -194,7 +195,12 @@ function fdxToFountain(xml) {
       case "Character":
         text = stripContd(text);
         if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
-        out += text + "\n"; break;
+        if (text !== text.toUpperCase()) {
+          out += "@" + text + "\n";
+        } else {
+          out += text + "\n";
+        }
+        break;
       case "Dialogue":      out += text + "\n"; break;
       case "Parenthetical": out += text + "\n"; break;
       case "Transition":

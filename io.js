@@ -794,10 +794,11 @@ function fdxToFountain(xml) {
           charCount++;
           text = stripContd(text);
           if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
+          const charPrefix = (text !== text.toUpperCase()) ? "@" : "";
           if (charCount === 2) {
-            out += text + " ^\n";
+            out += charPrefix + text + " ^\n";
           } else {
-            out += text + "\n";
+            out += charPrefix + text + "\n";
           }
           prevType = "Character";
         } else if (type === "Dialogue") {
@@ -860,7 +861,14 @@ function fdxToFountain(xml) {
       case "Character":
         text = stripContd(text);
         if (prevType && prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
-        out += text + "\n";
+        // In Fountain, ALL CAPS names are auto-detected as character cues.
+        // Mixed-case names (e.g. "Irina" instead of "IRINA") need the @ prefix
+        // to be classified correctly by the Fountain parser.
+        if (text !== text.toUpperCase()) {
+          out += "@" + text + "\n";
+        } else {
+          out += text + "\n";
+        }
         break;
       case "Dialogue":
         out += text + "\n";
