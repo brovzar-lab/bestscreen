@@ -50,7 +50,7 @@ const MOODS = [
   { id: "romantic",   label: "Romantic" },
 ];
 
-const SCENE_RE   = /^(INT\.?|EXT\.?|EST\.?|INT\.?\/EXT\.?|I\.?\/E\.?)[\.\s]/i;
+const SCENE_RE   = /^(INT\.?|EXT\.?|EST\.?|INT\.?\/EXT\.?|EXT\.?\/INT\.?|I\.?\/E\.?|E\.?\/I\.?)[.\s]/i;
 const TRANS_RE   = /[\p{Lu}][\p{Lu}\p{N} \-]+TO:$/u;
 const ALLCAPS_RE = /^[\p{Lu}\p{N}][\p{Lu}\p{N} ()'\-.,\u0026\/:]*$/u;
 
