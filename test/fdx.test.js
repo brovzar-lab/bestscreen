@@ -44,18 +44,22 @@ function fdxToFountain(xml) {
     if (out) out += "\n";
   }
 
-  function paraText(p) {
+  function paraText(p, paragraphType) {
     const texts = Array.from(p.querySelectorAll(":scope > Text"));
     if (texts.length === 0) return (p.textContent || "").trim();
+    const skipBold = ["Scene Heading", "Character", "Transition"].includes(paragraphType);
     return texts.map(t => {
       let s = t.textContent || "";
       const style = (t.getAttribute("Style") || "").toLowerCase();
       if (!style) return s;
-      if (style.includes("bold") && style.includes("italic")) {
+      const hasBold = style.includes("bold");
+      const hasItalic = style.includes("italic");
+      const applyBold = hasBold && !skipBold;
+      if (applyBold && hasItalic) {
         s = `***${s}***`;
-      } else if (style.includes("bold")) {
+      } else if (applyBold) {
         s = `**${s}**`;
-      } else if (style.includes("italic")) {
+      } else if (hasItalic) {
         s = `*${s}*`;
       }
       if (style.includes("underline")) {
@@ -87,7 +91,7 @@ function fdxToFountain(xml) {
         const p = ddParas[di];
         if (p.closest("TitlePage")) continue;
         const type = p.getAttribute("Type") || "Action";
-        let text = paraText(p);
+        let text = paraText(p, type);
         if (!text && type !== "Action") continue;
         if (type === "Character") {
           charCount++;
@@ -112,7 +116,7 @@ function fdxToFountain(xml) {
     const p = node;
     if (p.closest("TitlePage")) continue;
     const type = p.getAttribute("Type") || "Action";
-    let text = paraText(p);
+    let text = paraText(p, type);
 
     if (!text) {
       if (prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
@@ -265,5 +269,31 @@ describe('FDX Parser (fdxToFountain)', () => {
     expect(result).toContain('*She whispers.*');
     expect(result).toContain('***BANG!***');
     expect(result).toContain('_silence_');
+  });
+
+  it('should NOT add bold markers to Scene Headings, Characters, or Transitions (inherent CSS)', () => {
+    const boldFdx = `<?xml version="1.0" encoding="UTF-8"?>
+<FinalDraft DocumentType="Script" Template="No" Version="3">
+<Content>
+  <Paragraph Type="Scene Heading"><Text Style="Bold">INT. OFFICE - DAY</Text></Paragraph>
+  <Paragraph Type="Action"><Text>A normal action line.</Text></Paragraph>
+  <Paragraph Type="Character"><Text Style="Bold">JOHN</Text></Paragraph>
+  <Paragraph Type="Dialogue"><Text>Hello there.</Text></Paragraph>
+  <Paragraph Type="Transition"><Text Style="Bold">CUT TO:</Text></Paragraph>
+  <Paragraph Type="Action"><Text Style="Bold">Bold action text.</Text></Paragraph>
+</Content>
+</FinalDraft>`;
+    const result = fdxToFountain(boldFdx);
+    // Scene heading: bold is inherent → no ** markers
+    expect(result).toContain('INT. OFFICE - DAY');
+    expect(result).not.toContain('**INT. OFFICE - DAY**');
+    // Character: bold is inherent → no ** markers
+    expect(result).toContain('JOHN');
+    expect(result).not.toContain('**JOHN**');
+    // Transition: bold is inherent → no ** markers
+    expect(result).toContain('CUT TO:');
+    expect(result).not.toContain('**CUT TO:**');
+    // Action: bold is NOT inherent → should get ** markers
+    expect(result).toContain('**Bold action text.**');
   });
 });

@@ -16,3 +16,4 @@ firebase-debug.log
 # Local config — secrets live here, never commit
 .env
 config.local.js
+format-verify-final.png

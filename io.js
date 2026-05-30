@@ -292,6 +292,24 @@ function loadFountain(src) {
         text = text.replace(/\s*#[^#]+#\s*$/, "");
       }
     }
+    // Legacy cleanup: strip any remaining /* bs:... */ comments from displayed text
+    // (handles old saved projects where sceneNum was embedded as a comment)
+    const legacyComment = text.match(/\s*\/\*\s*bs:([^*]+)\*\/\s*/i);
+    if (legacyComment) {
+      const parts = legacyComment[1].split(";");
+      parts.forEach(kv => {
+        const [k, v] = kv.split("=").map(s => s.trim());
+        if (k === "sceneNum" && v && o.type === "scene" && !d.dataset.sceneNum) {
+          d.dataset.sceneNum = v;
+        }
+      });
+      text = text.replace(/\s*\/\*\s*bs:[^*]+\*\/\s*/gi, "").trim();
+    }
+    // Strip Fountain bold markers from types where bold is inherent CSS
+    // (scene headings, characters, transitions) to prevent literal ** display
+    if (["scene", "character", "transition"].includes(o.type)) {
+      text = text.replace(/\*{2,3}([^*]+)\*{2,3}/g, "$1");
+    }
     if (o.type === "character" && o.dualRight) {
       dualRightCharIdx.add(editor.children.length);
     }
@@ -606,24 +624,32 @@ function fdxToFountain(xml) {
   // ---- Helper: extract text from a Paragraph element ----
   // Reads the Style attribute from each <Text> child and wraps content
   // in Fountain inline markup: **bold**, *italic*, _underline_.
-  // Inspired by rsdoiel/fdx XML structure: Style="Bold", "Italic",
-  // "Bold+Italic", "Underline", "Bold+Underline", etc.
-  function paraText(p) {
+  //
+  // paragraphType: FDX Paragraph Type (e.g. "Scene Heading", "Character").
+  // Scene Headings, Characters, and Transitions are inherently bold via CSS,
+  // so we skip bold markers for those types to avoid literal ** in the text.
+  function paraText(p, paragraphType) {
     const texts = Array.from(p.querySelectorAll(":scope > Text"));
     if (texts.length === 0) return (p.textContent || "").trim();
+    const skipBold = ["Scene Heading", "Character", "Transition"].includes(paragraphType);
     return texts.map(t => {
       let s = t.textContent || "";
       const style = (t.getAttribute("Style") || "").toLowerCase();
       if (!style) return s;
-      // Apply Fountain formatting markers based on FDX Style attribute
-      if (style.includes("bold") && style.includes("italic")) {
+      const hasBold = style.includes("bold");
+      const hasItalic = style.includes("italic");
+      const hasUnderline = style.includes("underline");
+      // Determine effective bold (may be skipped for inherent types)
+      const applyBold = hasBold && !skipBold;
+      // Apply combined markers
+      if (applyBold && hasItalic) {
         s = `***${s}***`;
-      } else if (style.includes("bold")) {
+      } else if (applyBold) {
         s = `**${s}**`;
-      } else if (style.includes("italic")) {
+      } else if (hasItalic) {
         s = `*${s}*`;
       }
-      if (style.includes("underline")) {
+      if (hasUnderline) {
         s = `_${s}_`;
       }
       return s;
@@ -662,7 +688,7 @@ function fdxToFountain(xml) {
         const p = ddParas[di];
         if (p.closest("TitlePage")) continue;
         const type = p.getAttribute("Type") || "Action";
-        let text = paraText(p);
+        let text = paraText(p, type);
         if (!text && type !== "Action") continue;
 
         if (type === "Character") {
@@ -699,7 +725,7 @@ function fdxToFountain(xml) {
     if (p.closest("TitlePage")) continue;
 
     const type = p.getAttribute("Type") || "Action";
-    let text = paraText(p);
+    let text = paraText(p, type);
 
     // Empty paragraphs are spacing cues — emit a blank line
     if (!text) {

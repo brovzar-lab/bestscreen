@@ -498,19 +498,24 @@ const Dashboard = (() => {
       if (out) out += "\n";
     }
 
-    // Helper: extract text from a Paragraph, preserving inline formatting
-    function paraText(p) {
+    // Helper: extract text from a Paragraph, preserving inline formatting.
+    // Skip bold for types where it's inherent (Scene Heading, Character, Transition).
+    function paraText(p, paragraphType) {
       const texts = Array.from(p.querySelectorAll(":scope > Text"));
       if (texts.length === 0) return (p.textContent || "").trim();
+      const skipBold = ["Scene Heading", "Character", "Transition"].includes(paragraphType);
       return texts.map(t => {
         let s = t.textContent || "";
         const style = (t.getAttribute("Style") || "").toLowerCase();
         if (!style) return s;
-        if (style.includes("bold") && style.includes("italic")) {
+        const hasBold = style.includes("bold");
+        const hasItalic = style.includes("italic");
+        const applyBold = hasBold && !skipBold;
+        if (applyBold && hasItalic) {
           s = `***${s}***`;
-        } else if (style.includes("bold")) {
+        } else if (applyBold) {
           s = `**${s}**`;
-        } else if (style.includes("italic")) {
+        } else if (hasItalic) {
           s = `*${s}*`;
         }
         if (style.includes("underline")) {
@@ -538,7 +543,7 @@ const Dashboard = (() => {
           const p = ddParas[di];
           if (p.closest("TitlePage")) continue;
           const type = p.getAttribute("Type") || "Action";
-          let text = paraText(p);
+          let text = paraText(p, type);
           if (!text && type !== "Action") continue;
           if (type === "Character") {
             charCount++;
@@ -563,7 +568,7 @@ const Dashboard = (() => {
       const p = node;
       if (p.closest("TitlePage")) continue;
       const type = p.getAttribute("Type") || "Action";
-      let text = paraText(p);
+      let text = paraText(p, type);
 
       if (!text) {
         if (prevType !== "blank" && !out.endsWith("\n\n")) out += "\n";
