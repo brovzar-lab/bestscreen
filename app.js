@@ -600,11 +600,11 @@ function bindEditorUI() {
     });
   });
 
-  // Drag to bin
-  $("#btn-bin").addEventListener("dragover", e => { e.preventDefault(); $("#btn-bin").classList.add("active"); });
-  $("#btn-bin").addEventListener("dragleave", () => $("#btn-bin").classList.remove("active"));
-  $("#btn-bin").addEventListener("drop", e => {
-    e.preventDefault(); $("#btn-bin").classList.remove("active");
+  // Drag to bin (guarded — btn-bin may not exist if toolbar was decluttered)
+  $("#btn-bin")?.addEventListener("dragover", e => { e.preventDefault(); $("#btn-bin")?.classList.add("active"); });
+  $("#btn-bin")?.addEventListener("dragleave", () => $("#btn-bin")?.classList.remove("active"));
+  $("#btn-bin")?.addEventListener("drop", e => {
+    e.preventDefault(); $("#btn-bin")?.classList.remove("active");
     const text = e.dataTransfer.getData("text/plain");
     if (text) {
       addToBin(text);
