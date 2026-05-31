@@ -665,28 +665,28 @@ function updateInspector() {
   body.innerHTML = `
     ${sc ? renderInspectorScene(sc) : `<div class="ins-section"><div class="side-empty" style="padding:20px 0">Place cursor in a scene to edit its details.</div></div>`}
     <div class="ins-section">
-      <h4>Revision</h4>
+      <h3>Revision</h3>
       <div class="ins-color-row" id="rev-row">
         ${REVISION_COLORS.map(r => `<div class="ins-color-dot ${r.id===appState.activeRevision?'selected':''}" data-rev="${r.id}" title="${r.label}" style="background:${r.css}"></div>`).join("")}
       </div>
     </div>
     <div class="ins-section">
-      <h4>Story</h4>
-      <div class="ins-kv">
-        <dt>Template</dt><dd><select id="ins-template-sel" class="ins-template-sel">
+      <h3>Story</h3>
+      <dl class="ins-kv">
+        <dt>Template</dt><dd><select id="ins-template-sel" aria-label="Template" class="ins-template-sel">
           <option value="">— No template —</option>
           ${Templates.list.map(t => `<option value="${t.id}" ${appState.template === t.id ? "selected" : ""}>${escapeHtml(t.name)}</option>`).join("")}
         </select></dd>
         <dt>Logline</dt><dd style="white-space:normal">${escapeHtml(appState.logline) || "<i style='color:var(--muted)'>none</i>"}</dd>
         <dt>Theme</dt><dd>${escapeHtml(appState.theme) || "—"}</dd>
-      </div>
+      </dl>
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
         <button class="btn small" id="ins-logline">Open logline workshop</button>
         <button class="btn small" id="ins-titlepage">Title page…</button>
       </div>
     </div>
     <div class="ins-section">
-      <h4>Overlays</h4>
+      <h3>Overlays</h3>
       <label style="display:flex;gap:6px;font-size:12px;margin:4px 0"><input type="checkbox" id="opt-pace" ${appState.paceMode?"checked":""}/> Pace heatmap on script</label>
       <label style="display:flex;gap:6px;font-size:12px;margin:4px 0"><input type="checkbox" id="opt-pageview" ${appState.pageView?"checked":""}/> Page View (discrete pages)</label>
       <label style="display:flex;gap:6px;font-size:12px;margin:4px 0"><input type="checkbox" id="opt-pagebreaks" ${appState.showPageBreaks?"checked":""}/> Show page breaks in editor</label>
@@ -699,12 +699,12 @@ function updateInspector() {
       </label>
     </div>
     <div class="ins-section">
-      <h4>Breakdown — all scenes</h4>
-      <div class="ins-kv">
+      <h3>Breakdown — all scenes</h3>
+      <dl class="ins-kv">
         <dt>Locations</dt><dd>${breakdown.locations.length}</dd>
         <dt>Day / night</dt><dd>${breakdown.dayCount} / ${breakdown.nightCount}</dd>
         <dt>Int / ext</dt><dd>${breakdown.intCount} / ${breakdown.extCount}</dd>
-      </div>
+      </dl>
     </div>
   `;
   // Wire revision dots
@@ -752,19 +752,19 @@ function renderInspectorScene(s) {
   const props = extractProps(s);
   return `
     <div class="ins-section">
-      <h4>Scene ${s.index + 1}</h4>
-      <div class="ins-kv">
+      <h3>Scene ${s.index + 1}</h3>
+      <dl class="ins-kv">
         <dt>Slug</dt><dd style="font-family:var(--font-screen)">${escapeHtml(s.slug)}</dd>
         <dt>Words</dt><dd>${s.words} (${s.actionWords} action / ${s.dialogWords} dialogue)</dd>
         <dt>Page</dt><dd>${s.pageAt}</dd>
-      </div>
+      </dl>
     </div>
     <div class="ins-section">
-      <h4>Goal</h4>
+      <h3>Goal</h3>
       <textarea class="ins-goal" id="ins-scene-goal" placeholder="What does this scene accomplish?">${escapeHtml(sceneLine.dataset.goal || "")}</textarea>
     </div>
     <div class="ins-section">
-      <h4>Plot threads</h4>
+      <h3>Plot threads</h3>
       <div class="ins-color-row" id="ins-thread-row">
         ${PLOT_THREADS.map(p => {
           const active = (sceneLine.dataset.thread || "").split(",").includes(p.id);
@@ -773,41 +773,41 @@ function renderInspectorScene(s) {
       </div>
     </div>
     <div class="ins-section">
-      <h4>Mood</h4>
+      <h3>Mood</h3>
       <select id="ins-mood" class="ins-tag-input">
         ${MOODS.map(m => `<option value="${m.id}" ${(sceneLine.dataset.mood||"")===m.id?"selected":""}>${m.label}</option>`).join("")}
       </select>
     </div>
     <div class="ins-section">
-      <h4>Beat tag (for template fidelity)</h4>
+      <h3>Beat tag (for template fidelity)</h3>
       <input class="ins-tag-input" id="ins-beat" value="${escapeHtml(sceneLine.dataset.beat || "")}" placeholder="e.g. catalyst, midpoint" />
     </div>
     <div class="ins-section">
-      <h4>Color</h4>
+      <h3>Color</h3>
       <div class="ins-color-row" id="scene-color-row">
         ${SCENE_COLORS.map(c => `<div class="ins-color-dot ${(sceneLine.dataset.color||'')===c.id?'selected':''}" data-color="${c.id}" title="${c.label}" style="background:${c.css||'transparent'};border:2px solid ${c.id ? 'transparent' : 'var(--line)'}"></div>`).join("")}
       </div>
     </div>
     <div class="ins-section">
-      <h4>Tags</h4>
+      <h3>Tags</h3>
       <input class="ins-tag-input" id="scene-tags" value="${escapeHtml(sceneLine.dataset.tags || "")}" placeholder="plot a, A-story…" />
     </div>
     <div class="ins-section">
-      <h4>In-story date (for Timeline)</h4>
+      <h3>In-story date (for Timeline)</h3>
       <input class="ins-tag-input" id="ins-date" value="${escapeHtml(sceneLine.dataset.date || "")}" placeholder="2026-05-25, or Tuesday morning" />
     </div>
     <div class="ins-section">
-      <h4>Soundtrack URL</h4>
+      <h3>Soundtrack URL</h3>
       <input class="ins-tag-input" id="ins-sound" value="${escapeHtml(sceneLine.dataset.sound || "")}" placeholder="https://… mp3/ogg" />
     </div>
     <div class="ins-section">
-      <h4>Characters in scene</h4>
+      <h3>Characters in scene</h3>
       <div class="ins-chip-row">
         ${Array.from(s.characters).map(c => `<span class="ins-chip">${escapeHtml(c)}</span>`).join("") || "<span class='muted' style='font-size:11px'>None</span>"}
       </div>
     </div>
     <div class="ins-section">
-      <h4>Likely props</h4>
+      <h3>Likely props</h3>
       <div class="ins-chip-row">
         ${props.length ? props.slice(0,12).map(p => `<span class="ins-chip">${escapeHtml(p)}</span>`).join("") : "<span class='muted' style='font-size:11px'>None detected</span>"}
       </div>

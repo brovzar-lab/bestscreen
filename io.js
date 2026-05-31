@@ -61,7 +61,7 @@ function buildSharedHtml({ mode, reader, watermark }) {
       renderMarks();
       const exp = document.createElement('button');
       exp.textContent = '📋 Copy notes to clipboard';
-      exp.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:10px 14px;background:#b3261e;color:#fff;border:0;border-radius:8px;cursor:pointer;font:inherit;';
+      exp.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:10px 14px;background:#A1505D;color:#fff;border:0;border-radius:10px;cursor:pointer;font:inherit;';
       exp.onclick = exportNotes;
       document.body.appendChild(exp);
     </script>` : "";

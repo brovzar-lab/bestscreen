@@ -1,9 +1,12 @@
 /* =============================================================================
-   BESTSCREEN — design system & layout
+   BESTSCREEN — Soft Print design system
    ----------------------------------------------------------------------------
-   Light "Manuscript" theme (default) + Dark "Midnight" theme.
-   Type stack: UI in Inter / SF / system; screenplay in Courier Prime (CDN
-   fallback to system Courier — looks great either way).
+   Calm, warm, paper-soft. Light is primary; dark is warm-charcoal (never slate).
+   One brand hue (rose) kept SEPARATE from the three semantic hues
+   (sage / sand / clay) so brand and status never collide.
+
+   UI: Hanken Grotesk + Spline Sans Mono.
+   Screenplay editor only: Courier Prime (industry standard, intentional).
    ============================================================================= */
 
 @font-face {
@@ -13,108 +16,177 @@
 }
 
 :root {
-  /* Palette: Manuscript */
-  --bg:        #efe7d7;     /* writing-room beige */
-  --bg-2:      #e7dcc6;
-  --paper:     #fbf5e8;     /* warm typewriter paper */
-  --paper-2:   #f5ecd7;
-  --ink:       #1a1815;
-  --ink-2:     #2b2a26;
-  --muted:     #82786a;
-  --line:      #d8ccaf;
-  --line-2:    #eadfc1;
-  --accent:    #b3261e;     /* Smith-Corona red */
-  --accent-2:  #e85a52;
-  --accent-soft:#fbe2dd;
-  --hl:        #f5e08c;
-  --good:      #2f7a3c;
-  --warn:      #c98917;
+  /* ============================================================
+     SOFT PRINT TOKENS — light (primary)
+     ============================================================ */
 
-  --sidebar-bg: #e3d8be;
-  --header-bg:  #f3eada;
+  /* Surfaces (warm paper, low contrast) */
+  --sp-bg:            #F1EBE0;
+  --sp-surface:       #FBF8F2;
+  --sp-surface-2:     #F5F0E7;
+  --sp-sunken:        #E9E2D4;
+  --sp-border:        #E4DCCD;
+  --sp-border-strong: #D5CBB7;
 
-  --shadow-1:   0 1px 0 rgba(60,40,10,.06), 0 8px 18px -12px rgba(60,40,10,.18);
-  --shadow-2:   0 1px 0 rgba(60,40,10,.06), 0 22px 44px -22px rgba(60,40,10,.30);
-  --paper-grain: radial-gradient(circle at 30% 20%, rgba(0,0,0,.012) 0, transparent 60%),
-                 radial-gradient(circle at 70% 80%, rgba(0,0,0,.015) 0, transparent 55%);
+  /* Text (warm near-black, never pure #000).
+     text-3 darkened from spec default #8A8273 → #6E6757 to hit ≥4.5:1 on surface. */
+  --sp-text:   #2F2B25;
+  --sp-text-2: #645C50;
+  --sp-text-3: #6E6757;
 
-  --radius:     8px;
-  --radius-sm:  5px;
-  --radius-lg:  12px;
-  --radius-pill: 999px;
-  --tap:        34px;
-  --font-screen: "Courier Prime", "Courier New", ui-monospace, Menlo, monospace;
-  --font-ui:     -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
-  --font-disp:   ui-serif, Georgia, "Times New Roman", serif;
-  --font-mono:   var(--font-screen);
+  /* Brand — rose. ACTIONS & identity only, never status.
+     Picked for ≥4.5:1 against --sp-on-rose (#FFFFFF) on filled CTAs. */
+  --sp-rose:        #A1505D;   /* 5.4:1 on white */
+  --sp-rose-strong: #88404C;   /* hover-press */
+  --sp-rose-tint:   #F3E2E1;
+  --sp-on-rose:     #FFFFFF;
 
-  /* ---- Type scale ---- */
-  --text-2xs: 9.5px;
-  --text-xs:  10.5px;
-  --text-sm:  11.5px;
-  --text-base: 13px;
-  --text-md:  14px;
-  --text-lg:  16px;
-  --text-xl:  20px;
-  --text-2xl: 28px;
-  --text-3xl: 36px;
+  /* Semantic — desaturated, paper-friendly. Status only. */
+  --sp-sage:        #5E8C63;   /* success */
+  --sp-sage-tint:   #DCE7D6;
+  --sp-sand:        #B07F2E;   /* warning / in-progress */
+  --sp-sand-tint:   #F0E6C8;
+  --sp-clay:        #B0543F;   /* danger / critical */
+  --sp-clay-tint:   #F1DAD0;
 
-  /* ---- Spacing scale (4px base) ---- */
+  /* Radii — generous, Soft Print is round */
+  --sp-r-xs: 6px;
+  --sp-r-sm: 10px;
+  --sp-r-md: 14px;
+  --sp-r-lg: 18px;     /* default card */
+  --sp-r-xl: 24px;
+  --sp-r-full: 999px;
+
+  /* Spacing scale (4px base) */
   --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
   --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
   --sp-12: 48px; --sp-16: 64px; --sp-20: 80px;
 
-  /* ---- Scene / thread color palette ---- */
-  --color-red:    #cf3a37;
-  --color-amber:  #dfa116;
-  --color-green:  #4f8a3a;
-  --color-blue:   #3878b8;
-  --color-purple: #7a55b8;
-}
+  /* Shadows — low, diffuse, warm-tinted */
+  --sp-shadow-sm: 0 1px 2px rgba(47,43,37,.05);
+  --sp-shadow-md: 0 2px 4px rgba(47,43,37,.04), 0 8px 20px -10px rgba(47,43,37,.12);
+  --sp-shadow-lg: 0 4px 10px rgba(47,43,37,.05), 0 22px 44px -18px rgba(47,43,37,.18);
+  --sp-ring: 0 0 0 2px var(--sp-bg), 0 0 0 4px var(--sp-rose);
 
-[data-theme="midnight"] {
-  --bg:        #14151a;
-  --bg-2:      #1b1c22;
-  --paper:     #1e1f26;
-  --paper-2:   #23242c;
-  --ink:       #e8e3d6;
-  --ink-2:     #d6d1c4;
-  --muted:     #8a8378;
-  --line:      #2a2c34;
-  --line-2:    #34363f;
-  --accent:    #e85a52;
-  --accent-2:  #ff7a73;
-  --accent-soft:#3a1f1e;
-  --hl:        #56430a;
-  --good:      #4ade80;
-  --warn:      #fbbf24;
-  --sidebar-bg:#171821;
-  --header-bg: #16171d;
-  --shadow-1:  0 1px 0 rgba(0,0,0,.4), 0 12px 22px -14px rgba(0,0,0,.6);
-  --shadow-2:  0 1px 0 rgba(0,0,0,.4), 0 28px 60px -22px rgba(0,0,0,.7);
+  /* Type */
+  --sp-font: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --sp-mono: "Spline Sans Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --sp-ease: cubic-bezier(.4, 0, .15, 1);
+
+  /* ============================================================
+     LEGACY ALIASES — map existing tokens onto Soft Print.
+     Lets the existing 2,500-line stylesheet keep working under
+     the new palette without a wholesale find-and-replace.
+     ============================================================ */
+
+  --bg:          var(--sp-bg);
+  --bg-2:        var(--sp-sunken);
+  --paper:       var(--sp-surface);
+  --paper-2:     var(--sp-surface-2);
+  --ink:         var(--sp-text);
+  --ink-2:       var(--sp-text);
+  --muted:       var(--sp-text-3);
+  --line:        var(--sp-border);
+  --line-2:      var(--sp-border);
+
+  --accent:      var(--sp-rose);
+  --accent-2:    var(--sp-rose-strong);
+  --accent-soft: var(--sp-rose-tint);
+  --on-accent:   var(--sp-on-rose);
+
+  --hl:          var(--sp-sand-tint);
+  --good:        var(--sp-sage);
+  --warn:        var(--sp-sand);
+  --danger:      var(--sp-clay);
+
+  --sidebar-bg:  var(--sp-surface-2);
+  --header-bg:   var(--sp-surface);
+
+  --shadow-1:    var(--sp-shadow-sm);
+  --shadow-2:    var(--sp-shadow-md);
   --paper-grain: none;
+
+  --radius:     var(--sp-r-sm);   /* 10 */
+  --radius-sm:  var(--sp-r-xs);   /* 6  */
+  --radius-md:  var(--sp-r-md);   /* 14 */
+  --radius-lg:  var(--sp-r-lg);   /* 18 (default card) */
+  --radius-pill: var(--sp-r-full);
+  --tap:        34px;
+
+  --font-screen: "Courier Prime", "Courier New", ui-monospace, Menlo, monospace;
+  --font-ui:     var(--sp-font);
+  --font-disp:   var(--sp-font);     /* no display serif in Soft Print */
+  --font-mono:   var(--font-screen); /* screenplay-mono, kept for the editor */
+
+  /* Type scale — kept compact for dense editor UI; sp-* classes use the larger SP scale */
+  --text-2xs: 10px;
+  --text-xs:  11px;
+  --text-sm:  12px;
+  --text-base: 13px;
+  --text-md:  14px;
+  --text-lg:  17px;
+  --text-xl:  20px;
+  --text-2xl: 26px;
+  --text-3xl: 33px;
+
+  /* Scene / thread / revision palette — categorical (user-chosen labels, NOT status).
+     Warmed/desaturated to sit inside Soft Print without screaming. */
+  --color-red:    #B0543F;   /* clay-aligned */
+  --color-amber:  #B07F2E;   /* sand-aligned */
+  --color-green:  #5E8C63;   /* sage-aligned */
+  --color-blue:   #5E7A9A;   /* warmed slate */
+  --color-purple: #7A6394;   /* warmed plum */
 }
 
-[data-theme="court"] {
-  /* High contrast paper for editing */
-  --bg:        #f4f4ef;
-  --bg-2:      #e9e9e2;
-  --paper:     #ffffff;
-  --paper-2:   #f7f7f2;
-  --ink:       #0e0e0e;
-  --muted:     #6a6a6a;
-  --line:      #d8d8d1;
-  --line-2:    #e6e6df;
-  --accent:    #2a2a2a;
-  --accent-2:  #555;
-  --accent-soft:#e8e8e2;
-  --hl:        #ffe782;
-  --ink-2:     #1a1a1a;
-  --good:      #1d6b2d;
-  --warn:      #a67514;
-  --sidebar-bg:#eaeae4;
-  --header-bg: #f6f6f1;
+/* ============================================================
+   DARK — warm charcoal, never cold slate.
+   "midnight" kept as an alias so any persisted settings still resolve.
+   ============================================================ */
+[data-theme="dark"],
+[data-theme="midnight"] {
+  --sp-bg:            #1A1714;
+  --sp-surface:       #232019;
+  --sp-surface-2:     #1F1B16;
+  --sp-sunken:        #15120F;
+  --sp-border:        #322C25;
+  --sp-border-strong: #443C32;
+
+  --sp-text:   #EDE7DB;
+  --sp-text-2: #B2A998;
+  --sp-text-3: #9A9182;   /* lifted from #7D7464 for contrast on charcoal */
+
+  --sp-rose:        #E0A2AB;   /* lifted for contrast on charcoal */
+  --sp-rose-strong: #F0BCC4;
+  --sp-rose-tint:   rgba(224,162,171,.15);
+  --sp-on-rose:     #2A1A1D;
+
+  --sp-sage:        #95BC8A;
+  --sp-sage-tint:   rgba(149,188,138,.16);
+  --sp-sand:        #D9B36B;
+  --sp-sand-tint:   rgba(217,179,107,.16);
+  --sp-clay:        #DD8870;
+  --sp-clay-tint:   rgba(221,136,112,.16);
+
+  --sp-shadow-sm: 0 1px 2px rgba(0,0,0,.30);
+  --sp-shadow-md: 0 2px 6px rgba(0,0,0,.30), 0 10px 24px -10px rgba(0,0,0,.50);
+  --sp-shadow-lg: 0 6px 14px rgba(0,0,0,.34), 0 26px 50px -18px rgba(0,0,0,.60);
+  --sp-ring: 0 0 0 2px var(--sp-bg), 0 0 0 4px var(--sp-rose);
+
+  /* Categorical labels — slightly lifted in dark for contrast */
+  --color-red:    #DD8870;
+  --color-amber:  #D9B36B;
+  --color-green:  #95BC8A;
+  --color-blue:   #8FA6C2;
+  --color-purple: #A192BA;
 }
+
+/* Color-scheme hints for browser UI (form controls, scrollbars) */
+:root,
+[data-theme="light"],
+[data-theme="manuscript"],
+[data-theme="court"] { color-scheme: light; }
+[data-theme="dark"],
+[data-theme="midnight"] { color-scheme: dark; }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
@@ -174,7 +246,7 @@ input, select, textarea { font: inherit; color: inherit; }
 .brand-mark {
   width: 24px; height: 24px;
   display: grid; place-items: center;
-  background: var(--accent); color: #fff;
+  background: var(--accent); color: var(--sp-on-rose);
   border-radius: 6px;
   font-family: var(--font-disp); font-weight: 700;
   font-size: 11.5px; letter-spacing: -0.02em;
@@ -247,7 +319,9 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 .save-state.dirty .dot { background: var(--warn); transform: scale(1.3); }
 .save-state.dirty .lbl { color: var(--warn); }
-.save-state.saving .dot { background: var(--accent); animation: savePulse 0.8s infinite; }
+/* "saving" is a status — use sand (in-progress), never the rose CTA hue. */
+.save-state.saving .dot { background: var(--sp-sand); animation: savePulse 0.8s infinite; }
+.save-state.saving .lbl { color: var(--sp-sand); }
 @keyframes savePulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50%      { opacity: .3; transform: scale(0.7); }
@@ -280,7 +354,7 @@ input, select, textarea { font: inherit; color: inherit; }
 .iconbtn .badge {
   position: absolute; top: 4px; right: 4px;
   min-width: 14px; height: 14px; padding: 0 3px;
-  background: var(--accent); color: #fff;
+  background: var(--accent); color: var(--sp-on-rose);
   border-radius: 7px;
   font-size: 9px;
   display: none;
@@ -299,12 +373,32 @@ input, select, textarea { font: inherit; color: inherit; }
   font-size: 12.5px;
   transition: background 0.12s, border-color 0.12s;
 }
-.btn:hover { background: var(--bg-2); }
-.btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-.btn.primary:hover { filter: brightness(1.05); }
-.btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
-.btn.ghost:hover { background: var(--bg-2); color: var(--ink); }
+.btn:hover { background: var(--sp-surface-2); }
+.btn:focus-visible { outline: none; box-shadow: var(--sp-ring); }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--sp-rose); color: var(--sp-on-rose); border-color: var(--sp-rose); }
+.btn.primary:hover { background: var(--sp-rose-strong); border-color: var(--sp-rose-strong); }
+/* Danger = clay (never rose). Brand and status never share a hue. */
+.btn.danger { background: var(--sp-clay); color: var(--sp-on-rose); border-color: var(--sp-clay); }
+.btn.danger:hover { filter: brightness(.95); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--sp-text-2); }
+.btn.ghost:hover { background: var(--sp-surface-2); color: var(--sp-text); }
 .btn.small { padding: 4px 9px; font-size: 12px; }
+
+/* Universal focus-visible ring across interactive elements (uses --sp-ring token) */
+.iconbtn:focus-visible,
+.view-tab:focus-visible,
+.menu-item:focus-visible,
+.scene-item:focus-visible,
+.dash-card:focus-visible,
+.np-color:focus-visible,
+.sp-tab:focus-visible,
+.cast-item:focus-visible,
+.beat-card:focus-visible,
+.idx-card:focus-visible {
+  outline: none;
+  box-shadow: var(--sp-ring);
+}
 .iconbtn.small { width: 26px; height: 26px; }
 
 /* ----------------------------------------------------------------------------
@@ -413,11 +507,11 @@ input, select, textarea { font: inherit; color: inherit; }
   background: transparent;
   margin-top: 4px;
 }
-.scene-item.color-red .si-color { background: #cf3a37; }
-.scene-item.color-amber .si-color { background: #dfa116; }
-.scene-item.color-green .si-color { background: #4f8a3a; }
-.scene-item.color-blue .si-color { background: #3878b8; }
-.scene-item.color-violet .si-color { background: #7a55b8; }
+.scene-item.color-red .si-color    { background: var(--color-red); }
+.scene-item.color-amber .si-color  { background: var(--color-amber); }
+.scene-item.color-green .si-color  { background: var(--color-green); }
+.scene-item.color-blue .si-color   { background: var(--color-blue); }
+.scene-item.color-violet .si-color { background: var(--color-purple); }
 
 .scene-item .si-text { min-width: 0; }
 .scene-item .si-slug {
@@ -507,6 +601,7 @@ input, select, textarea { font: inherit; color: inherit; }
   font-family: var(--font-disp);
   font-weight: 600;
   font-size: 13px;
+  margin: 0;
   padding: 12px 14px;
   color: var(--muted);
   letter-spacing: 0.04em;
@@ -623,21 +718,16 @@ input, select, textarea { font: inherit; color: inherit; }
 
 /* ====== Proofcheck — Phase 1 live underline ====== */
 
+/* Unknown word = "consider" — sand hue, paired with the popover label (never colour-only). */
 .proof-mark.proof-unknown {
-  text-decoration: underline dotted #c97f1a;
+  text-decoration: underline dotted var(--sp-sand);
   text-underline-offset: 2px;
   text-decoration-thickness: 1.5px;
   cursor: pointer;
 }
 .proof-mark.proof-unknown:hover {
-  background: rgba(201, 127, 26, 0.10);
+  background: var(--sp-sand-tint);
   border-radius: 2px;
-}
-@media (prefers-color-scheme: dark), body[data-theme="midnight"] {
-  .proof-mark.proof-unknown { text-decoration-color: #dba557; }
-}
-body[data-theme="court"] .proof-mark.proof-unknown {
-  text-decoration-color: #b46214;
 }
 .proof-popover {
   position: fixed;
@@ -713,8 +803,8 @@ body[data-theme="court"] .proof-mark.proof-unknown {
   margin: 0 6px;
 }
 .proof-chip:hover { background: var(--hl); color: var(--ink); }
-.proof-chip[data-lang="es"] { background: #dfeacd; border-color: #b4cf90; color: #36571c; }
-.proof-chip[data-lang="en"] { background: #d5e2f0; border-color: #8eb1d8; color: #1b3e63; }
+.proof-chip[data-lang="es"] { background: var(--sp-sage-tint); border-color: var(--sp-sage); color: var(--sp-sage); }
+.proof-chip[data-lang="en"] { background: var(--sp-surface-2); border-color: var(--sp-border-strong); color: var(--sp-text-2); }
 #editor > div[data-type="character"] {
   text-transform: uppercase; margin: 1em 0 0;
   margin-left: 2.2in; padding-right: 1in;
@@ -817,11 +907,11 @@ body[data-prod-locked="true"] #editor > div[data-type="scene"][data-scene-num]::
   width: 3px;
   border-radius: 2px;
 }
-#editor > div[data-type="scene"][data-color="red"]::before    { background: #cf3a37; }
-#editor > div[data-type="scene"][data-color="amber"]::before  { background: #dfa116; }
-#editor > div[data-type="scene"][data-color="green"]::before  { background: #4f8a3a; }
-#editor > div[data-type="scene"][data-color="blue"]::before   { background: #3878b8; }
-#editor > div[data-type="scene"][data-color="violet"]::before { background: #7a55b8; }
+#editor > div[data-type="scene"][data-color="red"]::before    { background: var(--color-red); }
+#editor > div[data-type="scene"][data-color="amber"]::before  { background: var(--color-amber); }
+#editor > div[data-type="scene"][data-color="green"]::before  { background: var(--color-green); }
+#editor > div[data-type="scene"][data-color="blue"]::before   { background: var(--color-blue); }
+#editor > div[data-type="scene"][data-color="violet"]::before { background: var(--color-purple); }
 
 /* Revision marks — per-color asterisks in right margin */
 #editor > div[data-rev]::after {
@@ -943,12 +1033,12 @@ body[data-prod-locked="true"] #editor > div[data-type="scene"][data-scene-num]::
 }
 .beat-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-1); }
 .beat-card.dragging { opacity: .35; }
-.beat-card.beat-red    { border-left-color: #cf3a37; }
-.beat-card.beat-amber  { border-left-color: #dfa116; }
-.beat-card.beat-green  { border-left-color: #4f8a3a; }
-.beat-card.beat-blue   { border-left-color: #3878b8; }
-.beat-card.beat-violet { border-left-color: #7a55b8; }
-.beat-card.beat-gray   { border-left-color: #888; }
+.beat-card.beat-red    { border-left-color: var(--color-red); }
+.beat-card.beat-amber  { border-left-color: var(--color-amber); }
+.beat-card.beat-green  { border-left-color: var(--color-green); }
+.beat-card.beat-blue   { border-left-color: var(--color-blue); }
+.beat-card.beat-violet { border-left-color: var(--color-purple); }
+.beat-card.beat-gray   { border-left-color: var(--sp-text-3); }
 .beat-card .bc-slug {
   font-family: var(--font-screen);
   font-weight: 700;
@@ -1363,7 +1453,7 @@ body[data-prod-locked="true"] #editor > div[data-type="scene"][data-scene-num]::
 }
 .status .pill {
   background: var(--accent);
-  color: #fff;
+  color: var(--sp-on-rose);
   padding: 2px 9px;
   border-radius: 10px;
   font-size: 10.5px;
@@ -1377,16 +1467,16 @@ body[data-prod-locked="true"] #editor > div[data-type="scene"][data-scene-num]::
 /* Color-code the current-element pill so the writer's peripheral vision tells
    them what type they're in without parsing the word. Industry convention:
    scene/transition warm, character/dialogue cool, action neutral. */
-.status .pill[data-type="scene"]         { background: #b07a16; }
-.status .pill[data-type="action"]        { background: #5e554a; }
-.status .pill[data-type="character"]     { background: #2b6cb0; }
-.status .pill[data-type="dialogue"]      { background: #3878b8; }
-.status .pill[data-type="parenthetical"] { background: #7a55b8; }
-.status .pill[data-type="transition"]    { background: #b22222; }
-.status .pill[data-type="centered"]      { background: #5e554a; }
-.status .pill[data-type="note"]          { background: #82786a; }
-.status .pill[data-type="section"]       { background: #3a8e3f; }
-.status .pill[data-type="synopsis"]      { background: #3a8e3f; }
+.status .pill[data-type="scene"]         { background: var(--color-amber); }
+.status .pill[data-type="action"]        { background: var(--sp-text-3); }
+.status .pill[data-type="character"]     { background: var(--color-blue); }
+.status .pill[data-type="dialogue"]      { background: var(--color-blue); }
+.status .pill[data-type="parenthetical"] { background: var(--color-purple); }
+.status .pill[data-type="transition"]    { background: var(--color-red); }
+.status .pill[data-type="centered"]      { background: var(--sp-text-3); }
+.status .pill[data-type="note"]          { background: var(--sp-text-3); }
+.status .pill[data-type="section"]       { background: var(--color-green); }
+.status .pill[data-type="synopsis"]      { background: var(--color-green); }
 .status .stat-item { display: inline-flex; gap: 5px; align-items: center; color: var(--ink-2); }
 .status .stat-item .ic { width: 12px; height: 12px; }
 .status .spacer { flex: 1; }
@@ -2116,7 +2206,7 @@ kbd {
   cursor: pointer; font-family: inherit;
 }
 .dash-card-actions button:hover { background: var(--bg-2); color: var(--ink); }
-.dash-card-actions button.danger:hover { background: var(--accent-soft); color: var(--accent); }
+.dash-card-actions button.danger:hover { background: var(--sp-clay-tint); color: var(--sp-clay); }
 
 .dash-series-row {
   display: grid;
@@ -2216,10 +2306,11 @@ kbd {
   border-radius: 3px;
   background: var(--bg-2);
 }
-.streak-l1 { background: #f7d8ce; }
-.streak-l2 { background: #e08f7c; }
-.streak-l3 { background: #c5573d; }
-.streak-l4 { background: var(--accent); }
+/* Streak intensity gradient — sage tints, scaled by depth (status, not brand) */
+.streak-l1 { background: var(--sp-sage-tint); }
+.streak-l2 { background: color-mix(in srgb, var(--sp-sage) 45%, var(--sp-bg)); }
+.streak-l3 { background: color-mix(in srgb, var(--sp-sage) 70%, var(--sp-bg)); }
+.streak-l4 { background: var(--sp-sage); }
 .streak-legend { margin-top: 10px; display: flex; gap: 4px; align-items: center; color: var(--muted); font-size: 11px; }
 
 /* New project colors */
@@ -2463,7 +2554,7 @@ kbd {
 .bib-promote:hover {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--sp-on-rose);
 }
 .bib-char[data-source="series"] {
   border-left: 3px solid #7a55b8;
@@ -2497,7 +2588,7 @@ kbd {
 .bc-ai:hover, .ic-ai:hover, .bib-ai:hover, .bc-zoom:hover, .ic-zoom:hover {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--sp-on-rose);
   transform: scale(1.05);
 }
 .idx-card .ic-head {
@@ -2519,7 +2610,7 @@ kbd {
 }
 .beat-card .bc-foot .bc-beat-tag {
   background: var(--accent);
-  color: #fff;
+  color: var(--sp-on-rose);
   padding: 1px 6px;
   border-radius: 8px;
   font-size: 9.5px;
@@ -2621,7 +2712,7 @@ kbd {
 }
 .bib-ai-all:hover {
   background: var(--accent);
-  color: #fff;
+  color: var(--sp-on-rose);
 }
 .bib-ai-bulk {
   font-size: 11.5px !important;
@@ -2631,7 +2722,7 @@ kbd {
   color: var(--accent) !important;
   font-weight: 600;
 }
-.bib-ai-bulk:hover { background: var(--accent) !important; color: #fff !important; }
+.bib-ai-bulk:hover { background: var(--accent) !important; color: var(--sp-on-rose) !important; }
 
 /* Character interview modal */
 .iv-q { margin-bottom: 14px; }
@@ -2989,7 +3080,7 @@ body[data-pagebreaks="true"] #editor > div[data-page-end]::before {
   font: inherit; font-size: 12px;
 }
 .amb:hover { background: var(--accent-soft); }
-.amb.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.amb.active { background: var(--accent); color: var(--sp-on-rose); border-color: var(--accent); }
 .amb-emoji { font-size: 22px; }
 .amb-vol { padding: 0 14px 14px; display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
 .amb-vol input { flex: 1; }
@@ -3007,7 +3098,7 @@ body[data-pagebreaks="true"] #editor > div[data-page-end]::before {
 }
 .amb-url-status.ok    { color: var(--good); }
 .amb-url-status.warn  { color: var(--warn); }
-.amb-url-status.error { color: var(--accent); }
+.amb-url-status.error { color: var(--sp-clay); }
 .amb-st-actions { display: flex; gap: 6px; }
 .amb-soundtrack .hint { color: var(--muted); font-size: 11px; margin-top: 8px; line-height: 1.45; }
 
@@ -3053,7 +3144,7 @@ body[data-typewriter="true"] #editor > div.tw-active { opacity: 1; }
 }
 #continuity-body .cont-count {
   background: var(--accent);
-  color: #fff;
+  color: var(--sp-on-rose);
   border-radius: 8px;
   padding: 0 6px;
   font-size: 10px; font-weight: 700;
@@ -3132,8 +3223,8 @@ body[data-typewriter="true"] #editor > div.tw-active { opacity: 1; }
   padding: 2px 9px; border-radius: 9px; font-size: 10.5px; font-weight: 600;
   text-align: center;
 }
-#fidelity-body .fid-status.ok    { background: rgba(75,140,75,.15); color: var(--good); }
-#fidelity-body .fid-status.warn  { background: rgba(207,108,30,.15); color: var(--warn); }
+#fidelity-body .fid-status.ok    { background: var(--sp-sage-tint); color: var(--sp-sage); }
+#fidelity-body .fid-status.warn  { background: var(--sp-sand-tint); color: var(--sp-sand); }
 #fidelity-body .fid-status.miss  { background: rgba(207,58,55,.15);  color: var(--accent); }
 #fidelity-body .fid-status.none  { background: var(--bg-2); color: var(--muted); }
 
@@ -3168,9 +3259,10 @@ body[data-pace="true"] #editor > div[data-type="scene"][data-pace]::before {
   content: ""; position: absolute; left: -1in; top: 0; bottom: 0; width: 4px;
   border-radius: 2px;
 }
-body[data-pace="true"] #editor > div[data-type="scene"][data-pace="hot"]::before  { background: #cf3a37; }
-body[data-pace="true"] #editor > div[data-type="scene"][data-pace="warm"]::before { background: #dfa116; }
-body[data-pace="true"] #editor > div[data-type="scene"][data-pace="cool"]::before { background: #4f8a3a; }
+/* Pace = scene tension. Maps cleanly to the semantic palette (status, paired with the data-attr label). */
+body[data-pace="true"] #editor > div[data-type="scene"][data-pace="hot"]::before  { background: var(--sp-clay); }
+body[data-pace="true"] #editor > div[data-type="scene"][data-pace="warm"]::before { background: var(--sp-sand); }
+body[data-pace="true"] #editor > div[data-type="scene"][data-pace="cool"]::before { background: var(--sp-sage); }
 body[data-pace="true"] #editor > div[data-type="scene"][data-pace="cold"]::before { background: #3878b8; }
 
 /* ---------- Scene mood (page tint when present) ---------- */
@@ -3196,7 +3288,7 @@ body[data-pace="true"] #editor > div[data-type="scene"][data-pace="cold"]::befor
 /* ---------- Mic recording indicator ---------- */
 .iconbtn.recording {
   background: var(--accent) !important;
-  color: #fff !important;
+  color: var(--sp-on-rose) !important;
   animation: rec-pulse 1s infinite;
 }
 @keyframes rec-pulse { 50% { opacity: .6; } }
@@ -3328,7 +3420,7 @@ body[data-pace="true"] #editor > div[data-type="scene"][data-pace="cold"]::befor
   font-family: var(--font-ui);
 }
 .sz-btn:disabled { opacity: .4; cursor: not-allowed; }
-.sz-btn-primary { background: var(--accent); border-color: var(--accent-2); color: #fff; }
+.sz-btn-primary { background: var(--accent); border-color: var(--accent-2); color: var(--sp-on-rose); }
 .sz-btn-primary:hover:not(:disabled) { background: var(--accent-2); }
 .sz-btn-ghost { background: transparent; color: var(--muted); }
 .sz-btn-ghost:hover:not(:disabled) { color: var(--ink); }
@@ -3633,7 +3725,7 @@ body[data-pageview="true"][data-theme="court"] #editor > div[data-page-end] {
 }
 .dash-guide-num {
   flex: 0 0 26px; height: 26px;
-  background: var(--accent); color: #fff;
+  background: var(--accent); color: var(--sp-on-rose);
   border-radius: 50%; font-weight: 700;
   display: grid; place-items: center; font-size: 12px;
   transition: transform 0.2s;
@@ -3773,8 +3865,8 @@ kbd {
 
 .menu-item:hover,
 .menu-item.focused {
-  background: var(--accent, #3878b8);
-  color: #fff;
+  background: var(--sp-rose);
+  color: var(--sp-on-rose);
 }
 
 .menu-item[disabled],
@@ -3882,6 +3974,25 @@ kbd {
 }
 
 [data-theme="court"] .menu-item:hover {
-  background: var(--accent, #2a2a2a);
-  color: #fff;
+  background: var(--sp-rose);
+  color: var(--sp-on-rose);
+}
+
+/* Respect user's motion preference — silence transitions and looping animations */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Screen-reader-only — used for landmark h1s the visual design hides */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0);
+  white-space: nowrap; border: 0;
 }

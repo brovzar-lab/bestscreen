@@ -4,9 +4,91 @@
 
 ---
 
-## TL;DR
+## TL;DR — Soft Print redesign + a11y pass
 
-**Scene Zoom + writer-ergonomics pass are on `feature/scene-zoom`; Proofcheck Phase 1 (live EN/ES spell checker) is on `feature/proofcheck` (off `feature/scene-zoom`).** Scene Zoom is still pending visual verification before merge. The ergonomics pass (smart Tab, CAPS+Enter, auto-CONT'D, smart paste, scene autocomplete, ⌘J/⌘B, production scene numbers, MORE/CONT'D in print, revision asterisks, status pill color, save heartbeat) is **Playwright-verified and committed**. Proofcheck Phase 1 is **Playwright-verified and committed** — orange dotted underlines, Damerau-Levenshtein popover, ⌘. quick-accept, EN⇄ES chip, Fountain round-trip. Sprints 1–7 plus Option-A API key are live at https://bestscreen.web.app.
+**`theme-redesign` branch (off `main`):** Bestscreen has been redesigned under the **Soft Print** system — warm-paper light theme + warm-charcoal dark, single rose CTA, three desaturated semantic hues (sage/sand/clay) kept strictly off the brand. Hanken Grotesk + Spline Sans Mono replace the previous Inter/serif stack; Courier Prime stays on the actual screenplay editor by design. Light/dark toggle is persisted in `Storage.settings.theme` and honours `prefers-color-scheme` on first load.
+
+Right after the redesign a visual audit (`docs/audits/2026-05-30-audit.md`) flagged 80 axe violations — mostly contrast and a11y debt exposed by the new palette. A follow-up "execute all audit fixes" pass has driven axe to **0 violations** while keeping the Soft Print look intact.
+
+**Branch state (as of 2026-05-30):**
+- `main` — at `6b8edef`, live at https://bestscreen.web.app. Pushed.
+- `sprints` — fast-forwarded to match `main`. Pushed.
+- `theme-redesign` — Soft Print redesign + IMMEDIATELY/LATER audit fixes. Not committed yet (waiting on user direction per `CLAUDE.md` rule 3).
+
+### What was changed in the redesign
+
+1. **Tokens.** `:root` carries the full Soft Print token set (surfaces, text, brand rose, sage/sand/clay, radii, spacing, shadows, ring). `[data-theme="dark"], [data-theme="midnight"]` mirrors them for warm charcoal. Existing legacy tokens (`--bg`, `--paper`, `--ink`, `--accent`, `--good`, `--warn`, etc.) are **aliased** to Soft Print tokens so the 3,900-line stylesheet keeps working without a wholesale find-and-replace.
+2. **Fonts.** Google-fonts link in `index.html` loads Hanken Grotesk 400/500/600/700 + Spline Sans Mono 400/500/600. `--font-disp` (legacy display-serif) is re-pointed to `--sp-font`.
+3. **Theme system.** `cycleTheme()` is now a 2-way light/dark toggle (legacy "manuscript"/"court"/"midnight" still resolve via `normalizeTheme()`).
+4. **Brand-vs-status collisions resolved (8 spots):** save-state "saving" pulse, danger confirm button, danger hover on dashboard card actions, writing-streak heatmap top tint, proof-mark "unknown" underline, scene-pace heatmap, ambient-URL error chip, fidelity status pills. All status surfaces now use semantic hues; rose is brand-only.
+
+### Audit fixes shipped on top of the redesign
+
+| Item | Result |
+|---|---|
+| Darken `--sp-rose` to `#A1505D` (rose-strong → new rose; 5.4:1 on white) | ✅ |
+| Darken `--sp-text-3` to `#6E6757` light / `#9A9182` dark (4.6:1 on surface) | ✅ |
+| 13 static modals + dynamic `bsPrompt`/`bsConfirm` get `id` on `<h2>` matching `aria-labelledby` | ✅ |
+| 32 form-rows get `<label for=…>`; 6 freestanding inputs get `aria-label` | ✅ |
+| Universal `:focus-visible` ring via `--sp-ring` on `.iconbtn`, `.view-tab`, `.menu-item`, `.scene-item`, `.dash-card`, `.np-color`, `.sp-tab`, `.cast-item`, `.beat-card`, `.idx-card` | ✅ |
+| `@media (prefers-reduced-motion: reduce)` block | ✅ |
+| `autosave()` guards `#save-state` lookup so it no-ops on the dashboard | ✅ |
+| Dashboard wraps content in `<main aria-label="Projects">`; SVG sprite wrapped in `role="presentation"`; sidebar/inspector/menubar get aria-labels | ✅ |
+| Drawers swapped `aria-hidden=true|false` for the `inert` attribute (focusable content no longer trapped inside hidden region) | ✅ |
+| `<dt>`/`<dd>` in inspector now sit inside `<dl class="ins-kv">` | ✅ |
+| Inspector `.ins-head` promoted to `<h2>`; sub-section `<h4>`s promoted to `<h3>` to fix heading order | ✅ |
+| View-tab buttons get explicit `aria-label` (visible span hidden at narrow viewports otherwise) | ✅ |
+| Menubar drops `role="menubar"` (children weren't menuitems anyway) | ✅ |
+| `soft-print.css` linked before `styles.css` so the `.sp-*` component classes are available for future work; token cascade lets styles.css's contrast-fixed values win | ✅ |
+
+### Audit numbers — before / after
+
+| Category | Before redesign | After redesign | After fixes |
+|---|---|---|---|
+| axe `color-contrast` | (n/a) | 32 | **0** |
+| axe `label` | (n/a) | 12 | **0** |
+| axe `select-name` | (n/a) | 7 | **0** |
+| axe `aria-dialog-name` | (n/a) | 13 | **0** |
+| axe `region` | (n/a) | 16 | **0** |
+| All other axe rules | (n/a) | 0 | **0** |
+| Console warnings on load | 1 (autosave) | 1 | **0** |
+| Design score (8 dimensions) | — | 3.9 / 5 | ≈ 4.7 / 5 (Color & Contrast now 5/5) |
+
+### Files touched
+
+| File | Purpose |
+|---|---|
+| `index.html` | `data-theme="light"`, font preconnect, soft-print.css link, modal title ids, label `for=`s, view-tab aria-labels, `<main>` wrapper, sprite container, `<h1>`s, drawer `inert`, sidebar/inspector/menubar labels |
+| `styles.css` | Soft Print tokens + legacy alias layer, two `[data-theme]` blocks, scene/pace/streak/status pill remap to tokens, focus-visible block, prefers-reduced-motion block, `.visually-hidden` utility, `.btn.danger` |
+| `app.js` | 2-way theme toggle, dynamic modal `role="dialog"` + labelledby, autosave dashboard guard, drawer `inert` flips, `.modalConfirm` danger now uses `.btn.danger` class |
+| `panels.js` | `<dl class="ins-kv">` wrapper, `<h3>` (was `<h4>`), `aria-label` on `#ins-template-sel` |
+| `menubar.js` | Drops `role="menubar"` at runtime |
+| `features.js` | Drawer `inert` flips |
+| `dashboard.js` | Default new-project color + cover palette warmed to the SP rose / status palette |
+| `io.js` | Exported HTML preview button uses the new rose hex |
+| `soft-print.css`, `soft-print-spec.md`, `soft-print.tokens.json` | Spec assets, kept in repo root |
+| `docs/audits/2026-05-30-audit.md` + 11 screenshots | Audit report + visual evidence |
+
+### How to verify
+
+```bash
+npm run dev   # already running on :5173
+```
+- `curl -s http://localhost:5173/?cb=1 -o /dev/null` → 200.
+- Open dashboard → toggle theme button (top-right moon/sun) flips light ↔ dark and persists across reload.
+- Open the editor → same toggle (also persisted via `Storage.settings.theme`).
+- Open `bsConfirm({danger:true})` → OK button is clay-filled, not rose.
+- DevTools → run axe-core 4.9.1 → zero violations.
+
+### Out of scope (SOMEDAY items in the audit, deliberately not done)
+
+- Lazy-load `dict-en.js` (1.5 MB) and `dict-es.js` (3.3 MB) — biggest perf hit but a refactor that touches Proofcheck init.
+- Wholesale sweep replacing legacy alias tokens (`var(--accent)`, `var(--ink)` etc.) with their `--sp-*` counterparts across every JS / CSS site. The alias layer at the top of `styles.css` makes the swap optional.
+- Adding the audit screenshots as Playwright visual-regression baselines.
+
+---
+
+## Earlier session work (historical — pre-redesign)
 
 Branch state:
 - `main` — live, at `668a7e5` (Option-A API key shipped). Pushed.

@@ -303,20 +303,30 @@ function loadProject(id, opts={}) {
 }
 
 /* =====================================================================
- * Theme
+ * Theme — Soft Print: light (primary) / dark (warm charcoal)
+ * Legacy names manuscript / court → light, midnight → dark.
  * =================================================================== */
+function normalizeTheme(t) {
+  if (t === "dark" || t === "midnight") return "dark";
+  if (t === "light" || t === "manuscript" || t === "court") return "light";
+  return null;
+}
 function applyTheme() {
-  const t = Storage.getSettings().theme || "manuscript";
-  document.documentElement.dataset.theme = t === "manuscript" ? "" : t;
+  let t = normalizeTheme(Storage.getSettings().theme);
+  if (!t) {
+    t = window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  document.documentElement.dataset.theme = t;
 }
 function cycleTheme() {
-  const themes = ["manuscript","midnight","court"];
-  const cur = Storage.getSettings().theme || "manuscript";
-  const next = themes[(themes.indexOf(cur) + 1) % themes.length];
+  const cur = normalizeTheme(Storage.getSettings().theme)
+    || (document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+  const next = cur === "dark" ? "light" : "dark";
   Storage.setSettings({ theme: next });
   applyTheme();
-  toast(`Theme: ${next}`);
+  toast(`Theme: ${next === "dark" ? "Dark" : "Light"}`);
 }
+const toggleTheme = cycleTheme;
 
 /* =====================================================================
  * Save / dirty state
@@ -353,8 +363,10 @@ setInterval(() => {
 }, 2500);
 function autosave() {
   if (!appState.projectId) return;
+  const ss = $("#save-state");
+  if (!ss) return;   // dashboard context — no save indicator wired up
   try {
-    $("#save-state").classList.add("saving");
+    ss.classList.add("saving");
     const doc = serializeFountain(true);
     Storage.setDoc(appState.projectId, doc);
     Storage.setMeta(appState.projectId, {
@@ -373,7 +385,6 @@ function autosave() {
     });
     Storage.updateProject(appState.projectId, { lastModified: Date.now(), name: appState.titleMeta.title || Storage.getProject(appState.projectId)?.name });
     setTimeout(() => {
-      const ss = $("#save-state");
       ss.classList.remove("saving");
       setSaved();
       // Design spell: brief green flash on the dot
@@ -463,7 +474,7 @@ function openFindbar() { $("#findbar").classList.add("open"); $("#find-input").f
 function openSprintModal() { $("#modal-sprint").classList.add("open"); }
 function openShareModal() { $("#modal-share").classList.add("open"); }
 function openHelpModal() { $("#modal-help").classList.add("open"); }
-function openAmbientSounds() { const d = $("#drawer-sound"); d.classList.add("open"); d.setAttribute("aria-hidden","false"); }
+function openAmbientSounds() { const d = $("#drawer-sound"); d.classList.add("open"); d.removeAttribute("inert"); }
 function saveAsFountain() {
   const text = serializeFountain(true);
   downloadFile(appState.filename || "screenplay.fountain", text, "text/plain");
@@ -632,7 +643,7 @@ function bindEditorUI() {
   $$("[data-drawer-close]").forEach(b => b.addEventListener("click", () => {
     const d = b.getAttribute("data-drawer-close"); const el = $("#" + d);
     if (el.contains(document.activeElement)) document.activeElement.blur();
-    el.classList.remove("open"); el.setAttribute("aria-hidden","true");
+    el.classList.remove("open"); el.setAttribute("inert","");
   }));
   $("#snap-take").addEventListener("click", () => takeSnapshot($("#snap-name").value.trim()));
 
@@ -951,7 +962,7 @@ function bindGlobalShortcuts() {
     }
     if (e.key === "Escape") {
       $$(".modal-backdrop.open").forEach(m => m.classList.remove("open"));
-      $$(".drawer.open").forEach(d => { d.classList.remove("open"); d.setAttribute("aria-hidden","true"); });
+      $$(".drawer.open").forEach(d => { d.classList.remove("open"); d.setAttribute("inert",""); });
       $("#findbar")?.classList.remove("open");
       closeCmdk(); acClose(); closeCommentPopover(); closeAiMenu();
     }
@@ -988,19 +999,21 @@ function modalPrompt({ title, label="", placeholder="", defaultValue="", okText=
   return new Promise(resolve => {
     const back = document.createElement("div");
     back.className = "modal-backdrop open";
+    const tid = "__mp-title-" + (modalPrompt._n = (modalPrompt._n||0) + 1);
+    const iid = "__mp-input-" + modalPrompt._n;
     const field = multiline
-      ? `<textarea id="__mp-input" rows="4" placeholder="${escapeHtml(placeholder)}">${escapeHtml(defaultValue)}</textarea>`
-      : `<input type="text" id="__mp-input" placeholder="${escapeHtml(placeholder)}" value="${escapeHtml(defaultValue)}" />`;
-    back.innerHTML = `<div class="modal">
-      <h2>${escapeHtml(title)}</h2>
-      ${label ? `<div class="form-row"><label>${escapeHtml(label)}</label>${field}</div>` : `<div style="margin:8px 0">${field}</div>`}
+      ? `<textarea id="${iid}" rows="4" placeholder="${escapeHtml(placeholder)}" aria-label="${escapeHtml(label||title)}">${escapeHtml(defaultValue)}</textarea>`
+      : `<input type="text" id="${iid}" placeholder="${escapeHtml(placeholder)}" value="${escapeHtml(defaultValue)}" aria-label="${escapeHtml(label||title)}" />`;
+    back.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="${tid}">
+      <h2 id="${tid}">${escapeHtml(title)}</h2>
+      ${label ? `<div class="form-row"><label for="${iid}">${escapeHtml(label)}</label>${field}</div>` : `<div style="margin:8px 0">${field}</div>`}
       <div class="actions">
         <button class="btn" id="__mp-cancel">Cancel</button>
         <button class="btn primary" id="__mp-ok">${escapeHtml(okText)}</button>
       </div>
     </div>`;
     document.body.appendChild(back);
-    const input = back.querySelector("#__mp-input");
+    const input = back.querySelector("#" + iid);
     if (!multiline) input.style.flex = "1";
     setTimeout(() => { input.focus(); input.select?.(); }, 30);
     const close = (v) => { document.activeElement?.blur(); back.remove(); resolve(v); };
@@ -1017,12 +1030,13 @@ function modalConfirm({ title="Confirm", body="", okText="OK", cancelText="Cance
   return new Promise(resolve => {
     const back = document.createElement("div");
     back.className = "modal-backdrop open";
-    back.innerHTML = `<div class="modal">
-      <h2>${escapeHtml(title)}</h2>
+    const tid = "__mc-title-" + (modalConfirm._n = (modalConfirm._n||0) + 1);
+    back.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="${tid}">
+      <h2 id="${tid}">${escapeHtml(title)}</h2>
       ${body ? `<p class="help" style="font-size:13px;color:var(--ink-2);line-height:1.5">${escapeHtml(body)}</p>` : ""}
       <div class="actions">
         <button class="btn" id="__mc-cancel">${escapeHtml(cancelText)}</button>
-        <button class="btn ${danger?'':'primary'}" id="__mc-ok" style="${danger?'background:var(--accent);color:#fff;border-color:var(--accent)':''}">${escapeHtml(okText)}</button>
+        <button class="btn ${danger?'danger':'primary'}" id="__mc-ok">${escapeHtml(okText)}</button>
       </div>
     </div>`;
     document.body.appendChild(back);

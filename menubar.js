@@ -524,7 +524,10 @@
 
     // Clear existing content
     menubarEl.innerHTML = "";
-    menubarEl.setAttribute("role", "menubar");
+    // Use the <nav> landmark — not role="menubar". The strict ARIA menubar
+    // contract requires menuitem children; our triggers are plain buttons
+    // with aria-haspopup, which is enough for SR users to discover the menus.
+    menubarEl.removeAttribute("role");
 
     // Build and append
     menubarEl.appendChild(buildMenuHTML());
