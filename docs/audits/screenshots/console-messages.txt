@@ -1,0 +1,12 @@
+Console messages — dashboard load, 2026-05-30
+
+[ERROR] Failed to load resource: 404 (Not Found) @ /favicon.ico
+[WARNING] autosave failed TypeError: Cannot read properties of null (reading 'classList')
+    at autosave (app.js:367)
+    at HTMLButtonElement.<anonymous> (app.js:508)
+
+Notes:
+- favicon 404 is harmless dev noise (no favicon.ico in project root)
+- autosave warning fires when the Save button (or autosave timer) runs on the dashboard
+  where no editor #save-state element exists. Pre-existing — not caused by the redesign.
+  Guard with `?.` chaining or skip when no project is loaded.

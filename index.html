@@ -1,14 +1,20 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Bestscreen — A Screenwriting Power Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<!-- soft-print.css first so styles.css can override tokens with contrast-fixed values -->
+<link rel="stylesheet" href="soft-print.css" />
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
 <!-- ============== Inline SVG sprite ============== -->
+<div role="presentation" aria-hidden="true">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
 <defs>
   <symbol id="i-doc"        viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7zM14 3v6h5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
@@ -55,11 +61,13 @@
   <symbol id="i-grid"       viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="3" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="14" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="14" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
 </defs>
 </svg>
+</div>
 
 <!-- ===================================================================
      DASHBOARD (project picker — shown when no project loaded)
      =================================================================== -->
 <section id="dashboard" class="dashboard" style="display:none">
+  <h1 class="visually-hidden">Bestscreen — Projects</h1>
   <header class="dash-header">
     <div class="brand">
       <div class="brand-mark">BS</div>
@@ -67,9 +75,9 @@
       <div class="brand-sub">Screenwriting</div>
     </div>
     <div class="grow"></div>
-    <button class="iconbtn" id="btn-theme-dash" title="Theme"><svg class="ic"><use href="#i-theme"/></svg></button>
+    <button class="iconbtn" id="btn-theme-dash" title="Toggle theme — Light / Dark" aria-label="Toggle theme"><svg class="ic"><use href="#i-theme"/></svg></button>
   </header>
-  <div id="dashboard-body" class="dashboard-body"></div>
+  <main id="dashboard-body" class="dashboard-body" aria-label="Projects"></main>
 </section>
 
 <!-- ===================================================================
@@ -78,6 +86,7 @@
 <div id="editor-shell" class="editor-shell" style="display:none">
 
   <header class="titlebar">
+    <h1 class="visually-hidden">Bestscreen editor</h1>
     <button class="iconbtn back-btn" id="btn-back" title="Back to projects"><svg class="ic"><use href="#i-back"/></svg></button>
     <div class="brand small"><span class="brand-mark">BS</span><span class="brand-text">Bestscreen</span></div>
 
@@ -86,27 +95,27 @@
       <button id="proof-lang" class="proof-chip" title="Proofcheck language">EN</button>
     </div>
 
-    <nav class="views" role="tablist">
-      <button class="view-tab active" data-view="script" role="tab" aria-selected="true"><svg class="ic"><use href="#i-script"/></svg><span>Script</span></button>
-      <button class="view-tab" data-view="beats" role="tab" aria-selected="false"><svg class="ic"><use href="#i-beats"/></svg><span>Beat Board</span></button>
-      <button class="view-tab" data-view="cards" role="tab" aria-selected="false"><svg class="ic"><use href="#i-cards"/></svg><span>Cards</span></button>
-      <button class="view-tab" data-view="bible" role="tab" aria-selected="false"><svg class="ic"><use href="#i-bible"/></svg><span>Bible</span></button>
-      <button class="view-tab" data-view="timeline" role="tab" aria-selected="false"><svg class="ic"><use href="#i-timeline"/></svg><span>Timeline</span></button>
-      <button class="view-tab" data-view="stats" role="tab" aria-selected="false"><svg class="ic"><use href="#i-stats"/></svg><span>Stats</span></button>
+    <nav class="views" role="tablist" aria-label="Project views">
+      <button class="view-tab active" data-view="script" role="tab" aria-selected="true" aria-label="Script"><svg class="ic"><use href="#i-script"/></svg><span>Script</span></button>
+      <button class="view-tab" data-view="beats" role="tab" aria-selected="false" aria-label="Beat Board"><svg class="ic"><use href="#i-beats"/></svg><span>Beat Board</span></button>
+      <button class="view-tab" data-view="cards" role="tab" aria-selected="false" aria-label="Cards"><svg class="ic"><use href="#i-cards"/></svg><span>Cards</span></button>
+      <button class="view-tab" data-view="bible" role="tab" aria-selected="false" aria-label="Bible"><svg class="ic"><use href="#i-bible"/></svg><span>Bible</span></button>
+      <button class="view-tab" data-view="timeline" role="tab" aria-selected="false" aria-label="Timeline"><svg class="ic"><use href="#i-timeline"/></svg><span>Timeline</span></button>
+      <button class="view-tab" data-view="stats" role="tab" aria-selected="false" aria-label="Stats"><svg class="ic"><use href="#i-stats"/></svg><span>Stats</span></button>
     </nav>
 
     <div class="tb-actions">
       <button class="iconbtn" id="btn-inspector" title="Inspector — scene details, overlays, revision colors, and story metadata"><svg class="ic"><use href="#i-inspector"/></svg></button>
-      <button class="iconbtn" id="btn-theme" title="Theme — switch between Manuscript, Midnight, and Court visual styles"><svg class="ic"><use href="#i-theme"/></svg></button>
+      <button class="iconbtn" id="btn-theme" title="Toggle theme — Light / Dark" aria-label="Toggle theme"><svg class="ic"><use href="#i-theme"/></svg></button>
     </div>
   </header>
 
-  <nav class="menubar" id="menubar" role="menubar"></nav>
+  <nav class="menubar" id="menubar" aria-label="Application menu"></nav>
 
   <div class="app" id="app">
 
-    <aside class="sidebar" id="sidebar">
-      <div class="side-tabs" role="tablist">
+    <aside class="sidebar" id="sidebar" aria-label="Scene navigator">
+      <div class="side-tabs" role="tablist" aria-label="Sidebar tabs">
         <button class="side-tab active" data-tab="scenes" role="tab" aria-selected="true"><svg class="ic"><use href="#i-script"/></svg>Scenes</button>
         <button class="side-tab" data-tab="characters" role="tab" aria-selected="false"><svg class="ic"><use href="#i-eye"/></svg>Cast</button>
         <button class="side-tab" data-tab="comments" role="tab" aria-selected="false"><svg class="ic"><use href="#i-comment"/></svg>Notes</button>
@@ -170,19 +179,19 @@
 
       <div class="findbar" id="findbar">
         <div class="fb-row">
-          <input type="text" id="find-input" placeholder="Find…" />
+          <input type="text" id="find-input" placeholder="Find…" aria-label="Find" />
           <button class="iconbtn small" id="find-prev"><svg class="ic"><use href="#i-arrow-up"/></svg></button>
           <button class="iconbtn small" id="find-next"><svg class="ic"><use href="#i-arrow-down"/></svg></button>
         </div>
         <div class="fb-row">
-          <input type="text" id="replace-input" placeholder="Replace with…" />
+          <input type="text" id="replace-input" placeholder="Replace with…" aria-label="Replace with" />
           <button class="btn small" id="find-replace">Replace</button>
           <button class="btn small primary" id="find-replace-all">All</button>
         </div>
         <div class="fb-row meta">
           <label><input type="checkbox" id="find-case" /> Case</label>
           <label><input type="checkbox" id="find-word" /> Word</label>
-          <select id="find-scope">
+          <select id="find-scope" aria-label="Find scope">
             <option value="all">All</option>
             <option value="action">Action</option>
             <option value="dialogue">Dialogue</option>
@@ -221,14 +230,14 @@
       </div>
     </main>
 
-    <aside class="inspector" id="inspector">
-      <div class="ins-head">Inspector</div>
+    <aside class="inspector" id="inspector" aria-label="Inspector">
+      <h2 class="ins-head">Inspector</h2>
       <div class="ins-body" id="inspector-body"></div>
     </aside>
   </div>
 
   <!-- Drawers -->
-  <aside class="drawer" id="drawer-bin" aria-hidden="true">
+  <aside class="drawer" id="drawer-bin" inert>
     <div class="drawer-head">
       <div><svg class="ic"><use href="#i-bin"/></svg> Scrap Bin</div>
       <button class="iconbtn" data-drawer-close="drawer-bin"><svg class="ic"><use href="#i-x"/></svg></button>
@@ -237,20 +246,20 @@
     <div class="drawer-body" id="bin-body"></div>
   </aside>
 
-  <aside class="drawer" id="drawer-snap" aria-hidden="true">
+  <aside class="drawer" id="drawer-snap" inert>
     <div class="drawer-head">
       <div><svg class="ic"><use href="#i-snapshot"/></svg> Snapshots</div>
       <button class="iconbtn" data-drawer-close="drawer-snap"><svg class="ic"><use href="#i-x"/></svg></button>
     </div>
     <div class="drawer-actions">
-      <input type="text" id="snap-name" placeholder="Snapshot name (e.g. First Draft)" />
+      <input type="text" id="snap-name" placeholder="Snapshot name (e.g. First Draft)" aria-label="Snapshot name" />
       <button class="btn primary" id="snap-take">Save</button>
     </div>
     <div class="drawer-help">Compare any two snapshots. Restore in one click. 30 keep-last.</div>
     <div class="drawer-body" id="snap-body"></div>
   </aside>
 
-  <aside class="drawer" id="drawer-changes" aria-hidden="true">
+  <aside class="drawer" id="drawer-changes" inert>
     <div class="drawer-head">
       <div><svg class="ic"><use href="#i-rename"/></svg> Track Changes</div>
       <button class="iconbtn" data-drawer-close="drawer-changes"><svg class="ic"><use href="#i-x"/></svg></button>
@@ -263,7 +272,7 @@
     <div class="drawer-body" id="changes-body"></div>
   </aside>
 
-  <aside class="drawer" id="drawer-pdfs" aria-hidden="true">
+  <aside class="drawer" id="drawer-pdfs" inert>
     <div class="drawer-head">
       <div><svg class="ic"><use href="#i-print"/></svg> PDF history</div>
       <button class="iconbtn" data-drawer-close="drawer-pdfs"><svg class="ic"><use href="#i-x"/></svg></button>
@@ -272,7 +281,7 @@
     <div class="drawer-body" id="pdfs-body"></div>
   </aside>
 
-  <aside class="drawer" id="drawer-sound" aria-hidden="true">
+  <aside class="drawer" id="drawer-sound" inert>
     <div class="drawer-head">
       <div><svg class="ic"><use href="#i-sound"/></svg> Ambient sound</div>
       <button class="iconbtn" data-drawer-close="drawer-sound"><svg class="ic"><use href="#i-x"/></svg></button>
@@ -287,13 +296,13 @@
         <button class="amb" data-amb="off"><span class="amb-emoji">∅</span><span>Off</span></button>
       </div>
       <div class="amb-vol">
-        <label>Volume</label>
+        <label for="amb-vol">Volume</label>
         <input type="range" id="amb-vol" min="0" max="0.6" step="0.01" value="0.18" />
       </div>
       <div class="amb-soundtrack">
         <h4>Scene soundtrack</h4>
         <div class="amb-url-row">
-          <input id="amb-st-url" placeholder="https://… .mp3 / .ogg / .wav" />
+          <input id="amb-st-url" placeholder="https://… .mp3 / .ogg / .wav" aria-label="Soundtrack URL" />
           <div class="amb-url-status" id="amb-st-status" aria-live="polite"></div>
         </div>
         <div class="amb-st-actions">
@@ -345,7 +354,7 @@
   <!-- Command palette -->
   <div class="cmdk" id="cmdk" aria-hidden="true">
     <div class="cmdk-box">
-      <input type="text" id="cmdk-input" placeholder="Jump to scene, character, command…" />
+      <input type="text" id="cmdk-input" placeholder="Jump to scene, character, command…" aria-label="Command palette" />
       <div class="cmdk-list" id="cmdk-list"></div>
       <div class="cmdk-foot">
         <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
@@ -364,8 +373,8 @@
 <div class="modal-backdrop" id="modal-newproj">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-newproj-title">
     <h2 id="modal-newproj-title">New screenplay</h2>
-    <div class="form-row"><label>Title</label><input type="text" id="np-name" placeholder="The Last Train" /></div>
-    <div class="form-row"><label>Type</label>
+    <div class="form-row"><label for="np-name">Title</label><input type="text" id="np-name" placeholder="The Last Train" /></div>
+    <div class="form-row"><label for="np-type">Type</label>
       <select id="np-type">
         <option value="feature">Feature film</option>
         <option value="tv-hour">1-hour TV (drama)</option>
@@ -375,19 +384,19 @@
         <option value="comic">Comic / graphic novel</option>
       </select>
     </div>
-    <div class="form-row"><label>Logline</label><input type="text" id="np-logline" placeholder="A one-sentence pitch" /></div>
-    <div class="form-row"><label>Template</label><select id="np-template"></select></div>
-    <div class="form-row"><label>Series</label><select id="np-series"></select></div>
+    <div class="form-row"><label for="np-logline">Logline</label><input type="text" id="np-logline" placeholder="A one-sentence pitch" /></div>
+    <div class="form-row"><label for="np-template">Template</label><select id="np-template"></select></div>
+    <div class="form-row"><label for="np-series">Series</label><select id="np-series"></select></div>
     <div class="form-row"><label>Cover</label>
       <div class="np-colors">
-        <span class="np-color selected" data-color="#b3261e" style="background:#b3261e"></span>
-        <span class="np-color" data-color="#dfa116" style="background:#dfa116"></span>
-        <span class="np-color" data-color="#4f8a3a" style="background:#4f8a3a"></span>
-        <span class="np-color" data-color="#3878b8" style="background:#3878b8"></span>
-        <span class="np-color" data-color="#7a55b8" style="background:#7a55b8"></span>
-        <span class="np-color" data-color="#36989d" style="background:#36989d"></span>
-        <span class="np-color" data-color="#c2486d" style="background:#c2486d"></span>
-        <span class="np-color" data-color="#3a3a3a" style="background:#3a3a3a"></span>
+        <span class="np-color selected" data-color="#A1505D" style="background:#A1505D"></span>
+        <span class="np-color" data-color="#B07F2E" style="background:#B07F2E"></span>
+        <span class="np-color" data-color="#5E8C63" style="background:#5E8C63"></span>
+        <span class="np-color" data-color="#5E7A9A" style="background:#5E7A9A"></span>
+        <span class="np-color" data-color="#7A6394" style="background:#7A6394"></span>
+        <span class="np-color" data-color="#5C8A8A" style="background:#5C8A8A"></span>
+        <span class="np-color" data-color="#A65371" style="background:#A65371"></span>
+        <span class="np-color" data-color="#5A554D" style="background:#5A554D"></span>
       </div>
     </div>
     <p class="help">Pick a template to seed your beat board with structural targets (Save the Cat, Hero's Journey, etc.). The Stats view will track how well your real script hits those targets.</p>
@@ -401,9 +410,9 @@
 <!-- New series -->
 <div class="modal-backdrop" id="modal-newseries">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-newseries-title">
-    <h2>New series</h2>
-    <div class="form-row"><label>Name</label><input type="text" id="ns-name" placeholder="Stranger Hour" /></div>
-    <div class="form-row"><label>Type</label>
+    <h2 id="modal-newseries-title">New series</h2>
+    <div class="form-row"><label for="ns-name">Name</label><input type="text" id="ns-name" placeholder="Stranger Hour" /></div>
+    <div class="form-row"><label for="ns-type">Type</label>
       <select id="ns-type">
         <option value="tv-hour">1-hour drama</option>
         <option value="tv-half">Half-hour comedy</option>
@@ -420,17 +429,17 @@
 <!-- Settings -->
 <div class="modal-backdrop" id="modal-settings">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-settings-title">
-    <h2>Settings</h2>
-    <div class="form-row"><label>Your name</label><input type="text" id="st-author" placeholder="Will be used on title pages" /></div>
+    <h2 id="modal-settings-title">Settings</h2>
+    <div class="form-row"><label for="st-author">Your name</label><input type="text" id="st-author" placeholder="Will be used on title pages" /></div>
     <h3 style="margin-top:18px;margin-bottom:8px">AI assistant (bring your own key)</h3>
-    <div class="form-row"><label>Provider</label>
+    <div class="form-row"><label for="st-ai-provider">Provider</label>
       <select id="st-ai-provider">
         <option value="anthropic">Anthropic (Claude)</option>
         <option value="openai">OpenAI</option>
       </select>
     </div>
-    <div class="form-row"><label>Model</label><input type="text" id="st-ai-model" placeholder="claude-sonnet-4-6 or gpt-4o-mini" /></div>
-    <div class="form-row"><label>API key</label><input type="password" id="st-ai-key" placeholder="sk-…" /></div>
+    <div class="form-row"><label for="st-ai-model">Model</label><input type="text" id="st-ai-model" placeholder="claude-sonnet-4-6 or gpt-4o-mini" /></div>
+    <div class="form-row"><label for="st-ai-key">API key</label><input type="password" id="st-ai-key" placeholder="sk-…" /></div>
     <p class="help">Your key stays in this browser. Requests go directly from this browser to the provider. Leave blank to disable AI assist.</p>
     <p class="help" style="color:var(--accent);font-size:11px">⚠ Your key is stored unencrypted in this browser's local storage. Always set a spend cap on your API key. Never enter a key on a shared computer.</p>
     <div class="actions">
@@ -443,17 +452,17 @@
 <!-- Title page -->
 <div class="modal-backdrop" id="modal-titlepage">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titlepage-title">
-    <h2>Title page</h2>
-    <div class="form-row"><label>Title</label><input type="text" id="tp-title" /></div>
-    <div class="form-row"><label>Credit</label><input type="text" id="tp-credit" placeholder="Written by" /></div>
-    <div class="form-row"><label>Author</label><input type="text" id="tp-author" /></div>
-    <div class="form-row"><label>Source</label><input type="text" id="tp-source" placeholder="Based on…" /></div>
-    <div class="form-row"><label>Draft date</label><input type="text" id="tp-date" /></div>
-    <div class="form-row"><label>Contact</label><input type="text" id="tp-contact" /></div>
-    <div class="form-row"><label>Episode</label><input type="text" id="tp-episode" /></div>
-    <div class="form-row"><label>Logline</label><input type="text" id="tp-logline" /></div>
-    <div class="form-row"><label>Theme</label><input type="text" id="tp-theme" /></div>
-    <div class="form-row"><label>Premise</label><input type="text" id="tp-premise" /></div>
+    <h2 id="modal-titlepage-title">Title page</h2>
+    <div class="form-row"><label for="tp-title">Title</label><input type="text" id="tp-title" /></div>
+    <div class="form-row"><label for="tp-credit">Credit</label><input type="text" id="tp-credit" placeholder="Written by" /></div>
+    <div class="form-row"><label for="tp-author">Author</label><input type="text" id="tp-author" /></div>
+    <div class="form-row"><label for="tp-source">Source</label><input type="text" id="tp-source" placeholder="Based on…" /></div>
+    <div class="form-row"><label for="tp-date">Draft date</label><input type="text" id="tp-date" /></div>
+    <div class="form-row"><label for="tp-contact">Contact</label><input type="text" id="tp-contact" /></div>
+    <div class="form-row"><label for="tp-episode">Episode</label><input type="text" id="tp-episode" /></div>
+    <div class="form-row"><label for="tp-logline">Logline</label><input type="text" id="tp-logline" /></div>
+    <div class="form-row"><label for="tp-theme">Theme</label><input type="text" id="tp-theme" /></div>
+    <div class="form-row"><label for="tp-premise">Premise</label><input type="text" id="tp-premise" /></div>
     <div class="actions">
       <button class="btn" id="tp-cancel">Cancel</button>
       <button class="btn primary" id="tp-save">Save</button>
@@ -464,9 +473,9 @@
 <!-- Sprint setup -->
 <div class="modal-backdrop" id="modal-sprint">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-sprint-title">
-    <h2>Sprint setup</h2>
-    <div class="form-row"><label>Word goal</label><input type="number" id="sprint-goal" value="500" /></div>
-    <div class="form-row"><label>Duration (min)</label><input type="number" id="sprint-min" value="15" /></div>
+    <h2 id="modal-sprint-title">Sprint setup</h2>
+    <div class="form-row"><label for="sprint-goal">Word goal</label><input type="number" id="sprint-goal" value="500" /></div>
+    <div class="form-row"><label for="sprint-min">Duration (min)</label><input type="number" id="sprint-min" value="15" /></div>
     <p class="help">In sprint mode the UI hides and you write into a clean canvas. When you finish, your sprint text appends to your screenplay.</p>
     <div class="actions">
       <button class="btn" id="sprint-cancel">Cancel</button>
@@ -478,9 +487,9 @@
 <!-- Diff -->
 <div class="modal-backdrop" id="modal-diff">
   <div class="modal big" role="dialog" aria-modal="true" aria-labelledby="modal-diff-title">
-    <h2>Compare snapshot <span id="diff-name" class="muted"></span></h2>
+    <h2 id="modal-diff-title">Compare snapshot <span id="diff-name" class="muted"></span></h2>
     <div class="form-row" style="margin-bottom:10px">
-      <label>vs</label>
+      <label for="diff-pick">vs</label>
       <select id="diff-pick">
         <option value="current">Current document</option>
       </select>
@@ -499,9 +508,9 @@
 <!-- Logline workshop -->
 <div class="modal-backdrop" id="modal-logline">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-logline-title">
-    <h2>Logline workshop</h2>
+    <h2 id="modal-logline-title">Logline workshop</h2>
     <p class="help">A good logline is one sentence with: <b>WHO</b> (protagonist + something memorable about them), <b>WHEN/WHERE</b> (setting + inciting incident), <b>MUST</b> (the goal), <b>OR ELSE</b> (the stakes).</p>
-    <div class="form-row"><label>Logline</label><span class="lab-row" style="flex:1"><input type="text" id="ll-input" /><button class="btn small" id="ll-ai" title="AI: generate a logline candidate from the full script">✨ AI</button></span></div>
+    <div class="form-row"><label for="ll-input">Logline</label><span class="lab-row" style="flex:1"><input type="text" id="ll-input" /><button class="btn small" id="ll-ai" title="AI: generate a logline candidate from the full script">✨ AI</button></span></div>
     <div id="ll-score" class="ll-score"></div>
     <div class="actions">
       <button class="btn" id="ll-cancel">Close</button>
@@ -513,16 +522,16 @@
 <!-- Share -->
 <div class="modal-backdrop" id="modal-share">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-share-title">
-    <h2>Share</h2>
+    <h2 id="modal-share-title">Share</h2>
     <p class="help">Generates a self-contained, read-only HTML file you can email or upload anywhere. No account needed for the reader. Annotation mode lets them leave inline comments that they can email back.</p>
-    <div class="form-row"><label>Mode</label>
+    <div class="form-row"><label for="share-mode">Mode</label>
       <select id="share-mode">
         <option value="read">Read-only</option>
         <option value="annotate">Read &amp; annotate</option>
       </select>
     </div>
-    <div class="form-row"><label>Reader name</label><input type="text" id="share-name" placeholder="Optional — for watermark" /></div>
-    <div class="form-row"><label>Watermark</label><input type="text" id="share-watermark" value="CONFIDENTIAL DRAFT" /></div>
+    <div class="form-row"><label for="share-name">Reader name</label><input type="text" id="share-name" placeholder="Optional — for watermark" /></div>
+    <div class="form-row"><label for="share-watermark">Watermark</label><input type="text" id="share-watermark" value="CONFIDENTIAL DRAFT" /></div>
     <div class="actions">
       <button class="btn" id="share-cancel">Cancel</button>
       <button class="btn primary" id="share-go">Generate file</button>
@@ -533,7 +542,7 @@
 <!-- Coverage -->
 <div class="modal-backdrop" id="modal-coverage">
   <div class="modal big" role="dialog" aria-modal="true" aria-labelledby="modal-coverage-title">
-    <h2>Coverage</h2>
+    <h2 id="modal-coverage-title">Coverage</h2>
     <div id="coverage-body"></div>
     <div class="actions">
       <button class="btn" id="cov-copy">Copy</button>
@@ -546,7 +555,7 @@
 <!-- Beat-template fidelity -->
 <div class="modal-backdrop" id="modal-fidelity">
   <div class="modal big" role="dialog" aria-modal="true" aria-labelledby="modal-fidelity-title">
-    <h2>Template fidelity</h2>
+    <h2 id="modal-fidelity-title">Template fidelity</h2>
     <p class="help">Each row is a beat your template expects. Mark scenes with a beat tag in the Inspector. Green = on target; red = far off; gray = not yet marked.</p>
     <div id="fidelity-body"></div>
     <div class="actions"><button class="btn" id="fid-close">Close</button></div>
@@ -556,10 +565,10 @@
 <!-- Sides export -->
 <div class="modal-backdrop" id="modal-sides">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-sides-title">
-    <h2>Sides export</h2>
+    <h2 id="modal-sides-title">Sides export</h2>
     <p class="help">Pick the scenes a performer needs. Bestscreen will export just those, with character names and lines isolated.</p>
     <div id="sides-list" class="sides-list"></div>
-    <div class="form-row"><label>For</label><input type="text" id="sides-actor" placeholder="Actor name (optional)" /></div>
+    <div class="form-row"><label for="sides-actor">For</label><input type="text" id="sides-actor" placeholder="Actor name (optional)" /></div>
     <label class="sides-anon-row"><input type="checkbox" id="sides-anon" /> <span>Anonymize other characters' lines <span class="muted">(replace dialogue with <code>…</code>)</span></span></label>
     <div class="actions">
       <button class="btn" id="sides-cancel">Cancel</button>
@@ -571,7 +580,7 @@
 <!-- Continuity -->
 <div class="modal-backdrop" id="modal-continuity">
   <div class="modal big" role="dialog" aria-modal="true" aria-labelledby="modal-continuity-title">
-    <h2>Continuity warnings</h2>
+    <h2 id="modal-continuity-title">Continuity warnings</h2>
     <div id="continuity-body"></div>
     <div class="actions"><button class="btn" id="cont-close">Close</button></div>
   </div>
@@ -580,7 +589,7 @@
 <!-- Help -->
 <div class="modal-backdrop" id="modal-help">
   <div class="modal big" role="dialog" aria-modal="true" aria-labelledby="modal-help-title">
-    <h2>Keyboard reference</h2>
+    <h2 id="modal-help-title">Keyboard reference</h2>
     <div class="kb-cols">
       <div>
         <h3>Writing</h3>
@@ -633,9 +642,9 @@
 <!-- Rename modal — used by character rename -->
 <div class="modal-backdrop" id="modal-rename">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-rename-title">
-    <h2>Rename character</h2>
-    <div class="form-row"><label>From</label><input type="text" id="rename-from" placeholder="JOHN" /></div>
-    <div class="form-row"><label>To</label><input type="text" id="rename-to" placeholder="JONATHAN" /></div>
+    <h2 id="modal-rename-title">Rename character</h2>
+    <div class="form-row"><label for="rename-from">From</label><input type="text" id="rename-from" placeholder="JOHN" /></div>
+    <div class="form-row"><label for="rename-to">To</label><input type="text" id="rename-to" placeholder="JONATHAN" /></div>
     <p class="help">Renames every cue, parenthetical reference, and mention in dialogue/action. Preserves the original case style.</p>
     <div class="actions">
       <button class="btn" id="rename-cancel">Cancel</button>

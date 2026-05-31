@@ -119,7 +119,7 @@ function renameCharacter(from, to) {
 /* =====================================================================
  * Snapshots / Bin / Sprint / Read-aloud
  * =================================================================== */
-function openBin() { const d = $("#drawer-bin"); d.classList.add("open"); d.setAttribute("aria-hidden","false"); renderBin(); }
+function openBin() { const d = $("#drawer-bin"); d.classList.add("open"); d.removeAttribute("inert"); renderBin(); }
 function renderBin() {
   const b = Storage.getBin(appState.projectId); const body = $("#bin-body");
   if (b.length === 0) { body.innerHTML = `<div class="side-empty" style="padding:30px 16px">Empty.<br><br>Drag selected text onto the bin button.</div>`; return; }
@@ -167,7 +167,7 @@ function saveBinBadge() {
   if (el) { el.textContent = n; el.classList.toggle("show", n > 0); }
 }
 
-function openSnap() { const d = $("#drawer-snap"); d.classList.add("open"); d.setAttribute("aria-hidden","false"); renderSnaps(); }
+function openSnap() { const d = $("#drawer-snap"); d.classList.add("open"); d.removeAttribute("inert"); renderSnaps(); }
 function renderSnaps() {
   const snaps = Storage.getSnaps(appState.projectId); const body = $("#snap-body");
   if (snaps.length === 0) { body.innerHTML = `<div class="side-empty" style="padding:30px 16px">No snapshots yet.</div>`; return; }
@@ -251,7 +251,7 @@ function startSprint() {
   appState.sprint = { goal, mins, startTs: Date.now() };
   $("#sprint-target").textContent = goal + " w";
   $("#sprint-overlay").classList.add("open");
-  $("#sprint-overlay").setAttribute("aria-hidden","false");
+  $("#sprint-overlay").removeAttribute("inert");
   $("#sprint-editor").innerHTML = "<div data-type='action'><br></div>";
   $("#sprint-editor").focus();
   $("#modal-sprint").classList.remove("open");
@@ -280,7 +280,7 @@ function endSprint(auto=false) {
   }
   appState.sprint = null;
   if ($("#sprint-overlay").contains(document.activeElement)) document.activeElement.blur();
-  $("#sprint-overlay").classList.remove("open"); $("#sprint-overlay").setAttribute("aria-hidden","true");
+  $("#sprint-overlay").classList.remove("open"); $("#sprint-overlay").setAttribute("inert","");
   reclassifyAll(); setDirty();
   toast(auto ? "Time's up — added to script" : "Sprint added to script");
 }
@@ -289,7 +289,7 @@ function endSprint(auto=false) {
 let aloudSeq = []; let aloudIdx = 0; let aloudVoiceMap = new Map(); let aloudPlaying = false;
 function openAloud() {
   if (!window.speechSynthesis) return toast("Speech synthesis not supported");
-  $("#aloud-overlay").classList.add("open"); $("#aloud-overlay").setAttribute("aria-hidden","false");
+  $("#aloud-overlay").classList.add("open"); $("#aloud-overlay").removeAttribute("inert");
   aloudSeq = compileAloud(); aloudIdx = 0; assignVoices(); renderAloudCurrent();
 }
 function compileAloud() {
@@ -346,17 +346,17 @@ function speakNext() {
 function closeAloud() {
   window.speechSynthesis.cancel(); aloudPlaying = false;
   Audio.stopSoundtrack();
-  $("#aloud-overlay").classList.remove("open"); $("#aloud-overlay").setAttribute("aria-hidden","true");
+  $("#aloud-overlay").classList.remove("open"); $("#aloud-overlay").setAttribute("inert","");
 }
 
 /* =====================================================================
  * Command palette
  * =================================================================== */
 function openCmdk() {
-  $("#cmdk").classList.add("open"); $("#cmdk").setAttribute("aria-hidden","false");
+  $("#cmdk").classList.add("open"); $("#cmdk").removeAttribute("inert");
   $("#cmdk-input").value = ""; $("#cmdk-input").focus(); renderCmdk("");
 }
-function closeCmdk() { if ($("#cmdk-input") === document.activeElement) document.activeElement.blur(); $("#cmdk").classList.remove("open"); $("#cmdk").setAttribute("aria-hidden","true"); }
+function closeCmdk() { if ($("#cmdk-input") === document.activeElement) document.activeElement.blur(); $("#cmdk").classList.remove("open"); $("#cmdk").setAttribute("inert",""); }
 const COMMANDS = [
   { kind: "view",   text: "Script view",      sub: "Switch to script",     run: () => setView("script") },
   { kind: "view",   text: "Beat board",       sub: "Switch to beats",      run: () => setView("beats") },

@@ -302,7 +302,7 @@ const Dashboard = (() => {
     const tmpl = document.getElementById("np-template").value;
     const log  = document.getElementById("np-logline").value.trim();
     const sid  = document.getElementById("np-series").value || null;
-    const color = document.querySelector(".np-color.selected")?.dataset.color || "#b3261e";
+    const color = document.querySelector(".np-color.selected")?.dataset.color || "#A1505D";
     let episode = null;
     if (sid) {
       const eps = Storage.listProjects().filter(p => p.seriesId === sid);
@@ -459,7 +459,7 @@ const Dashboard = (() => {
   }
   function stripExtension(name) { return name.replace(/\.[^.]+$/, ""); }
   function pickCoverColor() {
-    const colors = ["#b3261e","#dfa116","#4f8a3a","#3878b8","#7a55b8","#36989d","#c2486d","#3a3a3a"];
+    const colors = ["#A1505D","#B07F2E","#5E8C63","#5E7A9A","#7A6394","#5C8A8A","#A65371","#5A554D"];
     return colors[Math.floor(Math.random() * colors.length)];
   }
 
